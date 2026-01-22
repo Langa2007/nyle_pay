@@ -14,13 +14,14 @@ public class User {
 
     private String fullName;
     private String email;
+    private String password;
 
     // Financial Rails
-    private String mpesaNumber;      // For Kenya transactions
+    private String mpesaNumber; // For Kenya transactions
     private String bankAccountNumber; // For Global Bank transactions
-    private String cryptoAddress;     // The 0x... address we generated earlier
+    private String cryptoAddress; // The 0x... address we generated earlier
 
     // Balances
-    private BigDecimal fiatBalance;   // Standard currency (KSH/USD)
+    private BigDecimal fiatBalance; // Standard currency (KSH/USD)
     private BigDecimal cryptoBalance; // Crypto amount
 }
