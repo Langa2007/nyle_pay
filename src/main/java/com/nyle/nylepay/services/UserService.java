@@ -60,11 +60,7 @@ public class UserService {
         user.setFullName(fullName);
         user.setEmail(email);
         user.setMpesaNumber(mpesaNumber);
-        user.setFiatBalance(BigDecimal.ZERO);
-        user.setCryptoBalance(BigDecimal.ZERO);
-
-        // Hash password before saving (if you add password field to User entity)
-        // user.setPassword(passwordEncoder.encode(password));
+        user.setPassword(passwordEncoder.encode(password));
 
         userRepository.save(user);
 

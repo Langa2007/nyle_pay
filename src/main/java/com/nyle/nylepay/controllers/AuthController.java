@@ -15,9 +15,18 @@ import java.util.Map;
 public class AuthController {
     
     private final UserService userService;
+    private final org.springframework.security.authentication.AuthenticationManager authenticationManager;
+    private final com.nyle.nylepay.services.JwtService jwtService;
+    private final org.springframework.security.core.userdetails.UserDetailsService userDetailsService;
     
-    public AuthController(UserService userService) {
+    public AuthController(UserService userService, 
+                          org.springframework.security.authentication.AuthenticationManager authenticationManager,
+                          com.nyle.nylepay.services.JwtService jwtService,
+                          org.springframework.security.core.userdetails.UserDetailsService userDetailsService) {
         this.userService = userService;
+        this.authenticationManager = authenticationManager;
+        this.jwtService = jwtService;
+        this.userDetailsService = userDetailsService;
     }
     
     @PostMapping("/register")
@@ -49,24 +58,31 @@ public class AuthController {
             @Valid @RequestBody LoginRequest request) {
         
         try {
-            // TODO: Implement JWT authentication
-            // For now, just check if user exists
-            var user = userService.getUserByEmail(request.getEmail());
+            authenticationManager.authenticate(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                    request.getEmail(),
+                    request.getPassword()
+                )
+            );
             
-            if (user.isEmpty()) {
-                return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("Invalid credentials"));
-            }
+            var user = userService.getUserByEmail(request.getEmail())
+                .orElseThrow(() -> new RuntimeException("User not found after authentication"));
+                
+            var userDetails = userDetailsService.loadUserByUsername(request.getEmail());
+            var jwtToken = jwtService.generateToken(userDetails);
             
             Map<String, Object> response = Map.of(
-                "userId", user.get().getId(),
-                "email", user.get().getEmail(),
-                "fullName", user.get().getFullName(),
-                "token", "jwt-token-placeholder" // TODO: Generate JWT
+                "userId", user.getId(),
+                "email", user.getEmail(),
+                "fullName", user.getFullName(),
+                "token", jwtToken
             );
             
             return ResponseEntity.ok(ApiResponse.success("Login successful", response));
             
+        } catch (org.springframework.security.core.AuthenticationException e) {
+            return ResponseEntity.status(401)
+                .body(ApiResponse.error("Invalid credentials"));
         } catch (Exception e) {
             return ResponseEntity.badRequest()
                 .body(ApiResponse.error(e.getMessage()));

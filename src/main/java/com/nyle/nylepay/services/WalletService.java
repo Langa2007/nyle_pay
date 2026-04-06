@@ -2,6 +2,8 @@ package com.nyle.nylepay.services;
 
 import com.nyle.nylepay.models.User;
 import com.nyle.nylepay.models.Wallet;
+import com.nyle.nylepay.exceptions.InsufficientBalanceException;
+import com.nyle.nylepay.exceptions.ResourceNotFoundException;
 import com.nyle.nylepay.repositories.UserRepository;
 import com.nyle.nylepay.repositories.WalletRepository;
 
@@ -38,7 +40,7 @@ public class WalletService {
     public Map<String, Object> createCryptoWallet(Long userId) throws Exception {
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         SecureRandom random = new SecureRandom();
         ECKeyPair keyPair = Keys.createEcKeyPair(random);
@@ -78,7 +80,7 @@ public class WalletService {
     public void addBalance(Long userId, String currency, BigDecimal amount) {
 
         Wallet wallet = walletRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("Wallet not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Wallet not found"));
 
         wallet.getBalances().merge(
                 currency,
@@ -98,12 +100,12 @@ public class WalletService {
     public void subtractBalance(Long userId, String currency, BigDecimal amount) {
 
         Wallet wallet = walletRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("Wallet not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Wallet not found"));
 
         Wallet.Balance balance = wallet.getBalances().get(currency);
 
         if (balance == null || balance.getAmount().compareTo(amount) < 0) {
-            throw new RuntimeException("Insufficient balance");
+            throw new InsufficientBalanceException(currency, amount.doubleValue(), balance == null ? 0.0 : balance.getAmount().doubleValue());
         }
 
         balance.setAmount(balance.getAmount().subtract(amount));
@@ -116,7 +118,7 @@ public class WalletService {
     public Map<String, BigDecimal> getBalances(Long userId) {
 
         Wallet wallet = walletRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("Wallet not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Wallet not found"));
 
         Map<String, BigDecimal> result = new HashMap<>();
         wallet.getBalances().forEach(
@@ -131,7 +133,7 @@ public class WalletService {
     public BigDecimal getBalance(Long userId, String currency) {
 
         Wallet wallet = walletRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("Wallet not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Wallet not found"));
 
         Wallet.Balance balance = wallet.getBalances().get(currency);
         return balance == null ? BigDecimal.ZERO : balance.getAmount();
@@ -148,9 +150,9 @@ public class WalletService {
             BigDecimal amount) {
 
         userRepository.findById(fromUserId)
-                .orElseThrow(() -> new RuntimeException("Sender not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Sender not found"));
         userRepository.findById(toUserId)
-                .orElseThrow(() -> new RuntimeException("Receiver not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Receiver not found"));
 
         subtractBalance(fromUserId, currency, amount);
         addBalance(toUserId, currency, amount);
