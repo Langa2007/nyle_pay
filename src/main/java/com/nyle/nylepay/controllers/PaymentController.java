@@ -6,7 +6,9 @@ import com.nyle.nylepay.services.TransactionService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.nyle.nylepay.services.cex.CexRoutingService;
 
+import java.math.BigDecimal;
 import java.util.Map;
 
 @RestController
@@ -15,11 +17,14 @@ public class PaymentController {
     
     private final MpesaService mpesaService;
     private final TransactionService transactionService;
+    private final CexRoutingService cexRoutingService;
     
     public PaymentController(MpesaService mpesaService, 
-                           TransactionService transactionService) {
+                           TransactionService transactionService,
+                           CexRoutingService cexRoutingService) {
         this.mpesaService = mpesaService;
         this.transactionService = transactionService;
+        this.cexRoutingService = cexRoutingService;
     }
     
     @PostMapping("/deposit/mpesa")
@@ -276,6 +281,51 @@ public class PaymentController {
             return ResponseEntity.ok("Callback processed successfully");
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Error processing callback");
+        }
+    }
+    
+    @PostMapping("/cex/connect")
+    public ResponseEntity<ApiResponse<String>> connectCex(
+            @RequestBody Map<String, Object> request) {
+        try {
+            Long userId = Long.valueOf(request.get("userId").toString());
+            String exchange = request.get("exchange").toString();
+            String apiKey = request.get("apiKey").toString();
+            String apiSecret = request.get("apiSecret").toString();
+
+            cexRoutingService.linkAccount(userId, exchange, apiKey, apiSecret);
+            
+            return ResponseEntity.ok(ApiResponse.success("Successfully linked " + exchange + " account", null));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @GetMapping("/cex/{userId}/balances")
+    public ResponseEntity<ApiResponse<Map<String, BigDecimal>>> getCexBalances(
+            @PathVariable Long userId) {
+        try {
+            Map<String, BigDecimal> balances = cexRoutingService.getAggregatedBalances(userId);
+            return ResponseEntity.ok(ApiResponse.success("Balances fetched successfully", balances));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/cex/withdraw")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> cexWithdrawToMpesa(
+            @RequestBody Map<String, Object> request) {
+        try {
+            Long userId = Long.valueOf(request.get("userId").toString());
+            String asset = request.get("asset").toString();
+            BigDecimal amount = new BigDecimal(request.get("amount").toString());
+            String mpesaNumber = request.get("mpesaNumber").toString();
+
+            Map<String, Object> result = cexRoutingService.autoRouteToMpesa(userId, asset, amount, mpesaNumber);
+            
+            return ResponseEntity.ok(ApiResponse.success("CEX Withdrawal to M-Pesa initiated", result));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
     }
     
