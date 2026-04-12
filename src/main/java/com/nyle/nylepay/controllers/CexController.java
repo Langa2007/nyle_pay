@@ -1,5 +1,6 @@
 package com.nyle.nylepay.controllers;
 
+import com.nyle.nylepay.dto.CexLinkRequest;
 import com.nyle.nylepay.services.cex.CexRoutingService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,14 +19,15 @@ public class CexController {
     }
 
     @PostMapping("/link")
-    public ResponseEntity<Map<String, String>> linkExchange(
-            @RequestParam Long userId,
-            @RequestParam String exchangeName,
-            @RequestParam String apiKey,
-            @RequestParam String apiSecret) {
+    public ResponseEntity<Map<String, String>> linkExchange(@RequestBody CexLinkRequest request) {
         try {
-            cexRoutingService.linkAccount(userId, exchangeName, apiKey, apiSecret);
-            return ResponseEntity.ok(Map.of("message", exchangeName + " linked successfully"));
+            cexRoutingService.linkAccount(
+                    request.getUserId(), 
+                    request.getExchangeName(), 
+                    request.getApiKey(), 
+                    request.getApiSecret()
+            );
+            return ResponseEntity.ok(Map.of("message", request.getExchangeName() + " linked successfully"));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
