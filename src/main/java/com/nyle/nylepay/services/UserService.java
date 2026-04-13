@@ -253,6 +253,16 @@ public class UserService {
         return stats;
     }
 
+    public java.util.List<User> searchUsers(String email, String phone) {
+        if (email != null && !email.isEmpty()) {
+            return userRepository.findByEmail(email).map(java.util.List::of).orElse(java.util.List.of());
+        }
+        if (phone != null && !phone.isEmpty()) {
+            return userRepository.findByMpesaNumber(phone).map(java.util.List::of).orElse(java.util.List.of());
+        }
+        return java.util.List.of();
+    }
+
     // Helper methods
     private boolean isEuropeanCountry(String countryCode) {
         String[] euCountries = { "AT", "BE", "BG", "CY", "CZ", "DE", "DK", "EE", "ES",

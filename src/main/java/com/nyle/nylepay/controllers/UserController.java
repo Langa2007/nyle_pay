@@ -196,9 +196,10 @@ public class UserController {
             @RequestParam(required = false) String phone) {
         
         try {
-            // TODO: Implement user search logic
+            var users = userService.searchUsers(email, phone);
             return ResponseEntity.ok(ApiResponse.success(
-                "Search functionality coming soon"
+                users.isEmpty() ? "No users found" : "Users found",
+                Map.of("users", users)
             ));
             
         } catch (Exception e) {
@@ -213,10 +214,10 @@ public class UserController {
             @RequestBody Map<String, Object> updates) {
         
         try {
-            // TODO: Implement profile update logic
+            var updatedUser = userService.updateUserProfile(userId, updates);
             return ResponseEntity.ok(ApiResponse.success(
                 "Profile updated successfully",
-                Map.of("updates", updates)
+                Map.of("user", updatedUser)
             ));
             
         } catch (Exception e) {

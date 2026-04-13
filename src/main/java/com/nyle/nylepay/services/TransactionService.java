@@ -5,6 +5,7 @@ import com.nyle.nylepay.models.Transaction;
 import com.nyle.nylepay.repositories.TransactionRepository;
 import com.nyle.nylepay.models.User;
 import com.nyle.nylepay.repositories.UserRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -17,10 +18,13 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class TransactionService {
 
+    private static final Logger logger = LoggerFactory.getLogger(TransactionService.class);
     private final TransactionRepository transactionRepository;
     private final UserRepository userRepository;
     private final WalletService walletService;
@@ -38,18 +42,17 @@ public class TransactionService {
 
     @Transactional
     public Transaction createDeposit(Long userId, String provider, BigDecimal amount,
-            String currency, String externalId) {
+            String currency, String externalId, String metadata) {
 
         // Validate user exists
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        if (!userRepository.existsById(userId)) {
+            throw new RuntimeException("User not found");
+        }
 
-        // Validate amount
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new RuntimeException("Amount must be greater than zero");
         }
 
-        // Create transaction record
         Transaction transaction = new Transaction();
         transaction.setUserId(userId);
         transaction.setType("DEPOSIT");
@@ -59,8 +62,8 @@ public class TransactionService {
         transaction.setStatus("PENDING");
         transaction.setTimestamp(LocalDateTime.now());
         transaction.setExternalId(externalId);
+        transaction.setMetadata(metadata);
 
-        // Save transaction
         return transactionRepository.save(transaction);
     }
 
@@ -69,8 +72,9 @@ public class TransactionService {
             String currency, String destination) {
 
         // Validate user exists
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        if (!userRepository.existsById(userId)) {
+            throw new RuntimeException("User not found");
+        }
 
         // Check if user has sufficient balance
         BigDecimal currentBalance = walletService.getBalance(userId, currency);
@@ -314,23 +318,41 @@ public class TransactionService {
     public void processBankCallback(Map<String, Object> callbackData) {
         try {
             String reference = (String) callbackData.get("reference");
+            if (reference == null && callbackData.containsKey("data") && callbackData.get("data") instanceof Map) {
+                // Flutterwave style
+                Map<?, ?> dataObj = (Map<?, ?>) callbackData.get("data");
+                Map<String, Object> data = new java.util.HashMap<>();
+                dataObj.forEach((k, v) -> data.put(String.valueOf(k), v));
+                reference = (String) data.get("tx_ref");
+                if (reference == null) reference = (String) data.get("reference");
+            }
+            
             String status = (String) callbackData.get("status");
-            BigDecimal amount = new BigDecimal(callbackData.get("amount").toString());
-            String currency = (String) callbackData.get("currency");
+            if (status == null && callbackData.containsKey("data") && callbackData.get("data") instanceof Map) {
+                status = (String) ((Map<?, ?>) callbackData.get("data")).get("status");
+            }
 
             // Find transaction by reference
-            Optional<Transaction> transactionOpt = transactionRepository
-                    .findByExternalId(reference);
+            Optional<Transaction> transactionOpt = transactionRepository.findByExternalId(reference);
 
             if (transactionOpt.isPresent()) {
                 Transaction transaction = transactionOpt.get();
 
-                if ("success".equalsIgnoreCase(status) || "completed".equalsIgnoreCase(status)) {
+                if ("success".equalsIgnoreCase(status) || "successful".equalsIgnoreCase(status) || "completed".equalsIgnoreCase(status)) {
                     transaction.setStatus("COMPLETED");
-                    walletService.addBalance(
-                            transaction.getUserId(),
-                            currency,
-                            amount);
+                    walletService.addBalance(transaction.getUserId(), transaction.getCurrency(), transaction.getAmount());
+                    
+                    // CHECK FOR NEXT LEG IN METADATA
+                    if (transaction.getMetadata() != null) {
+                        Map<?, ?> metaObj = new ObjectMapper().readValue(transaction.getMetadata(), Map.class);
+                        Map<String, Object> meta = new java.util.HashMap<>();
+                        metaObj.forEach((k, v) -> meta.put(String.valueOf(k), v));
+                        
+                        if ("MPESA_PUSH".equals(meta.get("nextLeg"))) {
+                            String mpesaNumber = (String) meta.get("mpesaNumber");
+                            mpesaService.initiateB2C(mpesaNumber, transaction.getAmount(), "NylePay Routing");
+                        }
+                    }
                 } else {
                     transaction.setStatus("FAILED");
                 }
@@ -437,7 +459,9 @@ public class TransactionService {
             transactionRepository.save(transaction);
 
             // TODO: Send notification to user about status change
-            // You would implement this with a notification service
+            System.out.println("NOTIFICATION: User " + transaction.getUserId() + 
+                " - Transaction " + transactionId + " status changed to " + status + 
+                (notes != null ? ": " + notes : ""));
         }
     }
 
@@ -501,7 +525,8 @@ public class TransactionService {
             transactionRepository.save(transaction);
 
             // TODO: Send notification to user about failed transaction
-            // You would implement this with a notification service
+            System.out.println("NOTIFICATION: Transaction " + transaction.getId() + 
+                " timed out and failed for user " + transaction.getUserId());
         }
     }
 

@@ -1,10 +1,12 @@
 package com.nyle.nylepay.services;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -28,11 +30,23 @@ public class CryptoExchangeService {
             String url = String.format("https://api.coingecko.com/api/v3/simple/price?ids=%s&vs_currencies=%s", 
                                       fromCrypto.toLowerCase(), toCurrency.toLowerCase());
             
-            Map<String, Object> response = restTemplate.getForObject(url, Map.class);
+            ResponseEntity<Map<String, Object>> exchangeResponse = restTemplate.exchange(
+                url,
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<Map<String, Object>>() {}
+            );
+            
+            Map<String, Object> response = exchangeResponse.getBody();
             
             if (response != null && response.containsKey(fromCrypto.toLowerCase())) {
-                Map<String, Object> cryptoData = (Map<String, Object>) response.get(fromCrypto.toLowerCase());
-                return BigDecimal.valueOf((Double) cryptoData.get(toCurrency.toLowerCase()));
+                Object cryptoObj = response.get(fromCrypto.toLowerCase());
+                if (cryptoObj instanceof Map<?, ?> cryptoData) {
+                    Object priceObj = cryptoData.get(toCurrency.toLowerCase());
+                    if (priceObj instanceof Number price) {
+                        return BigDecimal.valueOf(price.doubleValue());
+                    }
+                }
             }
             
             // Fallback to Binance
@@ -66,7 +80,14 @@ public class CryptoExchangeService {
             String symbol = fromCrypto.toUpperCase() + toCurrency.toUpperCase();
             String url = String.format("https://api.binance.com/api/v3/ticker/price?symbol=%s", symbol);
             
-            Map<String, Object> response = restTemplate.getForObject(url, Map.class);
+            ResponseEntity<Map<String, Object>> exchangeResponse = restTemplate.exchange(
+                url,
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<Map<String, Object>>() {}
+            );
+            
+            Map<String, Object> response = exchangeResponse.getBody();
             
             if (response != null && response.containsKey("price")) {
                 return new BigDecimal((String) response.get("price"));

@@ -80,28 +80,30 @@ public class CexRoutingService {
         List<UserExchangeKey> userKeys = keyRepository.findByUserId(userId);
         UserExchangeKey selectedKey = null;
         ICexProvider selectedProvider = null;
-        String decKey = null;
-        String decSecret = null;
+        String finalDecKey = null;
+        String finalDecSecret = null;
 
         for (UserExchangeKey key : userKeys) {
-            decKey = encryptionUtils.decrypt(key.getEncryptedApiKey());
-            decSecret = encryptionUtils.decrypt(key.getEncryptedApiSecret());
+            String decKey = encryptionUtils.decrypt(key.getEncryptedApiKey());
+            String decSecret = encryptionUtils.decrypt(key.getEncryptedApiSecret());
             ICexProvider provider = getProvider(key.getExchangeName());
             
             Map<String, BigDecimal> balances = provider.fetchBalances(decKey, decSecret);
             if (balances.containsKey(asset) && balances.get(asset).compareTo(amount) >= 0) {
                 selectedKey = key;
                 selectedProvider = provider;
+                finalDecKey = decKey;
+                finalDecSecret = decSecret;
                 break;
             }
         }
 
-        if (selectedKey == null) {
+        if (selectedKey == null || selectedProvider == null || finalDecKey == null || finalDecSecret == null) {
             throw new RuntimeException("Insufficient balance across all linked Centralized Exchanges to fulfill this withdrawal.");
         }
 
         // Step 2: Swap Crypto to KES inside the chosen Exchange (Mock Binance/ByBit conversion to Fiat)
-        Map<String, Object> swapResult = selectedProvider.sellToFiat(asset, amount, "KES", decKey, decSecret);
+        Map<String, Object> swapResult = selectedProvider.sellToFiat(asset, amount, "KES", finalDecKey, finalDecSecret);
 
         // Step 3: Once fiat arrives in the CEX, we would initiate a withdrawal to NylePay's Paybill, 
         // or directly out to Mpesa depending on the CEX capability.

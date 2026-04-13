@@ -113,19 +113,31 @@ public class AuthController {
     }
     
     @PostMapping("/refresh-token")
-    public ResponseEntity<ApiResponse<String>> refreshToken(
+    public ResponseEntity<ApiResponse<Map<String, String>>> refreshToken(
             @RequestParam String refreshToken) {
         
-        // TODO: Implement token refresh logic
-        return ResponseEntity.ok(ApiResponse.success(
-            "Token refreshed successfully", 
-            "new-jwt-token-placeholder"
-        ));
+        try {
+            String userEmail = jwtService.extractUsername(refreshToken);
+            if (userEmail != null) {
+                var userDetails = userDetailsService.loadUserByUsername(userEmail);
+                if (jwtService.isTokenValid(refreshToken, userDetails)) {
+                    String accessToken = jwtService.generateToken(userDetails);
+                    return ResponseEntity.ok(ApiResponse.success(
+                        "Token refreshed successfully", 
+                        Map.of("accessToken", accessToken)
+                    ));
+                }
+            }
+            return ResponseEntity.status(401).body(ApiResponse.error("Invalid refresh token"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
     }
     
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<String>> logout() {
-        // TODO: Implement logout logic (invalidate token)
+        // For stateless JWT, client-side is responsible for token disposal.
+        // Server-side could implement a token blacklist here if needed.
         return ResponseEntity.ok(ApiResponse.success("Logged out successfully"));
     }
     
@@ -134,18 +146,15 @@ public class AuthController {
             @RequestParam String email) {
         
         try {
-            var user = userService.getUserByEmail(email);
-            
-            if (user.isPresent()) {
-                // TODO: Send password reset email
+            boolean requested = userService.requestPasswordReset(email);
+            if (requested) {
                 return ResponseEntity.ok(ApiResponse.success(
                     "Password reset instructions sent to your email"
                 ));
             } else {
                 return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("User not found"));
+                    .body(ApiResponse.error("User not found or request failed"));
             }
-            
         } catch (Exception e) {
             return ResponseEntity.badRequest()
                 .body(ApiResponse.error(e.getMessage()));
@@ -157,9 +166,19 @@ public class AuthController {
             @RequestParam String token,
             @RequestParam String newPassword) {
         
-        // TODO: Implement password reset logic
-        return ResponseEntity.ok(ApiResponse.success(
-            "Password reset successfully"
-        ));
+        try {
+            boolean reset = userService.resetPassword(token, newPassword);
+            if (reset) {
+                return ResponseEntity.ok(ApiResponse.success(
+                    "Password reset successfully"
+                ));
+            } else {
+                return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Invalid token or token expired"));
+            }
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                .body(ApiResponse.error(e.getMessage()));
+        }
     }
 }

@@ -11,8 +11,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.web3j.crypto.ECKeyPair;
 import org.web3j.crypto.Keys;
-import org.web3j.protocol.Web3j;
-import org.web3j.protocol.http.HttpService;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -25,13 +23,10 @@ public class WalletService {
 
     private final UserRepository userRepository;
     private final WalletRepository walletRepository;
-    private final Web3j web3j;
 
     public WalletService(UserRepository userRepository, WalletRepository walletRepository) {
         this.userRepository = userRepository;
         this.walletRepository = walletRepository;
-        this.web3j = Web3j.build(
-                new HttpService("https://mainnet.infura.io/v3/YOUR_INFURA_KEY"));
     }
 
     // ------------------------------------------------------------------------

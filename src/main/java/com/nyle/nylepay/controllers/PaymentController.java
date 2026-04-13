@@ -1,8 +1,11 @@
 package com.nyle.nylepay.controllers;
 
 import com.nyle.nylepay.dto.*;
+import com.nyle.nylepay.models.UserBankDetail;
+import com.nyle.nylepay.repositories.UserBankDetailRepository;
 import com.nyle.nylepay.services.MpesaService;
 import com.nyle.nylepay.services.TransactionService;
+import com.nyle.nylepay.services.routing.ExchangeRoutingService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,13 +21,19 @@ public class PaymentController {
     private final MpesaService mpesaService;
     private final TransactionService transactionService;
     private final CexRoutingService cexRoutingService;
+    private final UserBankDetailRepository userBankDetailRepository;
+    private final ExchangeRoutingService exchangeRoutingService;
     
     public PaymentController(MpesaService mpesaService, 
                            TransactionService transactionService,
-                           CexRoutingService cexRoutingService) {
+                           CexRoutingService cexRoutingService,
+                           UserBankDetailRepository userBankDetailRepository,
+                           ExchangeRoutingService exchangeRoutingService) {
         this.mpesaService = mpesaService;
         this.transactionService = transactionService;
         this.cexRoutingService = cexRoutingService;
+        this.userBankDetailRepository = userBankDetailRepository;
+        this.exchangeRoutingService = exchangeRoutingService;
     }
     
     @PostMapping("/deposit/mpesa")
@@ -52,7 +61,8 @@ public class PaymentController {
                 "MPESA",
                 request.getAmount(),
                 request.getCurrency(),
-                (String) mpesaResponse.get("CheckoutRequestID")
+                (String) mpesaResponse.get("CheckoutRequestID"),
+                null // No routing metadata
             );
             
             Map<String, Object> response = Map.of(
@@ -95,7 +105,8 @@ public class PaymentController {
                 "BANK",
                 request.getAmount(),
                 request.getCurrency(),
-                (String) bankDetails.get("reference")
+                (String) bankDetails.get("reference"),
+                null // No routing metadata
             );
             
             Map<String, Object> response = Map.of(
@@ -112,6 +123,44 @@ public class PaymentController {
         } catch (Exception e) {
             return ResponseEntity.badRequest()
                 .body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/bank/link")
+    public ResponseEntity<ApiResponse<UserBankDetail>> linkBank(
+            @Valid @RequestBody BankLinkRequest request) {
+        try {
+            UserBankDetail detail = new UserBankDetail();
+            detail.setUserId(request.getUserId());
+            detail.setBankName(request.getBankName());
+            detail.setBankCode(request.getBankCode());
+            detail.setAccountNumber(request.getAccountNumber());
+            detail.setAccountName(request.getAccountName());
+            detail.setCountry("KE");
+
+            UserBankDetail saved = userBankDetailRepository.save(detail);
+            return ResponseEntity.ok(ApiResponse.success("Bank account linked successfully", saved));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/bank/route-to-mpesa")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> routeBankToMpesa(
+            @RequestBody Map<String, Object> request) {
+        try {
+            Long userId = Long.valueOf(request.get("userId").toString());
+            String bankCode = request.get("bankCode").toString();
+            String accountNumber = request.get("accountNumber").toString();
+            BigDecimal amount = new BigDecimal(request.get("amount").toString());
+            String mpesaNumber = request.get("mpesaNumber").toString();
+
+            Map<String, Object> result = exchangeRoutingService.moveBankToMpesa(
+                    userId, bankCode, accountNumber, amount, mpesaNumber);
+
+            return ResponseEntity.ok(ApiResponse.success("Bank to M-Pesa routing initiated", result));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
     }
     

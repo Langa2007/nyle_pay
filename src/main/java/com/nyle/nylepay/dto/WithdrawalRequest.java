@@ -9,7 +9,6 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 
-@Data
 public class WithdrawalRequest {
     
     @NotNull(message = "User ID is required")
@@ -32,4 +31,24 @@ public class WithdrawalRequest {
     private String bankName;
     private String swiftCode;
     private String cryptoAddress;
+
+    // Getters and Setters
+    public Long getUserId() { return userId; }
+    public void setUserId(Long userId) { this.userId = userId; }
+    public BigDecimal getAmount() { return amount; }
+    public void setAmount(BigDecimal amount) { this.amount = amount; }
+    public String getCurrency() { return currency; }
+    public void setCurrency(String currency) { this.currency = currency; }
+    public String getMethod() { return method; }
+    public void setMethod(String method) { this.method = method; }
+    public String getMpesaNumber() { return mpesaNumber; }
+    public void setMpesaNumber(String mpesaNumber) { this.mpesaNumber = mpesaNumber; }
+    public String getBankAccount() { return bankAccount; }
+    public void setBankAccount(String bankAccount) { this.bankAccount = bankAccount; }
+    public String getBankName() { return bankName; }
+    public void setBankName(String bankName) { this.bankName = bankName; }
+    public String getSwiftCode() { return swiftCode; }
+    public void setSwiftCode(String swiftCode) { this.swiftCode = swiftCode; }
+    public String getCryptoAddress() { return cryptoAddress; }
+    public void setCryptoAddress(String cryptoAddress) { this.cryptoAddress = cryptoAddress; }
 }

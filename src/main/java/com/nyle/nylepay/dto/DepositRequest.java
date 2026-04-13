@@ -9,7 +9,6 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 
-@Data
 public class DepositRequest {
     
     @NotNull(message = "User ID is required")
@@ -27,4 +26,18 @@ public class DepositRequest {
     
     private String method; // "MPESA", "BANK"
     private String bankReference; // For bank deposits
+
+    // Getters and Setters
+    public Long getUserId() { return userId; }
+    public void setUserId(Long userId) { this.userId = userId; }
+    public BigDecimal getAmount() { return amount; }
+    public void setAmount(BigDecimal amount) { this.amount = amount; }
+    public String getCurrency() { return currency; }
+    public void setCurrency(String currency) { this.currency = currency; }
+    public String getMpesaNumber() { return mpesaNumber; }
+    public void setMpesaNumber(String mpesaNumber) { this.mpesaNumber = mpesaNumber; }
+    public String getMethod() { return method; }
+    public void setMethod(String method) { this.method = method; }
+    public String getBankReference() { return bankReference; }
+    public void setBankReference(String bankReference) { this.bankReference = bankReference; }
 }

@@ -35,4 +35,18 @@ public class UserExchangeKey {
             linkedAt = LocalDateTime.now();
         }
     }
+
+    // Getters and Setters
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public Long getUserId() { return userId; }
+    public void setUserId(Long userId) { this.userId = userId; }
+    public String getExchangeName() { return exchangeName; }
+    public void setExchangeName(String exchangeName) { this.exchangeName = exchangeName; }
+    public String getEncryptedApiKey() { return encryptedApiKey; }
+    public void setEncryptedApiKey(String encryptedApiKey) { this.encryptedApiKey = encryptedApiKey; }
+    public String getEncryptedApiSecret() { return encryptedApiSecret; }
+    public void setEncryptedApiSecret(String encryptedApiSecret) { this.encryptedApiSecret = encryptedApiSecret; }
+    public LocalDateTime getLinkedAt() { return linkedAt; }
+    public void setLinkedAt(LocalDateTime linkedAt) { this.linkedAt = linkedAt; }
 }

@@ -11,7 +11,6 @@ import java.util.Map;
 
 @Entity
 @Table(name = "wallets")
-@Data
 public class Wallet {
 
     @Id
@@ -28,10 +27,23 @@ public class Wallet {
     private String defaultCurrency = "KSH";
 
     @Embeddable
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class Balance {
         private BigDecimal amount = BigDecimal.ZERO;
+
+        public Balance() {}
+        public Balance(BigDecimal amount) { this.amount = amount; }
+        
+        public BigDecimal getAmount() { return amount; }
+        public void setAmount(BigDecimal amount) { this.amount = amount; }
     }
+
+    // Getters and Setters
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public Long getUserId() { return userId; }
+    public void setUserId(Long userId) { this.userId = userId; }
+    public Map<String, Balance> getBalances() { return balances; }
+    public void setBalances(Map<String, Balance> balances) { this.balances = balances; }
+    public String getDefaultCurrency() { return defaultCurrency; }
+    public void setDefaultCurrency(String defaultCurrency) { this.defaultCurrency = defaultCurrency; }
 }
