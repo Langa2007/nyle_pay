@@ -20,13 +20,16 @@ public class UserService {
     private final WalletRepository walletRepository;
     private final PasswordEncoder passwordEncoder;
     private final WalletService walletService;
+    private final EmailService emailService;
 
     public UserService(UserRepository userRepository, WalletRepository walletRepository,
-            PasswordEncoder passwordEncoder, WalletService walletService) {
+            PasswordEncoder passwordEncoder, WalletService walletService,
+            EmailService emailService) {
         this.userRepository = userRepository;
         this.walletRepository = walletRepository;
         this.passwordEncoder = passwordEncoder;
         this.walletService = walletService;
+        this.emailService = emailService;
     }
 
     @Transactional
@@ -86,8 +89,8 @@ public class UserService {
 
         walletRepository.save(wallet);
 
-        // Send welcome email (simulated)
-        sendWelcomeEmail(email, fullName);
+        // Send welcome email via Resend
+        emailService.sendWelcomeEmail(user);
 
         Map<String, Object> response = new HashMap<>();
         response.put("success", true);
@@ -276,11 +279,7 @@ public class UserService {
         return false;
     }
 
-    private void sendWelcomeEmail(String email, String fullName) {
-        // In production, implement email sending using JavaMailSender or service
-        System.out.println("Sending welcome email to: " + email);
-        System.out.println("Dear " + fullName + ", welcome to NylePay!");
-    }
+    // Welcome email is now sent via EmailService.sendWelcomeEmail()
 
     private void sendMpesaVerificationSMS(String mpesaNumber) {
         // In production, integrate with SMS gateway
@@ -333,8 +332,8 @@ public class UserService {
             // Store token with expiration (you'd need a PasswordResetToken entity)
             // passwordResetTokenRepository.save(new PasswordResetToken(user, resetToken));
 
-            // Send reset email
-            sendPasswordResetEmail(user.getEmail(), resetToken);
+            // Send reset email via Resend
+            emailService.sendPasswordResetEmail(user, resetToken);
 
             return true;
         }
@@ -366,8 +365,5 @@ public class UserService {
         return java.util.UUID.randomUUID().toString();
     }
 
-    private void sendPasswordResetEmail(String email, String token) {
-        // Implement email sending
-        System.out.println("Password reset link for " + email + ": https://nylepay.com/reset-password?token=" + token);
-    }
+    // Password reset email is now sent via EmailService.sendPasswordResetEmail()
 }

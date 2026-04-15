@@ -1,6 +1,11 @@
 package com.nyle.nylepay.controllers;
 
-import com.nyle.nylepay.dto.*;
+import com.nyle.nylepay.dto.ApiResponse;
+import com.nyle.nylepay.dto.BankLinkRequest;
+import com.nyle.nylepay.dto.ConversionRequest;
+import com.nyle.nylepay.dto.DepositRequest;
+import com.nyle.nylepay.dto.TransferRequest;
+import com.nyle.nylepay.dto.WithdrawalRequest;
 import com.nyle.nylepay.models.UserBankDetail;
 import com.nyle.nylepay.repositories.UserBankDetailRepository;
 import com.nyle.nylepay.services.MpesaService;

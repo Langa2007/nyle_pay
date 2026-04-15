@@ -31,6 +31,12 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     // Find transactions by status
     List<Transaction> findByStatus(String status);
 
+    // Find transactions by status with pagination
+    Page<Transaction> findByStatus(String status, Pageable pageable);
+
+    // Find all transactions by user ID (no pagination)
+    List<Transaction> findByUserId(Long userId);
+
     // Find pending transactions before a certain timestamp
     List<Transaction> findByStatusAndTimestampBefore(String status, LocalDateTime timestamp);
 

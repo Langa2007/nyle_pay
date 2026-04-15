@@ -29,15 +29,18 @@ public class TransactionService {
     private final UserRepository userRepository;
     private final WalletService walletService;
     private final MpesaService mpesaService;
+    private final EmailService emailService;
 
     public TransactionService(TransactionRepository transactionRepository,
             UserRepository userRepository,
             WalletService walletService,
-            MpesaService mpesaService) {
+            MpesaService mpesaService,
+            EmailService emailService) {
         this.transactionRepository = transactionRepository;
         this.userRepository = userRepository;
         this.walletService = walletService;
         this.mpesaService = mpesaService;
+        this.emailService = emailService;
     }
 
     @Transactional
@@ -458,10 +461,11 @@ public class TransactionService {
 
             transactionRepository.save(transaction);
 
-            // TODO: Send notification to user about status change
-            System.out.println("NOTIFICATION: User " + transaction.getUserId() + 
-                " - Transaction " + transactionId + " status changed to " + status + 
-                (notes != null ? ": " + notes : ""));
+            // Send notification to user about status change
+            User user = userRepository.findById(transaction.getUserId()).orElse(null);
+            if (user != null) {
+                emailService.sendTransactionNotification(user, transaction);
+            }
         }
     }
 
@@ -524,9 +528,11 @@ public class TransactionService {
             transaction.setStatus("FAILED");
             transactionRepository.save(transaction);
 
-            // TODO: Send notification to user about failed transaction
-            System.out.println("NOTIFICATION: Transaction " + transaction.getId() + 
-                " timed out and failed for user " + transaction.getUserId());
+            // Send notification to user about failed transaction
+            User user = userRepository.findById(transaction.getUserId()).orElse(null);
+            if (user != null) {
+                emailService.sendTransactionNotification(user, transaction);
+            }
         }
     }
 

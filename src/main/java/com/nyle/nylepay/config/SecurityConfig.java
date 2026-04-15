@@ -42,7 +42,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**", "/api/payments/webhook/**",
                                 "/swagger-ui/**", "/api-docs/**",
-                                "/v3/api-docs/**")
+                                "/v3/api-docs/**", "/admin/**", "/css/**", "/js/**", "/*.html", "/images/**")
                         .permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())

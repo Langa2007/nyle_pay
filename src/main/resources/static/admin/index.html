@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NylePay - Admin Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/admin/css/admin.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+    <!-- Auth Modal Overlay -->
+    <div id="auth-modal" class="modal show">
+        <div class="modal-content glass">
+            <h2><i class="fa-solid fa-lock" style="color: #0ea5e9;"></i> Admin Login</h2>
+            <p>Please authenticate to access the dashboard</p>
+            <form id="adminLoginForm">
+                <input type="email" id="adminEmail" placeholder="Admin Email" required>
+                <input type="password" id="adminPassword" placeholder="Password" required>
+                <button type="submit" class="btn primary-btn">Login</button>
+                <div id="authError" class="error-msg"></div>
+            </form>
+        </div>
+    </div>
+
+    <div id="app-container" style="display: none;">
+        <!-- Sidebar -->
+        <aside class="sidebar glass">
+            <div class="logo">
+                <h2><span>Nyle</span>Pay</h2>
+            </div>
+            <nav class="nav-menu">
+                <a href="#overview" class="nav-item active" onclick="switchTab('overview')"><i class="fa-solid fa-chart-pie"></i> Overview</a>
+                <a href="#transactions" class="nav-item" onclick="switchTab('transactions')"><i class="fa-solid fa-arrow-right-arrow-left"></i> Transactions</a>
+                <a href="#users" class="nav-item" onclick="switchTab('users')"><i class="fa-solid fa-users"></i> Users</a>
+            </nav>
+            <div class="sidebar-footer">
+                <button class="btn logout-btn" onclick="logout()"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-nav glass">
+                <div class="search-bar">
+                    <i class="fa-solid fa-search"></i>
+                    <input type="text" placeholder="Search transactions, users...">
+                </div>
+                <div class="user-profile">
+                    <span class="notification-icon"><i class="fa-solid fa-bell"></i></span>
+                    <div class="avatar">Admin</div>
+                </div>
+            </header>
+
+            <div class="dashboard-content">
+                <!-- Overview Tab -->
+                <section id="tab-overview" class="tab-pane active">
+                    <div class="header-section">
+                        <h1>Dashboard Summary</h1>
+                        <p>Real-time metrics and system health</p>
+                    </div>
+
+                    <div class="metrics-grid">
+                        <div class="metric-card glass glow-blue">
+                            <i class="fa-solid fa-users metric-icon"></i>
+                            <div class="metric-info">
+                                <h3 id="statTotalUsers">0</h3>
+                                <p>Total Users</p>
+                            </div>
+                        </div>
+                        <div class="metric-card glass glow-green">
+                            <i class="fa-solid fa-check-circle metric-icon"></i>
+                            <div class="metric-info">
+                                <h3 id="statSuccessRate">0%</h3>
+                                <p>Success Rate</p>
+                            </div>
+                        </div>
+                        <div class="metric-card glass glow-purple">
+                            <i class="fa-solid fa-arrow-right-from-bracket metric-icon"></i>
+                            <div class="metric-info">
+                                <h3 id="statTotalTrx">0</h3>
+                                <p>Total Transactions</p>
+                            </div>
+                        </div>
+                        <div class="metric-card glass glow-orange">
+                            <i class="fa-solid fa-wallet metric-icon"></i>
+                            <div class="metric-info">
+                                <h3 id="statTotalVolume">0</h3>
+                                <p>Overall Volume KES</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="charts-section">
+                        <div class="chart-card glass">
+                            <h3>Transaction Status</h3>
+                            <div class="status-summary" id="statusSummary">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+                        <div class="chart-card glass">
+                            <h3>Volume by Currency</h3>
+                            <div class="currency-summary" id="currencySummary">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Transactions Tab -->
+                <section id="tab-transactions" class="tab-pane">
+                    <div class="header-section">
+                        <h1>Transactions</h1>
+                        <p>Monitor platform activity</p>
+                    </div>
+                    <div class="table-container glass">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Type</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody id="transactionsTableBody">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Users Tab -->
+                <section id="tab-users" class="tab-pane">
+                    <div class="header-section">
+                        <h1>User Management</h1>
+                        <p>Active customers</p>
+                    </div>
+                    <div class="table-container glass">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Role</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersTableBody">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <script src="/admin/js/admin.js"></script>
+</body>
+</html>
