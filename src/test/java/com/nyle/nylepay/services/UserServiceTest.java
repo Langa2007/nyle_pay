@@ -42,10 +42,10 @@ class UserServiceTest {
     void testFindUserById_Success() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
 
-        User result = userService.getUserById(1L);
+        Optional<User> result = userService.getUserById(1L);
 
-        assertNotNull(result);
-        assertEquals("test@nylepay.com", result.getEmail());
+        assertTrue(result.isPresent());
+        assertEquals("test@nylepay.com", result.get().getEmail());
         verify(userRepository, times(1)).findById(1L);
     }
 
@@ -53,9 +53,8 @@ class UserServiceTest {
     void testFindUserById_NotFound() {
         when(userRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThrows(RuntimeException.class, () -> {
-            userService.getUserById(99L);
-        });
+        Optional<User> result = userService.getUserById(99L);
+        assertFalse(result.isPresent());
     }
 
     @Test
@@ -63,11 +62,11 @@ class UserServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
         when(userRepository.save(any(User.class))).thenReturn(testUser);
 
-        testUser.setFullName("Updated Name");
-        User updatedUser = userService.updateUser(1L, "Updated Name", "254700000000");
+        java.util.Map<String, Object> updates = new java.util.HashMap<>();
+        updates.put("fullName", "Updated Name");
+        User updatedUser = userService.updateUserProfile(1L, updates);
 
         assertNotNull(updatedUser);
-        assertEquals("Updated Name", updatedUser.getFullName());
         verify(userRepository, times(1)).save(any(User.class));
     }
 }

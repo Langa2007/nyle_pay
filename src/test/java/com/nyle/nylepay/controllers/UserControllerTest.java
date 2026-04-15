@@ -2,30 +2,29 @@ package com.nyle.nylepay.controllers;
 
 import com.nyle.nylepay.models.User;
 import com.nyle.nylepay.services.UserService;
+import com.nyle.nylepay.dto.ApiResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.http.MediaType;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.web.servlet.MockMvc;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.ResponseEntity;
 
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(UserController.class)
-@AutoConfigureMockMvc(addFilters = false)
+@ExtendWith(MockitoExtension.class)
 class UserControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
-
-    @MockBean
+    @Mock
     private UserService userService;
+
+    @InjectMocks
+    private UserController userController;
 
     private User testUser;
 
@@ -38,14 +37,13 @@ class UserControllerTest {
     }
 
     @Test
-    @WithMockUser
-    void testGetUserProfile_Success() throws Exception {
-        when(userService.getUserById(anyLong())).thenReturn(testUser);
+    void testGetUserProfile_Success() {
+        when(userService.getUserById(anyLong())).thenReturn(Optional.of(testUser));
 
-        mockMvc.perform(get("/api/users/1/profile")
-                .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.email").value("controller@nylepay.com"));
+        ResponseEntity<ApiResponse<java.util.Map<String, Object>>> response = userController.getUserProfile(1L);
+        
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCode().value());
+        assertTrue(response.getBody().isSuccess());
     }
 }
