@@ -19,10 +19,10 @@ public class EmailService {
     private static final Logger logger = LoggerFactory.getLogger(EmailService.class);
     private static final String RESEND_API_URL = "https://api.resend.com/emails";
 
-    @Value("${resend.api-key}")
+    @Value("${resend.api-key:}")
     private String apiKey;
 
-    @Value("${resend.from-email}")
+    @Value("${resend.from-email:onboarding@resend.dev}")
     private String fromEmail;
 
     private final RestTemplate restTemplate = new RestTemplate();
