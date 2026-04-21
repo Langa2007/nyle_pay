@@ -1,7 +1,7 @@
 // ApiResponse.java
 package com.nyle.nylepay.dto;
 
-import lombok.Data;
+
 
 public class ApiResponse<T> {
     private boolean success;

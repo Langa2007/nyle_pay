@@ -1,12 +1,19 @@
 package com.nyle.nylepay.models;
 
 import jakarta.persistence.*;
-import lombok.Data;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "transactions")
+@Table(
+    name = "transactions",
+    uniqueConstraints = {
+        // ACID-Consistency: prevents duplicate Safaricom webhook deliveries from
+        // crediting the wallet twice for the same CheckoutRequestID / ConversationID.
+        @UniqueConstraint(name = "uq_transaction_external_id", columnNames = {"external_id"})
+    }
+)
 public class Transaction {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

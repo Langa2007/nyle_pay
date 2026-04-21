@@ -175,7 +175,7 @@ public class UserService {
         // This would typically involve sending an SMS with the code
         // and verifying it matches what the user entered
 
-        User user = userRepository.findById(userId)
+        userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         // For demo purposes, accept any 6-digit code

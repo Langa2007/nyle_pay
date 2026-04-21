@@ -1,6 +1,5 @@
 package com.nyle.nylepay.services;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,8 +11,11 @@ import org.springframework.web.client.RestTemplate;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -39,6 +41,24 @@ public class MpesaService {
     
     @Value("${mpesa.environment:sandbox}")
     private String environment;
+
+    @Value("${mpesa.callback-url:https://yourdomain.com/api/payments/webhook/mpesa}")
+    private String callbackUrl;
+
+    @Value("${mpesa.result-url:https://yourdomain.com/api/payments/webhook/mpesa/result}")
+    private String resultUrl;
+
+    @Value("${mpesa.timeout-url:https://yourdomain.com/api/payments/webhook/mpesa/timeout}")
+    private String timeoutUrl;
+
+    @Value("${mpesa.confirmation-url:https://yourdomain.com/api/payments/webhook/mpesa/confirmation}")
+    private String confirmationUrl;
+
+    @Value("${mpesa.validation-url:https://yourdomain.com/api/payments/webhook/mpesa/validation}")
+    private String validationUrl;
+
+    @Value("${mpesa.stk-transaction-type:CustomerPayBillOnline}")
+    private String stkTransactionType;
     
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -51,6 +71,7 @@ public class MpesaService {
     
     public Map<String, Object> stkPush(String phoneNumber, BigDecimal amount, String reference) {
         try {
+            String normalizedPhoneNumber = normalizePhoneNumber(phoneNumber);
             String accessToken = getAccessToken();
             String timestamp = getTimestamp();
             String password = Base64.getEncoder().encodeToString(
@@ -61,12 +82,12 @@ public class MpesaService {
             requestBody.put("BusinessShortCode", shortCode);
             requestBody.put("Password", password);
             requestBody.put("Timestamp", timestamp);
-            requestBody.put("TransactionType", "CustomerPayBillOnline");
+            requestBody.put("TransactionType", stkTransactionType);
             requestBody.put("Amount", amount.intValue());
-            requestBody.put("PartyA", phoneNumber);
+            requestBody.put("PartyA", normalizedPhoneNumber);
             requestBody.put("PartyB", shortCode);
-            requestBody.put("PhoneNumber", phoneNumber);
-            requestBody.put("CallBackURL", "https://yourdomain.com/api/payments/webhook/mpesa");
+            requestBody.put("PhoneNumber", normalizedPhoneNumber);
+            requestBody.put("CallBackURL", callbackUrl);
             requestBody.put("AccountReference", reference);
             requestBody.put("TransactionDesc", "NylePay Deposit");
             
@@ -92,6 +113,7 @@ public class MpesaService {
     
     public Map<String, Object> initiateB2C(String phoneNumber, BigDecimal amount, String remarks) {
         try {
+            String normalizedPhoneNumber = normalizePhoneNumber(phoneNumber);
             String accessToken = getAccessToken();
             ObjectNode requestBody = objectMapper.createObjectNode();
             requestBody.put("InitiatorName", initiatorName);
@@ -99,10 +121,10 @@ public class MpesaService {
             requestBody.put("CommandID", "BusinessPayment");
             requestBody.put("Amount", amount.toString());
             requestBody.put("PartyA", shortCode);
-            requestBody.put("PartyB", phoneNumber);
+            requestBody.put("PartyB", normalizedPhoneNumber);
             requestBody.put("Remarks", remarks);
-            requestBody.put("QueueTimeOutURL", "https://yourdomain.com/api/payments/webhook/mpesa-timeout");
-            requestBody.put("ResultURL", "https://yourdomain.com/api/payments/webhook/mpesa-result");
+            requestBody.put("QueueTimeOutURL", timeoutUrl);
+            requestBody.put("ResultURL", resultUrl);
             requestBody.put("Occasion", "NylePay Withdrawal");
             
             HttpHeaders headers = new HttpHeaders();
@@ -172,8 +194,8 @@ public class MpesaService {
             ObjectNode requestBody = objectMapper.createObjectNode();
             requestBody.put("ShortCode", shortCode);
             requestBody.put("ResponseType", "Completed");
-            requestBody.put("ConfirmationURL", "https://yourdomain.com/api/payments/webhook/mpesa-confirmation");
-            requestBody.put("ValidationURL", "https://yourdomain.com/api/payments/webhook/mpesa-validation");
+            requestBody.put("ConfirmationURL", confirmationUrl);
+            requestBody.put("ValidationURL", validationUrl);
             
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
@@ -197,12 +219,13 @@ public class MpesaService {
     
     public Map<String, Object> simulateC2B(String phoneNumber, BigDecimal amount, String billRefNumber) {
         try {
+            String normalizedPhoneNumber = normalizePhoneNumber(phoneNumber);
             String accessToken = getAccessToken();
             ObjectNode requestBody = objectMapper.createObjectNode();
             requestBody.put("ShortCode", shortCode);
             requestBody.put("CommandID", "CustomerPayBillOnline");
             requestBody.put("Amount", amount.toString());
-            requestBody.put("Msisdn", phoneNumber);
+            requestBody.put("Msisdn", normalizedPhoneNumber);
             requestBody.put("BillRefNumber", billRefNumber);
             
             HttpHeaders headers = new HttpHeaders();
@@ -235,8 +258,8 @@ public class MpesaService {
             requestBody.put("PartyA", shortCode);
             requestBody.put("IdentifierType", "4");
             requestBody.put("Remarks", "Balance check");
-            requestBody.put("QueueTimeOutURL", "https://yourdomain.com/api/payments/webhook/mpesa-timeout");
-            requestBody.put("ResultURL", "https://yourdomain.com/api/payments/webhook/mpesa-result");
+            requestBody.put("QueueTimeOutURL", timeoutUrl);
+            requestBody.put("ResultURL", resultUrl);
             
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
@@ -282,52 +305,158 @@ public class MpesaService {
             throw new RuntimeException("Failed to get MPesa access token: " + e.getMessage(), e);
         }
     }
-    
+
     private String getTimestamp() {
         return LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
     }
-    
-    @SuppressWarnings("unchecked")
+
     public boolean validateCallback(Map<String, Object> callbackData) {
         try {
-            if (!callbackData.containsKey("Body") || !callbackData.containsKey("stkCallback")) {
-                return false;
-            }
-            Object stkObj = callbackData.get("stkCallback");
-            if (stkObj instanceof Map<?, ?> stkCallback) {
-                return stkCallback.containsKey("ResultCode") && "0".equals(String.valueOf(stkCallback.get("ResultCode")));
-            }
-            return false;
+            Map<String, Object> details = extractTransactionDetails(callbackData);
+            return "0".equals(String.valueOf(details.get("ResultCode")));
         } catch (Exception e) {
             return false;
         }
     }
     
-    @SuppressWarnings("unchecked")
     public Map<String, Object> extractTransactionDetails(Map<String, Object> callbackData) {
         Map<String, Object> details = new HashMap<>();
         try {
-            if (callbackData.containsKey("Body") && callbackData.containsKey("stkCallback")) {
-                Object stkObj = callbackData.get("stkCallback");
-                if (stkObj instanceof Map<?, ?> stkCallback) {
-                    Object metadataObj = stkCallback.get("CallbackMetadata");
-                    if (metadataObj instanceof Map<?, ?> metadata) {
-                        Object itemsObj = metadata.get("Item");
-                        if (itemsObj instanceof Map<?, ?> items) {
-                            for (Map.Entry<?, ?> entry : items.entrySet()) {
-                                details.put(String.valueOf(entry.getKey()), entry.getValue());
-                            }
-                        }
+            Map<String, Object> body = getNestedMap(callbackData, "Body");
+            Map<String, Object> stkCallback = getNestedMap(body, "stkCallback");
+            if (stkCallback.isEmpty()) {
+                stkCallback = getNestedMap(callbackData, "stkCallback");
+            }
+
+            if (!stkCallback.isEmpty()) {
+                details.put("ResultCode", stkCallback.get("ResultCode"));
+                details.put("ResultDesc", stkCallback.get("ResultDesc"));
+                details.put("MerchantRequestID", stkCallback.get("MerchantRequestID"));
+                details.put("CheckoutRequestID", stkCallback.get("CheckoutRequestID"));
+                details.put("Body", body);
+
+                for (Map<String, Object> item : extractMetadataItems(stkCallback)) {
+                    Object name = item.get("Name");
+                    Object value = item.get("Value");
+                    if (name != null && value != null) {
+                        details.put(String.valueOf(name), value);
                     }
-                    details.put("ResultCode", stkCallback.get("ResultCode"));
-                    details.put("ResultDesc", stkCallback.get("ResultDesc"));
-                    details.put("MerchantRequestID", stkCallback.get("MerchantRequestID"));
-                    details.put("CheckoutRequestID", stkCallback.get("CheckoutRequestID"));
                 }
             }
         } catch (Exception e) {
-            // Log error
+            details.put("parseError", e.getMessage());
         }
         return details;
     }
-}
+
+    public Map<String, Object> extractDisbursementDetails(Map<String, Object> callbackData) {
+        Map<String, Object> details = new HashMap<>();
+        try {
+            Map<String, Object> result = getNestedMap(callbackData, "Result");
+            if (result.isEmpty()) {
+                result = callbackData;
+            }
+
+            copyIfPresent(result, details, "ResultType", "ResultCode", "ResultDesc",
+                    "OriginatorConversationID", "ConversationID", "TransactionID");
+
+            Map<String, Object> parameters = getNestedMap(result, "ResultParameters");
+            Object parameterItems = parameters.get("ResultParameter");
+            for (Map<String, Object> item : coerceToMapList(parameterItems)) {
+                Object key = firstNonBlank(item.get("Key"), item.get("Name"));
+                Object value = item.get("Value");
+                if (key != null && value != null) {
+                    details.put(String.valueOf(key), value);
+                }
+            }
+        } catch (Exception e) {
+            details.put("parseError", e.getMessage());
+        }
+        return details;
+    }
+
+    public String normalizePhoneNumber(String rawPhoneNumber) {
+        if (rawPhoneNumber == null || rawPhoneNumber.isBlank()) {
+            throw new IllegalArgumentException("Phone number is required");
+        }
+
+        String normalized = rawPhoneNumber.trim().replace(" ", "");
+        if (normalized.startsWith("+")) {
+            normalized = normalized.substring(1);
+        }
+
+        if (normalized.matches("^07\\d{8}$")) {
+            return "254" + normalized.substring(1);
+        }
+        if (normalized.matches("^7\\d{8}$")) {
+            return "254" + normalized;
+        }
+        if (normalized.matches("^2547\\d{8}$")) {
+            return normalized;
+        }
+
+        throw new IllegalArgumentException("Invalid MPesa phone number. Use 2547XXXXXXXX");
+    }
+
+    private Map<String, Object> getNestedMap(Map<String, Object> source, String key) {
+        if (source == null) {
+            return Collections.emptyMap();
+        }
+        Object value = source.get(key);
+        if (value instanceof Map<?, ?> mapValue) {
+            Map<String, Object> result = new HashMap<>();
+            mapValue.forEach((nestedKey, nestedValue) -> result.put(String.valueOf(nestedKey), nestedValue));
+            return result;
+        }
+        return Collections.emptyMap();
+    }
+
+    private List<Map<String, Object>> extractMetadataItems(Map<String, Object> stkCallback) {
+        Map<String, Object> callbackMetadata = getNestedMap(stkCallback, "CallbackMetadata");
+        Object rawItems = callbackMetadata.get("Item");
+        return coerceToMapList(rawItems);
+    }
+
+    private List<Map<String, Object>> coerceToMapList(Object value) {
+        if (value instanceof List<?> listValue) {
+            List<Map<String, Object>> result = new ArrayList<>();
+            for (Object item : listValue) {
+                if (item instanceof Map<?, ?> mapValue) {
+                    Map<String, Object> entry = new HashMap<>();
+                    mapValue.forEach((nestedKey, nestedValue) -> entry.put(String.valueOf(nestedKey), nestedValue));
+                    result.add(entry);
+                }
+            }
+            return result;
+        }
+
+        if (value instanceof Map<?, ?> mapValue) {
+            Map<String, Object> single = new HashMap<>();
+            mapValue.forEach((nestedKey, nestedValue) -> single.put(String.valueOf(nestedKey), nestedValue));
+            return List.of(single);
+        }
+
+        return Collections.emptyList();
+    }
+
+    private void copyIfPresent(Map<String, Object> source, Map<String, Object> destination, String... keys) {
+        for (String key : keys) {
+            if (source.containsKey(key)) {
+                destination.put(key, source.get(key));
+            }
+        }
+    }
+
+    private Object firstNonBlank(Object... values) {
+        for (Object value : values) {
+            if (value == null) {
+                continue;
+            }
+            String stringValue = String.valueOf(value).trim();
+            if (!stringValue.isEmpty() && !"null".equalsIgnoreCase(stringValue)) {
+                return value;
+            }
+        }
+        return null;
+    }
+}

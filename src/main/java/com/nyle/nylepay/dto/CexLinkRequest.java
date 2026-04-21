@@ -1,7 +1,5 @@
 package com.nyle.nylepay.dto;
 
-import lombok.Data;
-
 public class CexLinkRequest {
     private Long userId;
     private String exchangeName;

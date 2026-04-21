@@ -71,7 +71,7 @@ public class AdminService {
         // Transaction types breakdown
         Map<String, Long> typeBreakdown = new LinkedHashMap<>();
         for (Transaction t : allTransactions) {
-            typeBreakdown.merge(t.getType() != null ? t.getType() : "UNKNOWN", 1L, Long::sum);
+            typeBreakdown.merge(t.getType() != null ? t.getType() : "UNKNOWN", 1L, (a, b) -> a + b);
         }
         metrics.put("transactionTypes", typeBreakdown);
 

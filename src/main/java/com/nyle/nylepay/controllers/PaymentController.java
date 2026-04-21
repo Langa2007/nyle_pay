@@ -46,16 +46,22 @@ public class PaymentController {
             @Valid @RequestBody DepositRequest request) {
         
         try {
-            // Validate MPesa number
-            if (request.getMethod().equals("MPESA") && 
-                !request.getMpesaNumber().matches("^2547[0-9]{8}$")) {
+            if (!"MPESA".equalsIgnoreCase(request.getMethod())) {
                 return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("Invalid MPesa number format"));
+                    .body(ApiResponse.error("Deposit method must be MPESA for this endpoint"));
+            }
+
+            String normalizedPhoneNumber = mpesaService.normalizePhoneNumber(request.getMpesaNumber());
+            String currency = normalizeMpesaCurrency(request.getCurrency());
+
+            if (currency == null) {
+                return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("MPesa deposits are only supported in KSH/KES"));
             }
             
             // Initiate MPesa STK push
             Map<String, Object> mpesaResponse = mpesaService.stkPush(
-                request.getMpesaNumber(),
+                normalizedPhoneNumber,
                 request.getAmount(),
                 "DEPOSIT_" + System.currentTimeMillis()
             );
@@ -65,7 +71,7 @@ public class PaymentController {
                 request.getUserId(),
                 "MPESA",
                 request.getAmount(),
-                request.getCurrency(),
+                currency,
                 (String) mpesaResponse.get("CheckoutRequestID"),
                 null // No routing metadata
             );
@@ -174,18 +180,27 @@ public class PaymentController {
             @Valid @RequestBody WithdrawalRequest request) {
         
         try {
+            String currency = request.getCurrency();
+            if ("MPESA".equalsIgnoreCase(request.getMethod())) {
+                currency = normalizeMpesaCurrency(request.getCurrency());
+                if (currency == null) {
+                    return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("MPesa withdrawals are only supported in KSH/KES"));
+                }
+            }
+
             var transaction = transactionService.createWithdrawal(
                 request.getUserId(),
                 request.getMethod(),
                 request.getAmount(),
-                request.getCurrency(),
+                currency,
                 getDestination(request)
             );
             
             Map<String, Object> response = Map.of(
                 "transactionId", transaction.getId(),
                 "amount", request.getAmount(),
-                "currency", request.getCurrency(),
+                "currency", currency,
                 "method", request.getMethod(),
                 "status", transaction.getStatus(),
                 "estimatedCompletion", "1-3 business days"
@@ -327,6 +342,26 @@ public class PaymentController {
             return ResponseEntity.badRequest().body("Error processing callback");
         }
     }
+
+    @PostMapping("/webhook/mpesa/result")
+    public ResponseEntity<String> mpesaResultWebhook(@RequestBody Map<String, Object> payload) {
+        try {
+            transactionService.processMpesaDisbursementResult(payload);
+            return ResponseEntity.ok("Result processed successfully");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error processing result callback");
+        }
+    }
+
+    @PostMapping("/webhook/mpesa/timeout")
+    public ResponseEntity<String> mpesaTimeoutWebhook(@RequestBody Map<String, Object> payload) {
+        try {
+            transactionService.processMpesaDisbursementTimeout(payload);
+            return ResponseEntity.ok("Timeout processed successfully");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error processing timeout callback");
+        }
+    }
     
     @PostMapping("/webhook/bank")
     public ResponseEntity<String> bankWebhook(@RequestBody Map<String, Object> payload) {
@@ -386,7 +421,7 @@ public class PaymentController {
     private String getDestination(WithdrawalRequest request) {
         switch (request.getMethod().toUpperCase()) {
             case "MPESA":
-                return request.getMpesaNumber();
+                return mpesaService.normalizePhoneNumber(request.getMpesaNumber());
             case "BANK":
                 return request.getBankAccount() + "|" + request.getBankName();
             case "CRYPTO":
@@ -394,5 +429,17 @@ public class PaymentController {
             default:
                 throw new IllegalArgumentException("Invalid withdrawal method");
         }
+    }
+
+    private String normalizeMpesaCurrency(String currency) {
+        if (currency == null) {
+            return null;
+        }
+
+        String normalized = currency.trim().toUpperCase();
+        if ("KES".equals(normalized) || "KSH".equals(normalized)) {
+            return "KSH";
+        }
+        return null;
     }
 }

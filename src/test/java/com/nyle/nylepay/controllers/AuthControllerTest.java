@@ -1,20 +1,17 @@
 package com.nyle.nylepay.controllers;
 
-import com.nyle.nylepay.services.JwtService;
-import com.nyle.nylepay.services.UserService;
-import com.nyle.nylepay.models.User;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Map;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
@@ -22,7 +19,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class AuthControllerTest {
 
     @Autowired private MockMvc mockMvc;
-    @Autowired private ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
     void register_missingFields_returns400() throws Exception {
@@ -67,9 +64,9 @@ class AuthControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
     void adminMetrics_withAdminRole_returns200() throws Exception {
-        mockMvc.perform(get("/api/admin/metrics"))
+        mockMvc.perform(get("/api/admin/metrics")
+                .with(user("admin@nylepay.com").roles("ADMIN")))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.success").value(true))
             .andExpect(jsonPath("$.data.totalUsers").exists());
@@ -82,24 +79,24 @@ class AuthControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "USER")
     void adminMetrics_withUserRole_returns403() throws Exception {
-        mockMvc.perform(get("/api/admin/metrics"))
+        mockMvc.perform(get("/api/admin/metrics")
+                .with(user("user@nylepay.com").roles("USER")))
             .andExpect(status().isForbidden());
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
     void adminUsers_withAdminRole_returns200() throws Exception {
-        mockMvc.perform(get("/api/admin/users"))
+        mockMvc.perform(get("/api/admin/users")
+                .with(user("admin@nylepay.com").roles("ADMIN")))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.content").isArray());
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
     void adminTransactions_withAdminRole_returns200() throws Exception {
-        mockMvc.perform(get("/api/admin/transactions"))
+        mockMvc.perform(get("/api/admin/transactions")
+                .with(user("admin@nylepay.com").roles("ADMIN")))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.content").isArray());
     }

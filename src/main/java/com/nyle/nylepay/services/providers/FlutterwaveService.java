@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -49,7 +50,7 @@ public class FlutterwaveService {
             HttpEntity<String> request = new HttpEntity<>(requestBody.toString(), headers);
             
             ResponseEntity<String> response = restTemplate.postForEntity(BASE_URL + "/transfers", request, String.class);
-            return objectMapper.readValue(response.getBody(), Map.class);
+            return objectMapper.readValue(response.getBody(), new TypeReference<Map<String, Object>>() {});
             
         } catch (Exception e) {
             throw new RuntimeException("Flutterwave Transfer failed: " + e.getMessage(), e);
@@ -72,7 +73,7 @@ public class FlutterwaveService {
             HttpEntity<String> request = new HttpEntity<>(requestBody.toString(), headers);
             
             ResponseEntity<String> response = restTemplate.postForEntity(BASE_URL + "/accounts/resolve", request, String.class);
-            return objectMapper.readValue(response.getBody(), Map.class);
+            return objectMapper.readValue(response.getBody(), new TypeReference<Map<String, Object>>() {});
             
         } catch (Exception e) {
             throw new RuntimeException("Account resolution failed: " + e.getMessage(), e);

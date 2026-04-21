@@ -1,11 +1,14 @@
 package com.nyle.nylepay.services;
 
+import com.nyle.nylepay.models.CryptoWallet;
 import com.nyle.nylepay.models.User;
 import com.nyle.nylepay.models.Wallet;
 import com.nyle.nylepay.exceptions.InsufficientBalanceException;
 import com.nyle.nylepay.exceptions.ResourceNotFoundException;
+import com.nyle.nylepay.repositories.CryptoWalletRepository;
 import com.nyle.nylepay.repositories.UserRepository;
 import com.nyle.nylepay.repositories.WalletRepository;
+import com.nyle.nylepay.utils.EncryptionUtils;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,22 +19,36 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.security.SecureRandom;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
 public class WalletService {
 
+    private static final List<String> SUPPORTED_CHAINS = List.of("ETHEREUM", "POLYGON", "ARBITRUM", "BASE");
+
     private final UserRepository userRepository;
     private final WalletRepository walletRepository;
+    private final CryptoWalletRepository cryptoWalletRepository;
+    private final EncryptionUtils encryptionUtils;
 
-    public WalletService(UserRepository userRepository, WalletRepository walletRepository) {
+    public WalletService(UserRepository userRepository, WalletRepository walletRepository,
+                         CryptoWalletRepository cryptoWalletRepository, EncryptionUtils encryptionUtils) {
         this.userRepository = userRepository;
         this.walletRepository = walletRepository;
+        this.cryptoWalletRepository = cryptoWalletRepository;
+        this.encryptionUtils = encryptionUtils;
     }
 
-    // ------------------------------------------------------------------------
-    // CREATE WALLET
-    // ------------------------------------------------------------------------
+    /**
+     * Generates an EVM custody wallet for the user and stores one CryptoWallet
+     * record per supported chain (ETHEREUM, POLYGON, ARBITRUM, BASE).
+     *
+     * Security:
+     *   - The private key is AES-256-GCM encrypted before being persisted.
+     *   - The plaintext private key is NOT returned in the response.
+     *   - The same key pair works across all EVM chains.
+     */
     public Map<String, Object> createCryptoWallet(Long userId) throws Exception {
 
         User user = userRepository.findById(userId)
@@ -40,20 +57,36 @@ public class WalletService {
         SecureRandom random = new SecureRandom();
         ECKeyPair keyPair = Keys.createEcKeyPair(random);
 
-        String privateKey = keyPair.getPrivateKey().toString(16);
-        String publicKey = keyPair.getPublicKey().toString(16);
-        String address = "0x" + Keys.getAddress(keyPair);
+        String privateKeyHex = keyPair.getPrivateKey().toString(16);
+        String address       = "0x" + Keys.getAddress(keyPair);
+        String encryptedKey  = encryptionUtils.encrypt(privateKeyHex);
+        // Overwrite plaintext — best-effort; JVM GC handles final cleanup
+        privateKeyHex = null;
 
-        Wallet wallet = walletRepository.findByUserId(userId)
-                .orElseGet(Wallet::new);
+        // Store one CryptoWallet per chain (same address, different chain metadata)
+        for (String chain : SUPPORTED_CHAINS) {
+            cryptoWalletRepository.findByUserIdAndChain(userId, chain).ifPresentOrElse(
+                existing -> { /* already exists for this chain — skip */ },
+                () -> {
+                    CryptoWallet cw = new CryptoWallet();
+                    cw.setUserId(userId);
+                    cw.setChain(chain);
+                    cw.setAddress(address);
+                    cw.setEncryptedPrivateKey(encryptedKey);
+                    cryptoWalletRepository.save(cw);
+                }
+            );
+        }
 
+        // Create NylePay internal balance ledger
+        Wallet wallet = walletRepository.findByUserId(userId).orElseGet(Wallet::new);
         wallet.setUserId(userId);
-
-        // Fix: always provide currency code and amount
-        wallet.getBalances().putIfAbsent("ETH", new Wallet.Balance(BigDecimal.ZERO));
-        wallet.getBalances().putIfAbsent("KSH", new Wallet.Balance(BigDecimal.ZERO));
-        wallet.getBalances().putIfAbsent("USD", new Wallet.Balance(BigDecimal.ZERO));
-
+        wallet.getBalances().putIfAbsent("ETH",  new Wallet.Balance(BigDecimal.ZERO));
+        wallet.getBalances().putIfAbsent("USDT", new Wallet.Balance(BigDecimal.ZERO));
+        wallet.getBalances().putIfAbsent("USDC", new Wallet.Balance(BigDecimal.ZERO));
+        wallet.getBalances().putIfAbsent("DAI",  new Wallet.Balance(BigDecimal.ZERO));
+        wallet.getBalances().putIfAbsent("KSH",  new Wallet.Balance(BigDecimal.ZERO));
+        wallet.getBalances().putIfAbsent("USD",  new Wallet.Balance(BigDecimal.ZERO));
         walletRepository.save(wallet);
 
         user.setCryptoAddress(address);
@@ -61,10 +94,10 @@ public class WalletService {
 
         Map<String, Object> response = new HashMap<>();
         response.put("address", address);
-        response.put("publicKey", publicKey);
-        response.put("message", "Crypto wallet created successfully");
-        response.put("privateKey", privateKey); // ⚠ Don't expose in prod
-
+        response.put("chains", SUPPORTED_CHAINS);
+        response.put("supportedTokens", List.of("ETH", "USDT", "USDC", "DAI"));
+        response.put("message", "Custody wallet created on Ethereum, Polygon, Arbitrum, and Base. Deposit to the address above on any of these chains.");
+        // ⚠ Private key is NOT returned — it is stored encrypted in the DB only.
         return response;
     }
 
@@ -74,7 +107,8 @@ public class WalletService {
     @Transactional
     public void addBalance(Long userId, String currency, BigDecimal amount) {
 
-        Wallet wallet = walletRepository.findByUserId(userId)
+        // ACID-Isolation: exclusive row lock prevents concurrent double-credit
+        Wallet wallet = walletRepository.findByUserIdForUpdate(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Wallet not found"));
 
         wallet.getBalances().merge(
@@ -94,7 +128,9 @@ public class WalletService {
     @Transactional
     public void subtractBalance(Long userId, String currency, BigDecimal amount) {
 
-        Wallet wallet = walletRepository.findByUserId(userId)
+        // ACID-Isolation: exclusive row lock — serialises concurrent withdrawal attempts
+        // so that both cannot pass the balance check with stale reads.
+        Wallet wallet = walletRepository.findByUserIdForUpdate(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Wallet not found"));
 
         Wallet.Balance balance = wallet.getBalances().get(currency);

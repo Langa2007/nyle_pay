@@ -1,6 +1,7 @@
 // TransactionService.java - UPDATED
 package com.nyle.nylepay.services;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.nyle.nylepay.models.Transaction;
 import com.nyle.nylepay.repositories.TransactionRepository;
 import com.nyle.nylepay.models.User;
@@ -11,6 +12,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +32,7 @@ public class TransactionService {
     private final WalletService walletService;
     private final MpesaService mpesaService;
     private final EmailService emailService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public TransactionService(TransactionRepository transactionRepository,
             UserRepository userRepository,
@@ -120,22 +123,21 @@ public class TransactionService {
                 // Initiate MPesa B2C payment
                 Map<String, Object> mpesaResult = mpesaService.initiateB2C(
                         destination, amount, "NylePay Withdrawal");
-                transaction.setExternalId((String) mpesaResult.get("ConversationID"));
-                transaction.setStatus("COMPLETED");
+                String conversationId = firstNonBlank(
+                        mpesaResult.get("ConversationID"),
+                        mpesaResult.get("OriginatorConversationID"),
+                        transaction.getExternalId());
 
-                // Create a fee transaction
-                if (fee.compareTo(BigDecimal.ZERO) > 0) {
-                    Transaction feeTransaction = new Transaction();
-                    feeTransaction.setUserId(userId);
-                    feeTransaction.setType("FEE");
-                    feeTransaction.setProvider(provider);
-                    feeTransaction.setAmount(fee.negate());
-                    feeTransaction.setCurrency(currency);
-                    feeTransaction.setStatus("COMPLETED");
-                    feeTransaction.setTimestamp(LocalDateTime.now());
-                    feeTransaction.setExternalId("FEE_" + transaction.getExternalId());
-                    transactionRepository.save(feeTransaction);
-                }
+                transaction.setExternalId(conversationId);
+                Map<String, Object> metadata = new HashMap<>();
+                metadata.put("destination", destination);
+                metadata.put("fee", fee);
+                metadata.put("requestedAmount", amount);
+                metadata.put("totalDeduction", totalDeduction);
+                metadata.put("originatorConversationId", mpesaResult.get("OriginatorConversationID"));
+                metadata.put("conversationId", mpesaResult.get("ConversationID"));
+                metadata.put("providerResponse", mpesaResult);
+                transaction.setMetadata(writeMetadata(metadata));
 
             } catch (Exception e) {
                 transaction.setStatus("FAILED");
@@ -272,49 +274,143 @@ public class TransactionService {
 
     @Transactional
     public void processMpesaCallback(Map<String, Object> callbackData) {
-        try {
-            String checkoutRequestId = (String) callbackData.get("CheckoutRequestID");
-            String resultCode = (String) callbackData.get("ResultCode");
-            String mpesaReceiptNumber = (String) callbackData.get("MpesaReceiptNumber");
-            BigDecimal amount = new BigDecimal(callbackData.get("Amount").toString());
-            String phoneNumber = (String) callbackData.get("PhoneNumber");
+        Map<String, Object> details = mpesaService.extractTransactionDetails(callbackData);
+        String checkoutRequestId = asString(details.get("CheckoutRequestID"));
+        String resultCode = asString(details.get("ResultCode"));
+        String mpesaReceiptNumber = asString(details.get("MpesaReceiptNumber"));
+        BigDecimal callbackAmount = asBigDecimal(details.get("Amount"));
+        String phoneNumber = asString(details.get("PhoneNumber"));
 
-            // Find pending transaction
-            Optional<Transaction> pendingTransaction = transactionRepository
-                    .findByExternalId(checkoutRequestId);
+        if (checkoutRequestId == null) {
+            logger.warn("Ignoring MPesa callback without CheckoutRequestID: {}", callbackData);
+            return;
+        }
 
-            if (pendingTransaction.isPresent()) {
-                Transaction transaction = pendingTransaction.get();
+        // Find pending transaction
+        Optional<Transaction> pendingTransaction = transactionRepository
+                .findByExternalId(checkoutRequestId);
 
-                if ("0".equals(resultCode)) {
-                    // Success
-                    transaction.setStatus("COMPLETED");
-                    transaction.setExternalId(mpesaReceiptNumber);
+        if (pendingTransaction.isEmpty()) {
+            logger.warn("No MPesa deposit transaction found for CheckoutRequestID={}", checkoutRequestId);
+            return;
+        }
 
-                    // Update wallet balance
-                    walletService.addBalance(
-                            transaction.getUserId(),
-                            transaction.getCurrency(),
-                            amount);
+        Transaction transaction = pendingTransaction.get();
+        if (isFinalStatus(transaction.getStatus())) {
+            // ACID-Idempotency: Safaricom retries the same webhook — already settled, discard safely.
+            logger.info("Ignoring duplicate MPesa callback for settled transaction {}", transaction.getId());
+            return;
+        }
 
-                    // Update user's MPesa number if not set
-                    User user = userRepository.findById(transaction.getUserId()).orElse(null);
-                    if (user != null && user.getMpesaNumber() == null) {
-                        user.setMpesaNumber(phoneNumber);
-                        userRepository.save(user);
-                    }
-                } else {
-                    // Failed
-                    transaction.setStatus("FAILED");
-                }
+        Map<String, Object> callbackMetadata = new HashMap<>();
+        callbackMetadata.put("lastMpesaCallback", details);
+        callbackMetadata.put("mpesaReceiptNumber", mpesaReceiptNumber);
+        callbackMetadata.put("mpesaPhoneNumber", phoneNumber);
+        mergeMetadata(transaction, callbackMetadata);
 
-                transactionRepository.save(transaction);
+        if ("0".equals(resultCode)) {
+            BigDecimal amountToCredit = callbackAmount != null ? callbackAmount : transaction.getAmount();
+            if (callbackAmount != null && callbackAmount.compareTo(transaction.getAmount()) != 0) {
+                mergeMetadata(transaction, Map.of(
+                        "reviewRequired", true,
+                        "amountMismatch", true,
+                        "requestedAmount", transaction.getAmount(),
+                        "callbackAmount", callbackAmount
+                ));
+                logger.warn("MPesa callback amount mismatch for transaction {}. requested={}, callback={}",
+                        transaction.getId(), transaction.getAmount(), callbackAmount);
             }
 
-        } catch (Exception e) {
-            // Log the error but don't throw to prevent MPesa from retrying
-            e.printStackTrace();
+            transaction.setStatus("COMPLETED");
+            walletService.addBalance(
+                    transaction.getUserId(),
+                    transaction.getCurrency(),
+                    amountToCredit);
+
+            updateUserMpesaNumberIfMissing(transaction.getUserId(), phoneNumber);
+        } else {
+            transaction.setStatus("FAILED");
         }
+
+        try {
+            transactionRepository.save(transaction);
+        } catch (DataIntegrityViolationException e) {
+            // ACID-Consistency: The @UniqueConstraint on external_id caught a race between
+            // two concurrent webhook deliveries for the same CheckoutRequestID. The first
+            // one committed successfully; this is a harmless duplicate — log and discard.
+            logger.warn("Duplicate MPesa callback rejected by unique constraint for CheckoutRequestID={} — already processed.",
+                    checkoutRequestId);
+            throw e; // re-throw so @Transactional rolls back the wallet credit for this duplicate thread
+        }
+        // notifyUser runs after save to prevent email-send failure from rolling back a settled transaction
+        notifyUser(transaction);
+    }
+
+    @Transactional
+    public void processMpesaDisbursementResult(Map<String, Object> callbackData) {
+        Map<String, Object> details = mpesaService.extractDisbursementDetails(callbackData);
+        String reference = asString(firstNonBlank(
+                details.get("ConversationID"),
+                details.get("OriginatorConversationID")));
+
+        if (reference == null) {
+            logger.warn("Ignoring MPesa disbursement result without conversation reference: {}", callbackData);
+            return;
+        }
+
+        Transaction transaction = findMpesaWithdrawal(reference)
+                .orElseThrow(() -> new RuntimeException("MPesa withdrawal transaction not found for " + reference));
+
+        if (isFinalStatus(transaction.getStatus())) {
+            // ACID-Idempotency: already settled, Safaricom retry — discard safely.
+            logger.info("Ignoring duplicate MPesa disbursement result for transaction {}", transaction.getId());
+            return;
+        }
+
+        mergeMetadata(transaction, Map.of("lastMpesaDisbursementResult", details));
+        if ("0".equals(asString(details.get("ResultCode")))) {
+            transaction.setStatus("COMPLETED");
+            createWithdrawalFeeTransaction(transaction);
+        } else {
+            transaction.setStatus("FAILED");
+            refundWithdrawal(transaction);
+        }
+
+        // ACID-Atomicity: save and notify are outside try/catch — any failure
+        // propagates to @Transactional and triggers a full rollback (refund + status).
+        transactionRepository.save(transaction);
+        notifyUser(transaction);
+    }
+
+    @Transactional
+    public void processMpesaDisbursementTimeout(Map<String, Object> callbackData) {
+        Map<String, Object> details = mpesaService.extractDisbursementDetails(callbackData);
+        String reference = asString(firstNonBlank(
+                details.get("ConversationID"),
+                details.get("OriginatorConversationID")));
+
+        if (reference == null) {
+            logger.warn("Ignoring MPesa timeout callback without conversation reference: {}", callbackData);
+            return;
+        }
+
+        Transaction transaction = findMpesaWithdrawal(reference)
+                .orElseThrow(() -> new RuntimeException("MPesa withdrawal transaction not found for " + reference));
+
+        if (isFinalStatus(transaction.getStatus())) {
+            // ACID-Idempotency: already settled, Safaricom timeout retry — discard safely.
+            logger.info("Ignoring MPesa timeout for settled transaction {}", transaction.getId());
+            return;
+        }
+
+        mergeMetadata(transaction, Map.of("lastMpesaTimeout", details));
+        transaction.setStatus("FAILED");
+        refundWithdrawal(transaction);
+
+        // ACID-Atomicity: save and notify are outside try/catch so any failure
+        // propagates to @Transactional and rolls back the refund credit.
+        transactionRepository.save(transaction);
+        notifyUser(transaction);
     }
 
     @Transactional
@@ -731,5 +827,148 @@ public class TransactionService {
         summary.put("transfers", transfersByCurrency);
 
         return summary;
+    }
+
+    private Optional<Transaction> findMpesaWithdrawal(String reference) {
+        Optional<Transaction> direct = transactionRepository.findByExternalId(reference)
+                .filter(transaction -> "WITHDRAW".equals(transaction.getType()));
+        if (direct.isPresent()) {
+            return direct;
+        }
+
+        List<Transaction> candidates = new ArrayList<>();
+        candidates.addAll(transactionRepository.findByProviderAndStatus("MPESA", "PROCESSING"));
+        candidates.addAll(transactionRepository.findByProviderAndStatus("MPESA", "FAILED"));
+        candidates.addAll(transactionRepository.findByProviderAndStatus("MPESA", "COMPLETED"));
+
+        return candidates.stream()
+                .filter(transaction -> "WITHDRAW".equals(transaction.getType()))
+                .filter(transaction -> reference.equals(transaction.getExternalId())
+                        || (transaction.getMetadata() != null && transaction.getMetadata().contains(reference)))
+                .findFirst();
+    }
+
+    private void refundWithdrawal(Transaction transaction) {
+        Map<String, Object> metadata = readMetadata(transaction);
+        if (Boolean.TRUE.equals(metadata.get("refunded"))) {
+            return;
+        }
+
+        BigDecimal fee = asBigDecimal(metadata.get("fee"));
+        if (fee == null) {
+            fee = calculateWithdrawalFee(transaction.getAmount(), transaction.getCurrency(), transaction.getProvider());
+        }
+        BigDecimal refundAmount = transaction.getAmount().add(fee);
+        walletService.addBalance(transaction.getUserId(), transaction.getCurrency(), refundAmount);
+
+        metadata.put("refunded", true);
+        metadata.put("refundAmount", refundAmount);
+        transaction.setMetadata(writeMetadata(metadata));
+    }
+
+    private void createWithdrawalFeeTransaction(Transaction transaction) {
+        Map<String, Object> metadata = readMetadata(transaction);
+        BigDecimal fee = asBigDecimal(metadata.get("fee"));
+        if (fee == null || fee.compareTo(BigDecimal.ZERO) <= 0) {
+            return;
+        }
+
+        String feeExternalId = "FEE_" + transaction.getExternalId();
+        if (transactionRepository.findByExternalId(feeExternalId).isPresent()) {
+            return;
+        }
+
+        Transaction feeTransaction = new Transaction();
+        feeTransaction.setUserId(transaction.getUserId());
+        feeTransaction.setType("FEE");
+        feeTransaction.setProvider(transaction.getProvider());
+        feeTransaction.setAmount(fee.negate());
+        feeTransaction.setCurrency(transaction.getCurrency());
+        feeTransaction.setStatus("COMPLETED");
+        feeTransaction.setTimestamp(LocalDateTime.now());
+        feeTransaction.setExternalId(feeExternalId);
+        transactionRepository.save(feeTransaction);
+    }
+
+    private void notifyUser(Transaction transaction) {
+        User user = userRepository.findById(transaction.getUserId()).orElse(null);
+        if (user != null) {
+            emailService.sendTransactionNotification(user, transaction);
+        }
+    }
+
+    private void updateUserMpesaNumberIfMissing(Long userId, String phoneNumber) {
+        if (phoneNumber == null || phoneNumber.isBlank()) {
+            return;
+        }
+
+        User user = userRepository.findById(userId).orElse(null);
+        if (user != null && (user.getMpesaNumber() == null || user.getMpesaNumber().isBlank())) {
+            user.setMpesaNumber(phoneNumber);
+            userRepository.save(user);
+        }
+    }
+
+    private boolean isFinalStatus(String status) {
+        return "COMPLETED".equalsIgnoreCase(status) || "FAILED".equalsIgnoreCase(status);
+    }
+
+    private Map<String, Object> readMetadata(Transaction transaction) {
+        if (transaction.getMetadata() == null || transaction.getMetadata().isBlank()) {
+            return new HashMap<>();
+        }
+
+        try {
+            Map<?, ?> raw = objectMapper.readValue(transaction.getMetadata(), Map.class);
+            Map<String, Object> metadata = new HashMap<>();
+            raw.forEach((key, value) -> metadata.put(String.valueOf(key), value));
+            return metadata;
+        } catch (Exception e) {
+            logger.warn("Failed to parse metadata for transaction {}", transaction.getId(), e);
+            return new HashMap<>();
+        }
+    }
+
+    private void mergeMetadata(Transaction transaction, Map<String, Object> updates) {
+        Map<String, Object> metadata = readMetadata(transaction);
+        metadata.putAll(updates);
+        transaction.setMetadata(writeMetadata(metadata));
+    }
+
+    private String writeMetadata(Map<String, Object> metadata) {
+        try {
+            return objectMapper.writeValueAsString(metadata);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Failed to write transaction metadata", e);
+        }
+    }
+
+    private String asString(Object value) {
+        if (value == null) {
+            return null;
+        }
+        String stringValue = String.valueOf(value).trim();
+        return stringValue.isEmpty() || "null".equalsIgnoreCase(stringValue) ? null : stringValue;
+    }
+
+    private BigDecimal asBigDecimal(Object value) {
+        if (value == null) {
+            return null;
+        }
+        try {
+            return new BigDecimal(String.valueOf(value));
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private String firstNonBlank(Object... values) {
+        for (Object value : values) {
+            String stringValue = asString(value);
+            if (stringValue != null) {
+                return stringValue;
+            }
+        }
+        return null;
     }
 }

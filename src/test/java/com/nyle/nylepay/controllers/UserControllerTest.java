@@ -2,6 +2,7 @@ package com.nyle.nylepay.controllers;
 
 import com.nyle.nylepay.models.User;
 import com.nyle.nylepay.services.UserService;
+import com.nyle.nylepay.services.WalletService;
 import com.nyle.nylepay.dto.ApiResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,6 +24,9 @@ class UserControllerTest {
     @Mock
     private UserService userService;
 
+    @Mock
+    private WalletService walletService;
+
     @InjectMocks
     private UserController userController;
 
@@ -39,6 +43,7 @@ class UserControllerTest {
     @Test
     void testGetUserProfile_Success() {
         when(userService.getUserById(anyLong())).thenReturn(Optional.of(testUser));
+        when(walletService.getBalances(anyLong())).thenReturn(java.util.Map.of("KSH", java.math.BigDecimal.ZERO));
 
         ResponseEntity<ApiResponse<java.util.Map<String, Object>>> response = userController.getUserProfile(1L);
         
