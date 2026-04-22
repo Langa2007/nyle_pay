@@ -19,7 +19,9 @@ import java.util.Map;
 import java.util.Optional;
 
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.never;
@@ -44,6 +46,9 @@ class TransactionServiceMpesaTest {
 
     @Mock
     private EmailService emailService;
+
+    @Mock
+    private BankTransferService bankTransferService;
 
     @InjectMocks
     private TransactionService transactionService;
@@ -147,6 +152,121 @@ class TransactionServiceMpesaTest {
         assertTrue(captured.stream().anyMatch(saved ->
                 saved.getId() != null && "COMPLETED".equals(saved.getStatus())));
         verify(walletService, never()).addBalance(1L, "KSH", new BigDecimal("2027"));
+        verify(emailService).sendTransactionNotification(user, transaction);
+    }
+
+    @Test
+    void createBankDepositIntent_createsPendingBankDepositWithReferenceMetadata() {
+        when(userRepository.existsById(1L)).thenReturn(true);
+        when(transactionRepository.save(any(Transaction.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        Transaction transaction = transactionService.createBankDepositIntent(
+                1L,
+                new BigDecimal("2500"),
+                "KES",
+                "KCB",
+                "KCB Bank",
+                "00123456789",
+                "Jane Doe",
+                "KE",
+                null);
+
+        assertEquals("BANK", transaction.getProvider());
+        assertEquals("DEPOSIT", transaction.getType());
+        assertEquals("PENDING", transaction.getStatus());
+        assertEquals("KSH", transaction.getCurrency());
+        assertTrue(transaction.getExternalId().startsWith("BNK_DEP_1_"));
+        assertTrue(transaction.getMetadata().contains("\"flow\":\"BANK_TO_WALLET\""));
+        assertTrue(transaction.getMetadata().contains("\"sourceBankCode\":\"KCB\""));
+    }
+
+    @Test
+    void processBankCallback_completesDepositAndCreditsWalletOnce() {
+        Transaction transaction = new Transaction();
+        transaction.setId(21L);
+        transaction.setUserId(1L);
+        transaction.setType("DEPOSIT");
+        transaction.setProvider("BANK");
+        transaction.setCurrency("KSH");
+        transaction.setAmount(new BigDecimal("1500"));
+        transaction.setStatus("PENDING");
+        transaction.setExternalId("BNK_DEP_1_123");
+        transaction.setMetadata("{\"flow\":\"BANK_TO_WALLET\"}");
+
+        when(transactionRepository.findByExternalId("BNK_DEP_1_123")).thenReturn(Optional.of(transaction));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        transactionService.processBankCallback(Map.of(
+                "status", "successful",
+                "reference", "BNK_DEP_1_123"
+        ));
+
+        verify(walletService).addBalance(1L, "KSH", new BigDecimal("1500"));
+        verify(transactionRepository).save(argThat(saved ->
+                "COMPLETED".equals(saved.getStatus())
+                        && saved.getMetadata().contains("lastBankCallback")));
+        verify(emailService).sendTransactionNotification(user, transaction);
+    }
+
+    @Test
+    void processBankCallback_completesWithdrawalWithoutRecreditingWallet() {
+        Transaction transaction = new Transaction();
+        transaction.setId(22L);
+        transaction.setUserId(1L);
+        transaction.setType("WITHDRAW");
+        transaction.setProvider("BANK");
+        transaction.setCurrency("KSH");
+        transaction.setAmount(new BigDecimal("3000"));
+        transaction.setStatus("PROCESSING");
+        transaction.setExternalId("BNK_WDR_ABC");
+        transaction.setMetadata("{\"fee\":500,\"providerTransferId\":\"999001\"}");
+
+        when(transactionRepository.findByExternalId("BNK_WDR_ABC")).thenReturn(Optional.of(transaction));
+        when(transactionRepository.findByExternalId("FEE_BNK_WDR_ABC")).thenReturn(Optional.empty());
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        transactionService.processBankCallback(Map.of(
+                "status", "completed",
+                "reference", "BNK_WDR_ABC",
+                "id", "999001"
+        ));
+
+        ArgumentCaptor<Transaction> savedTransactions = ArgumentCaptor.forClass(Transaction.class);
+        verify(transactionRepository, times(2)).save(savedTransactions.capture());
+        assertTrue(savedTransactions.getAllValues().stream().anyMatch(saved ->
+                "COMPLETED".equals(saved.getStatus()) && "WITHDRAW".equals(saved.getType())));
+        assertTrue(savedTransactions.getAllValues().stream().anyMatch(saved ->
+                "FEE".equals(saved.getType()) && new BigDecimal("-500").compareTo(saved.getAmount()) == 0));
+        verify(walletService, never()).addBalance(1L, "KSH", new BigDecimal("3000"));
+        verify(emailService).sendTransactionNotification(user, transaction);
+    }
+
+    @Test
+    void processBankCallback_failedWithdrawalRefundsWallet() {
+        Transaction transaction = new Transaction();
+        transaction.setId(23L);
+        transaction.setUserId(1L);
+        transaction.setType("WITHDRAW");
+        transaction.setProvider("BANK");
+        transaction.setCurrency("KSH");
+        transaction.setAmount(new BigDecimal("1000"));
+        transaction.setStatus("PROCESSING");
+        transaction.setExternalId("BNK_WDR_FAIL");
+        transaction.setMetadata("{\"fee\":100}");
+
+        when(transactionRepository.findByExternalId("BNK_WDR_FAIL")).thenReturn(Optional.of(transaction));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        transactionService.processBankCallback(Map.of(
+                "status", "failed",
+                "reference", "BNK_WDR_FAIL"
+        ));
+
+        verify(walletService).addBalance(1L, "KSH", new BigDecimal("1100"));
+        verify(transactionRepository).save(argThat(saved ->
+                "FAILED".equals(saved.getStatus())
+                        && saved.getMetadata().contains("\"refundAmount\":1100")));
         verify(emailService).sendTransactionNotification(user, transaction);
     }
 }

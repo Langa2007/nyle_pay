@@ -149,27 +149,32 @@ public class TransactionService {
             }
 
         } else if ("BANK".equalsIgnoreCase(provider)) {
-            // destination format: "accountNumber|bankCode|country" (PaymentController builds this)
+            // destination format: "accountNumber|bankCode|country|accountName"
             String[] parts = destination.split("\\|");
             String accountNumber = parts.length > 0 ? parts[0] : destination;
             String bankCode      = parts.length > 1 ? parts[1] : "";
             String country       = parts.length > 2 ? parts[2] : "KE";
+            String accountName   = parts.length > 3 ? parts[3] : "";
             try {
                 Map<String, Object> bankResult = bankTransferService.initiateLocalBankTransfer(
                         country, accountNumber, bankCode, amount, currency,
                         "NylePay Withdrawal " + transaction.getExternalId());
-                // Use Flutterwave transfer ID as the external correlation key
-                String transferId = String.valueOf(bankResult.getOrDefault("id",
-                        bankResult.getOrDefault("reference", transaction.getExternalId())));
-                transaction.setExternalId(transferId);
+                String transferReference = extractBankReference(bankResult, transaction.getExternalId());
+                String providerTransferId = extractBankTransferId(bankResult);
+                transaction.setExternalId(transferReference);
                 Map<String, Object> metadata = new HashMap<>();
                 metadata.put("destination", destination);
                 metadata.put("accountNumber", accountNumber);
                 metadata.put("bankCode", bankCode);
                 metadata.put("country", country);
+                metadata.put("accountName", accountName);
                 metadata.put("fee", fee);
                 metadata.put("requestedAmount", amount);
                 metadata.put("totalDeduction", totalDeduction);
+                if (providerTransferId != null) {
+                    metadata.put("providerTransferId", providerTransferId);
+                }
+                metadata.put("providerReference", transferReference);
                 metadata.put("providerResponse", bankResult);
                 transaction.setMetadata(writeMetadata(metadata));
             } catch (Exception e) {
@@ -180,6 +185,51 @@ public class TransactionService {
         }
 
         return transactionRepository.save(transaction);
+    }
+
+    @Transactional
+    public Transaction createBankDepositIntent(Long userId, BigDecimal amount, String currency,
+            String bankCode, String bankName, String accountNumber, String accountName,
+            String country, String requestedReference) {
+
+        if (!userRepository.existsById(userId)) {
+            throw new RuntimeException("User not found");
+        }
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RuntimeException("Amount must be greater than zero");
+        }
+        if (bankCode == null || bankCode.isBlank()) {
+            throw new RuntimeException("Bank code is required for bank deposits");
+        }
+        String sanitizedAccountNumber = sanitizeBankAccountNumber(accountNumber);
+        if (sanitizedAccountNumber == null || sanitizedAccountNumber.isBlank()) {
+            throw new RuntimeException("Bank account number is required for bank deposits");
+        }
+
+        String normalizedCountry = country == null || country.isBlank()
+                ? "KE"
+                : country.trim().toUpperCase();
+        String normalizedCurrency = normalizeBankCurrency(currency);
+        String reference = requestedReference != null && !requestedReference.isBlank()
+                ? requestedReference.trim().toUpperCase()
+                : generateBankReference(userId, "DEP");
+
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("sourceBankCode", bankCode.trim().toUpperCase());
+        metadata.put("sourceBankName", bankName != null ? bankName.trim() : "");
+        metadata.put("sourceAccountNumber", sanitizedAccountNumber);
+        metadata.put("sourceAccountName", accountName != null ? accountName.trim() : "");
+        metadata.put("country", normalizedCountry);
+        metadata.put("flow", "BANK_TO_WALLET");
+        metadata.put("collectionReference", reference);
+
+        return createDeposit(
+                userId,
+                "BANK",
+                amount,
+                normalizedCurrency,
+                reference,
+                writeMetadata(metadata));
     }
 
     @Transactional
@@ -446,29 +496,18 @@ public class TransactionService {
 
     @Transactional
     public void processBankCallback(Map<String, Object> callbackData) {
-        // Parse reference from either flat or Flutterwave-nested payload
-        String reference = (String) callbackData.get("reference");
-        if (reference == null && callbackData.containsKey("data") && callbackData.get("data") instanceof Map) {
-                Map<?, ?> dataObj = (Map<?, ?>) callbackData.get("data");
-                Map<String, Object> data = new java.util.HashMap<>();
-                dataObj.forEach((k, v) -> data.put(String.valueOf(k), v));
-            reference = (String) data.get("tx_ref");
-                if (reference == null) reference = (String) data.get("reference");
-        }
+        String reference = extractBankReference(callbackData, null);
+        String providerTransferId = extractBankTransferId(callbackData);
 
-        if (reference == null) {
-            logger.warn("Ignoring bank callback without reference: {}", callbackData);
+        if (reference == null && providerTransferId == null) {
+            logger.warn("Ignoring bank callback without reference or provider transfer id: {}", callbackData);
             return;
         }
 
-        String status = (String) callbackData.get("status");
-        if (status == null && callbackData.containsKey("data") && callbackData.get("data") instanceof Map) {
-            status = (String) ((Map<?, ?>) callbackData.get("data")).get("status");
-        }
-
-        Optional<Transaction> transactionOpt = transactionRepository.findByExternalId(reference);
+        String status = extractBankStatus(callbackData);
+        Optional<Transaction> transactionOpt = findBankTransaction(reference, providerTransferId);
         if (transactionOpt.isEmpty()) {
-            logger.warn("No bank transaction found for reference={}", reference);
+            logger.warn("No bank transaction found for reference={} providerTransferId={}", reference, providerTransferId);
             return;
         }
 
@@ -480,34 +519,20 @@ public class TransactionService {
             return;
         }
 
-        if ("success".equalsIgnoreCase(status) || "successful".equalsIgnoreCase(status)
-                || "completed".equalsIgnoreCase(status)) {
+        mergeMetadata(transaction, Map.of(
+                "lastBankCallback", callbackData,
+                "providerReference", reference != null ? reference : "",
+                "providerTransferId", providerTransferId != null ? providerTransferId : ""
+        ));
 
-            transaction.setStatus("COMPLETED");
-            // ACID-Isolation: SELECT FOR UPDATE inside addBalance
-            walletService.addBalance(transaction.getUserId(), transaction.getCurrency(), transaction.getAmount());
-
-            // Multi-leg routing: Bank -> M-Pesa
-            if (transaction.getMetadata() != null) {
-                try {
-                    @SuppressWarnings("unchecked")
-                    Map<String, Object> meta = objectMapper.readValue(transaction.getMetadata(), Map.class);
-                    if ("MPESA_PUSH".equals(meta.get("nextLeg"))) {
-                        String mpesaNumber = (String) meta.get("mpesaNumber");
-                        if (mpesaNumber == null || mpesaNumber.isBlank()) {
-                            logger.error("Bank->M-Pesa routing metadata missing mpesaNumber for tx {}", transaction.getId());
-                        } else {
-                            // Throws propagate -> @Transactional rolls back wallet credit too
-                            mpesaService.initiateB2C(mpesaNumber, transaction.getAmount(), "NylePay Bank->M-Pesa");
-                            logger.info("Bank->M-Pesa routing dispatched: tx={} mpesa={}", transaction.getId(), mpesaNumber);
-                        }
-                    }
-                } catch (com.fasterxml.jackson.core.JsonProcessingException ex) {
-                    logger.error("Failed to parse routing metadata for bank tx {}: {}", transaction.getId(), ex.getMessage());
-                }
-            }
+        if (isSuccessfulBankStatus(status)) {
+            handleSuccessfulBankCallback(transaction);
+        } else if (isFailedBankStatus(status)) {
+            handleFailedBankCallback(transaction);
         } else {
-            transaction.setStatus("FAILED");
+            logger.info("Bank callback received non-final status '{}' for transaction {}", status, transaction.getId());
+            transactionRepository.save(transaction);
+            return;
         }
 
         // ACID-Atomicity: propagates to @Transactional — any failure rolls back wallet credit
@@ -905,6 +930,89 @@ public class TransactionService {
                 .findFirst();
     }
 
+    private Optional<Transaction> findBankTransaction(String reference, String providerTransferId) {
+        if (reference != null) {
+            Optional<Transaction> direct = transactionRepository.findByExternalId(reference)
+                    .filter(transaction -> "BANK".equalsIgnoreCase(transaction.getProvider()));
+            if (direct.isPresent()) {
+                return direct;
+            }
+        }
+
+        List<Transaction> candidates = new ArrayList<>();
+        candidates.addAll(transactionRepository.findByProviderAndStatus("BANK", "PENDING"));
+        candidates.addAll(transactionRepository.findByProviderAndStatus("BANK", "PROCESSING"));
+        candidates.addAll(transactionRepository.findByProviderAndStatus("BANK", "FAILED"));
+        candidates.addAll(transactionRepository.findByProviderAndStatus("BANK", "COMPLETED"));
+
+        return candidates.stream()
+                .filter(transaction -> matchesBankCallback(transaction, reference, providerTransferId))
+                .findFirst();
+    }
+
+    private boolean matchesBankCallback(Transaction transaction, String reference, String providerTransferId) {
+        if (reference != null && reference.equals(transaction.getExternalId())) {
+            return true;
+        }
+        Map<String, Object> metadata = readMetadata(transaction);
+        if (reference != null) {
+            String providerReference = asString(metadata.get("providerReference"));
+            String collectionReference = asString(metadata.get("collectionReference"));
+            if (reference.equals(providerReference) || reference.equals(collectionReference)) {
+                return true;
+            }
+        }
+        if (providerTransferId != null) {
+            String savedTransferId = asString(metadata.get("providerTransferId"));
+            return providerTransferId.equals(savedTransferId);
+        }
+        return false;
+    }
+
+    private void handleSuccessfulBankCallback(Transaction transaction) {
+        if ("DEPOSIT".equalsIgnoreCase(transaction.getType())) {
+            transaction.setStatus("COMPLETED");
+            walletService.addBalance(transaction.getUserId(), transaction.getCurrency(), transaction.getAmount());
+            dispatchBankRoutingLegs(transaction);
+            return;
+        }
+
+        if ("WITHDRAW".equalsIgnoreCase(transaction.getType())) {
+            transaction.setStatus("COMPLETED");
+            createWithdrawalFeeTransaction(transaction);
+            return;
+        }
+
+        transaction.setStatus("COMPLETED");
+    }
+
+    private void handleFailedBankCallback(Transaction transaction) {
+        transaction.setStatus("FAILED");
+        if ("WITHDRAW".equalsIgnoreCase(transaction.getType())) {
+            refundWithdrawal(transaction);
+        }
+    }
+
+    private void dispatchBankRoutingLegs(Transaction transaction) {
+        if (transaction.getMetadata() == null) {
+            return;
+        }
+
+        Map<String, Object> meta = readMetadata(transaction);
+        if (!"MPESA_PUSH".equals(meta.get("nextLeg"))) {
+            return;
+        }
+
+        String mpesaNumber = asString(meta.get("mpesaNumber"));
+        if (mpesaNumber == null) {
+            throw new RuntimeException("Bank->M-Pesa routing metadata missing mpesaNumber for tx " + transaction.getId());
+        }
+
+        // Throws propagate -> @Transactional rolls back wallet credit too
+        mpesaService.initiateB2C(mpesaNumber, transaction.getAmount(), "NylePay Bank->M-Pesa");
+        logger.info("Bank->M-Pesa routing dispatched: tx={} mpesa={}", transaction.getId(), mpesaNumber);
+    }
+
     private void refundWithdrawal(Transaction transaction) {
         Map<String, Object> metadata = readMetadata(transaction);
         if (Boolean.TRUE.equals(metadata.get("refunded"))) {
@@ -970,6 +1078,19 @@ public class TransactionService {
         return "COMPLETED".equalsIgnoreCase(status) || "FAILED".equalsIgnoreCase(status);
     }
 
+    private boolean isSuccessfulBankStatus(String status) {
+        return "success".equalsIgnoreCase(status)
+                || "successful".equalsIgnoreCase(status)
+                || "completed".equalsIgnoreCase(status);
+    }
+
+    private boolean isFailedBankStatus(String status) {
+        return "failed".equalsIgnoreCase(status)
+                || "error".equalsIgnoreCase(status)
+                || "cancelled".equalsIgnoreCase(status)
+                || "reversed".equalsIgnoreCase(status);
+    }
+
     private Map<String, Object> readMetadata(Transaction transaction) {
         if (transaction.getMetadata() == null || transaction.getMetadata().isBlank()) {
             return new HashMap<>();
@@ -1027,5 +1148,85 @@ public class TransactionService {
             }
         }
         return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    private String extractBankReference(Map<String, Object> payload, String fallback) {
+        if (payload == null) {
+            return fallback;
+        }
+        String directReference = firstNonBlank(
+                payload.get("reference"),
+                payload.get("tx_ref"),
+                payload.get("flw_ref"));
+        if (directReference != null) {
+            return directReference;
+        }
+        Object dataValue = payload.get("data");
+        if (dataValue instanceof Map<?, ?> rawMap) {
+            Map<String, Object> data = new HashMap<>();
+            rawMap.forEach((k, v) -> data.put(String.valueOf(k), v));
+            return firstNonBlank(
+                    data.get("reference"),
+                    data.get("tx_ref"),
+                    data.get("flw_ref"),
+                    fallback);
+        }
+        return fallback;
+    }
+
+    @SuppressWarnings("unchecked")
+    private String extractBankTransferId(Map<String, Object> payload) {
+        if (payload == null) {
+            return null;
+        }
+        String directId = asString(payload.get("id"));
+        if (directId != null) {
+            return directId;
+        }
+        Object dataValue = payload.get("data");
+        if (dataValue instanceof Map<?, ?> rawMap) {
+            Map<String, Object> data = new HashMap<>();
+            rawMap.forEach((k, v) -> data.put(String.valueOf(k), v));
+            return asString(data.get("id"));
+        }
+        return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    private String extractBankStatus(Map<String, Object> payload) {
+        if (payload == null) {
+            return null;
+        }
+        String directStatus = asString(payload.get("status"));
+        if (directStatus != null) {
+            return directStatus;
+        }
+        Object dataValue = payload.get("data");
+        if (dataValue instanceof Map<?, ?> rawMap) {
+            Map<String, Object> data = new HashMap<>();
+            rawMap.forEach((k, v) -> data.put(String.valueOf(k), v));
+            return asString(data.get("status"));
+        }
+        return null;
+    }
+
+    private String sanitizeBankAccountNumber(String accountNumber) {
+        if (accountNumber == null) {
+            return null;
+        }
+        return accountNumber.replaceAll("[^A-Za-z0-9]", "");
+    }
+
+    private String normalizeBankCurrency(String currency) {
+        if (currency == null || currency.isBlank()) {
+            return "KSH";
+        }
+        String normalized = currency.trim().toUpperCase();
+        return "KES".equals(normalized) ? "KSH" : normalized;
+    }
+
+    private String generateBankReference(Long userId, String flow) {
+        return "BNK_" + flow + "_" + userId + "_" + System.currentTimeMillis();
     }
 }

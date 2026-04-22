@@ -8,16 +8,19 @@ import com.nyle.nylepay.dto.TransferRequest;
 import com.nyle.nylepay.dto.WithdrawalRequest;
 import com.nyle.nylepay.models.UserBankDetail;
 import com.nyle.nylepay.repositories.UserBankDetailRepository;
+import com.nyle.nylepay.services.BankTransferService;
 import com.nyle.nylepay.services.MpesaService;
 import com.nyle.nylepay.services.TransactionService;
 import com.nyle.nylepay.services.providers.FlutterwaveService;
 import com.nyle.nylepay.services.routing.ExchangeRoutingService;
 import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import com.nyle.nylepay.services.cex.CexRoutingService;
 
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.Map;
 
 @RestController
@@ -30,19 +33,37 @@ public class PaymentController {
     private final UserBankDetailRepository userBankDetailRepository;
     private final ExchangeRoutingService exchangeRoutingService;
     private final FlutterwaveService flutterwaveService;
+    private final BankTransferService bankTransferService;
+
+    @Value("${nylepay.bank.collection.bank-name:NylePay Settlement Bank}")
+    private String collectionBankName;
+
+    @Value("${nylepay.bank.collection.account-name:NylePay Limited}")
+    private String collectionAccountName;
+
+    @Value("${nylepay.bank.collection.account-number:1234567890}")
+    private String collectionAccountNumber;
+
+    @Value("${nylepay.bank.collection.bank-code:NYP001}")
+    private String collectionBankCode;
+
+    @Value("${nylepay.bank.collection.swift-code:NYPWKENA}")
+    private String collectionSwiftCode;
     
     public PaymentController(MpesaService mpesaService, 
                            TransactionService transactionService,
                            CexRoutingService cexRoutingService,
                            UserBankDetailRepository userBankDetailRepository,
                            ExchangeRoutingService exchangeRoutingService,
-                           FlutterwaveService flutterwaveService) {
+                           FlutterwaveService flutterwaveService,
+                           BankTransferService bankTransferService) {
         this.mpesaService = mpesaService;
         this.transactionService = transactionService;
         this.cexRoutingService = cexRoutingService;
         this.userBankDetailRepository = userBankDetailRepository;
         this.exchangeRoutingService = exchangeRoutingService;
         this.flutterwaveService = flutterwaveService;
+        this.bankTransferService = bankTransferService;
     }
     
     @PostMapping("/deposit/mpesa")
@@ -102,32 +123,52 @@ public class PaymentController {
             @Valid @RequestBody DepositRequest request) {
         
         try {
-            // Generate bank deposit instructions
-            Map<String, Object> bankDetails = Map.of(
-                "bankName", "NylePay Bank",
-                "accountNumber", "1234567890",
-                "accountName", "NylePay Limited",
-                "branchCode", "123",
-                "swiftCode", "NYPWKENA",
-                "reference", "DEP_" + request.getUserId() + "_" + System.currentTimeMillis(),
-                "amount", request.getAmount(),
-                "currency", request.getCurrency()
-            );
-            
-            // Create pending transaction
-            var transaction = transactionService.createDeposit(
+            if (!"BANK".equalsIgnoreCase(request.getMethod())) {
+                return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Deposit method must be BANK for this endpoint"));
+            }
+
+            String bankCode = firstNonBlank(request.getBankCode(), request.getBankName());
+            String bankAccount = request.getBankAccount();
+            String accountName = request.getAccountName();
+
+            if (bankCode == null || bankCode.isBlank()) {
+                return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("bankCode is required for bank deposits"));
+            }
+            if (bankAccount == null || bankAccount.isBlank()) {
+                return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("bankAccount is required for bank deposits"));
+            }
+
+            var transaction = transactionService.createBankDepositIntent(
                 request.getUserId(),
-                "BANK",
                 request.getAmount(),
                 request.getCurrency(),
-                (String) bankDetails.get("reference"),
-                null // No routing metadata
+                bankCode,
+                request.getBankName(),
+                bankAccount,
+                accountName,
+                request.getCountry(),
+                request.getBankReference()
             );
-            
+
+            Map<String, Object> bankDetails = new HashMap<>();
+            bankDetails.put("bankName", collectionBankName);
+            bankDetails.put("bankCode", collectionBankCode);
+            bankDetails.put("accountNumber", collectionAccountNumber);
+            bankDetails.put("accountName", collectionAccountName);
+            bankDetails.put("swiftCode", collectionSwiftCode);
+            bankDetails.put("reference", transaction.getExternalId());
+            bankDetails.put("amount", request.getAmount());
+            bankDetails.put("currency", normalizeBankCurrency(request.getCurrency()));
+
             Map<String, Object> response = Map.of(
                 "transactionId", transaction.getId(),
+                "reference", transaction.getExternalId(),
+                "status", transaction.getStatus(),
                 "bankDetails", bankDetails,
-                "instructions", "Transfer the specified amount to the bank account above. Use the reference provided."
+                "instructions", "Transfer the exact amount from your bank to the settlement account above and include the reference exactly as shown. Wallet credit happens only after the verified bank callback is received."
             );
             
             return ResponseEntity.ok(ApiResponse.success(
@@ -145,13 +186,22 @@ public class PaymentController {
     public ResponseEntity<ApiResponse<UserBankDetail>> linkBank(
             @Valid @RequestBody BankLinkRequest request) {
         try {
-            UserBankDetail detail = new UserBankDetail();
+            Map<String, Object> resolved = bankTransferService.resolveAccount(
+                    request.getAccountNumber(), request.getBankCode());
+            String resolvedAccountName = firstNonBlank(
+                    asString(resolved.get("account_name")),
+                    request.getAccountName());
+
+            UserBankDetail detail = userBankDetailRepository
+                    .findByUserIdAndAccountNumber(request.getUserId(), request.getAccountNumber())
+                    .orElseGet(UserBankDetail::new);
             detail.setUserId(request.getUserId());
             detail.setBankName(request.getBankName());
             detail.setBankCode(request.getBankCode());
             detail.setAccountNumber(request.getAccountNumber());
-            detail.setAccountName(request.getAccountName());
+            detail.setAccountName(resolvedAccountName);
             detail.setCountry("KE");
+            detail.setVerified(true);
 
             UserBankDetail saved = userBankDetailRepository.save(detail);
             return ResponseEntity.ok(ApiResponse.success("Bank account linked successfully", saved));
@@ -433,8 +483,17 @@ public class PaymentController {
             case "MPESA":
                 return mpesaService.normalizePhoneNumber(request.getMpesaNumber());
             case "BANK":
-                // Format: accountNumber|bankName|KE  (TransactionService splits on |)
-                return request.getBankAccount() + "|" + request.getBankName() + "|KE";
+                String accountNumber = request.getBankAccount();
+                if (accountNumber == null || accountNumber.isBlank()) {
+                    throw new IllegalArgumentException("bankAccount is required for BANK withdrawals");
+                }
+                String bankCode = firstNonBlank(request.getBankCode(), request.getBankName());
+                if (bankCode == null || bankCode.isBlank()) {
+                    throw new IllegalArgumentException("bankCode is required for BANK withdrawals");
+                }
+                String bankCountry = firstNonBlank(request.getBankCountry(), "KE");
+                String accountName = firstNonBlank(request.getAccountName(), "");
+                return accountNumber + "|" + bankCode + "|" + bankCountry + "|" + accountName;
             case "CRYPTO":
                 return request.getCryptoAddress();
             default:
@@ -452,5 +511,26 @@ public class PaymentController {
             return "KSH";
         }
         return null;
+    }
+
+    private String normalizeBankCurrency(String currency) {
+        if (currency == null || currency.isBlank()) {
+            return "KSH";
+        }
+        String normalized = currency.trim().toUpperCase();
+        return "KES".equals(normalized) ? "KSH" : normalized;
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value.trim();
+            }
+        }
+        return null;
+    }
+
+    private String asString(Object value) {
+        return value == null ? null : String.valueOf(value);
     }
 }
