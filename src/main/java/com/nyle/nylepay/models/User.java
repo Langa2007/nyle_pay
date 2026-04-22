@@ -19,9 +19,16 @@ public class User {
     private String role = "USER"; // "USER" or "ADMIN"
 
     // Financial Rails
-    private String mpesaNumber; // For Kenya transactions
-    private String bankAccountNumber; // For Global Bank transactions
-    private String cryptoAddress; // The 0x... address we generated earlier
+    private String mpesaNumber;
+    private String bankAccountNumber;
+    private String cryptoAddress;
+
+    // KYC — Central Bank of Kenya requirement
+    /** NONE | PENDING | VERIFIED | REJECTED */
+    private String kycStatus = "NONE";
+    private String kycProvider;     // "SMILE_IDENTITY" | "MANUAL"
+    private String kycReference;    // Provider job ID
+    private java.time.LocalDateTime kycVerifiedAt;
 
     // Audit
     @Column(name = "created_at")
@@ -49,6 +56,14 @@ public class User {
     public void setBankAccountNumber(String bankAccountNumber) { this.bankAccountNumber = bankAccountNumber; }
     public String getCryptoAddress() { return cryptoAddress; }
     public void setCryptoAddress(String cryptoAddress) { this.cryptoAddress = cryptoAddress; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public LocalDateTime getCreatedAt()                        { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt)          { this.createdAt = createdAt; }
+    public String getKycStatus()                               { return kycStatus; }
+    public void setKycStatus(String kycStatus)                 { this.kycStatus = kycStatus; }
+    public String getKycProvider()                             { return kycProvider; }
+    public void setKycProvider(String kycProvider)             { this.kycProvider = kycProvider; }
+    public String getKycReference()                            { return kycReference; }
+    public void setKycReference(String kycReference)           { this.kycReference = kycReference; }
+    public java.time.LocalDateTime getKycVerifiedAt()                        { return kycVerifiedAt; }
+    public void setKycVerifiedAt(java.time.LocalDateTime kycVerifiedAt)      { this.kycVerifiedAt = kycVerifiedAt; }
 }

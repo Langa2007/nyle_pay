@@ -4,6 +4,7 @@ import com.nyle.nylepay.models.CryptoWallet;
 import com.nyle.nylepay.models.Transaction;
 import com.nyle.nylepay.repositories.CryptoWalletRepository;
 import com.nyle.nylepay.repositories.TransactionRepository;
+import com.nyle.nylepay.services.BankTransferService;
 import com.nyle.nylepay.services.MpesaService;
 import com.nyle.nylepay.services.WalletService;
 import com.nyle.nylepay.utils.EncryptionUtils;
@@ -79,19 +80,22 @@ public class OnChainWithdrawalService {
     private final EncryptionUtils        encryptionUtils;
     private final ChainConfig            chainConfig;
     private final MpesaService           mpesaService;
+    private final BankTransferService    bankTransferService;
 
     public OnChainWithdrawalService(CryptoWalletRepository cryptoWalletRepository,
                                      TransactionRepository transactionRepository,
                                      WalletService walletService,
                                      EncryptionUtils encryptionUtils,
                                      ChainConfig chainConfig,
-                                     MpesaService mpesaService) {
+                                     MpesaService mpesaService,
+                                     BankTransferService bankTransferService) {
         this.cryptoWalletRepository = cryptoWalletRepository;
         this.transactionRepository  = transactionRepository;
         this.walletService          = walletService;
         this.encryptionUtils        = encryptionUtils;
         this.chainConfig            = chainConfig;
         this.mpesaService           = mpesaService;
+        this.bankTransferService    = bankTransferService;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -307,8 +311,24 @@ public class OnChainWithdrawalService {
 
     private String routeToBank(Long userId, String asset, BigDecimal amount, String bankDetails) {
         log.info("Crypto→Bank routing queued for user {} — {} {} → {}", userId, amount, asset, bankDetails);
-        // TODO: integrate BankTransferService once KES sell settlement is confirmed
-        return "BANK_QUEUED_" + System.currentTimeMillis();
+        
+        String bankCode = "KCB"; // default
+        String accountNumber = bankDetails;
+        if (bankDetails != null && bankDetails.contains(":")) {
+            String[] parts = bankDetails.split(":");
+            bankCode = parts[0];
+            accountNumber = parts[1];
+        }
+        
+        BigDecimal kesRate = estimateKesRate(asset);
+        BigDecimal kesAmount = amount.multiply(kesRate);
+        
+        Map<String, Object> result = bankTransferService.initiateLocalBankTransfer(
+                "KE", accountNumber, bankCode, kesAmount, "KES", "NylePay Crypto Withdrawal");
+                
+        String reference = result.getOrDefault("reference", "BANK_" + System.currentTimeMillis()).toString();
+        log.info("Crypto→Bank: {} {} → KES {} → {}/{}, Ref={}", amount, asset, kesAmount, bankCode, accountNumber, reference);
+        return reference;
     }
 
     // ─────────────────────────────────────────────────────────────────────────

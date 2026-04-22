@@ -10,6 +10,7 @@ import com.nyle.nylepay.models.UserBankDetail;
 import com.nyle.nylepay.repositories.UserBankDetailRepository;
 import com.nyle.nylepay.services.MpesaService;
 import com.nyle.nylepay.services.TransactionService;
+import com.nyle.nylepay.services.providers.FlutterwaveService;
 import com.nyle.nylepay.services.routing.ExchangeRoutingService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -28,17 +29,20 @@ public class PaymentController {
     private final CexRoutingService cexRoutingService;
     private final UserBankDetailRepository userBankDetailRepository;
     private final ExchangeRoutingService exchangeRoutingService;
+    private final FlutterwaveService flutterwaveService;
     
     public PaymentController(MpesaService mpesaService, 
                            TransactionService transactionService,
                            CexRoutingService cexRoutingService,
                            UserBankDetailRepository userBankDetailRepository,
-                           ExchangeRoutingService exchangeRoutingService) {
+                           ExchangeRoutingService exchangeRoutingService,
+                           FlutterwaveService flutterwaveService) {
         this.mpesaService = mpesaService;
         this.transactionService = transactionService;
         this.cexRoutingService = cexRoutingService;
         this.userBankDetailRepository = userBankDetailRepository;
         this.exchangeRoutingService = exchangeRoutingService;
+        this.flutterwaveService = flutterwaveService;
     }
     
     @PostMapping("/deposit/mpesa")
@@ -364,7 +368,13 @@ public class PaymentController {
     }
     
     @PostMapping("/webhook/bank")
-    public ResponseEntity<String> bankWebhook(@RequestBody Map<String, Object> payload) {
+    public ResponseEntity<String> bankWebhook(
+            @RequestBody Map<String, Object> payload,
+            @RequestHeader(value = "X-Verif-Hash", required = false) String verifHash) {
+        // Security: reject unsigned or tampered webhooks before any processing
+        if (!flutterwaveService.verifyWebhookSignature(verifHash)) {
+            return ResponseEntity.status(401).body("Unauthorized: invalid or missing X-Verif-Hash");
+        }
         try {
             transactionService.processBankCallback(payload);
             return ResponseEntity.ok("Callback processed successfully");
@@ -423,7 +433,8 @@ public class PaymentController {
             case "MPESA":
                 return mpesaService.normalizePhoneNumber(request.getMpesaNumber());
             case "BANK":
-                return request.getBankAccount() + "|" + request.getBankName();
+                // Format: accountNumber|bankName|KE  (TransactionService splits on |)
+                return request.getBankAccount() + "|" + request.getBankName() + "|KE";
             case "CRYPTO":
                 return request.getCryptoAddress();
             default:

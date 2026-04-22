@@ -11,7 +11,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/admin")
 public class AdminController {
-
+    
     private final AdminService adminService;
     private final TransactionService transactionService;
 

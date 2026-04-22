@@ -3,6 +3,7 @@ package com.nyle.nylepay.controllers;
 import com.nyle.nylepay.dto.ApiResponse;
 import com.nyle.nylepay.services.UserService;
 import com.nyle.nylepay.services.WalletService;
+import com.nyle.nylepay.services.kyc.KycService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,10 +15,12 @@ public class UserController {
     
     private final UserService userService;
     private final WalletService walletService;
+    private final KycService kycService;
     
-    public UserController(UserService userService, WalletService walletService) {
+    public UserController(UserService userService, WalletService walletService, KycService kycService) {
         this.userService = userService;
         this.walletService = walletService;
+        this.kycService = kycService;
     }
     
     @GetMapping("/{userId}")
@@ -227,15 +230,17 @@ public class UserController {
     }
     
     @PostMapping("/{userId}/verify-identity")
-    public ResponseEntity<ApiResponse<String>> verifyIdentity(
+    public ResponseEntity<ApiResponse<Map<String, Object>>> verifyIdentity(
             @PathVariable Long userId,
             @RequestParam String documentType, // "ID", "PASSPORT", "DRIVER_LICENSE"
-            @RequestParam String documentNumber) {
+            @RequestParam String documentNumber,
+            @RequestParam(required = false, defaultValue = "KE") String country,
+            @RequestParam(required = false) String selfieBase64) {
         
         try {
-            // TODO: Implement identity verification with third-party service
+            var result = kycService.submitKyc(userId, documentType, documentNumber, country, selfieBase64);
             return ResponseEntity.ok(ApiResponse.success(
-                "Identity verification submitted for processing"
+                "Identity verification submitted for processing", result
             ));
             
         } catch (Exception e) {

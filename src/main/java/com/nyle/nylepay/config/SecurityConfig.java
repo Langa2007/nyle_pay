@@ -40,11 +40,16 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**", "/api/payments/webhook/**",
+                        .requestMatchers(
+                                "/api/auth/**",
+                                "/api/payments/webhook/**",
+                                "/api/card/webhook/**",   // Paystack + Stripe card webhooks (HMAC-verified)
+                                "/api/kyc/webhook",       // Smile Identity KYC result callbacks
+                                "/api/merchant/pay/**",   // Public payment link checkout pages
                                 "/swagger-ui/**", "/api-docs/**",
                                 "/v3/api-docs/**", "/admin/**", "/css/**", "/js/**", "/*.html", "/images/**")
                         .permitAll()
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/admin/**", "/api/merchant/activate/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))

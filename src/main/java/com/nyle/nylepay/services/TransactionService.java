@@ -1,4 +1,5 @@
 // TransactionService.java - UPDATED
+// TransactionService.java - UPDATED
 package com.nyle.nylepay.services;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -7,7 +8,6 @@ import com.nyle.nylepay.repositories.TransactionRepository;
 import com.nyle.nylepay.models.User;
 import com.nyle.nylepay.repositories.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -32,18 +32,21 @@ public class TransactionService {
     private final WalletService walletService;
     private final MpesaService mpesaService;
     private final EmailService emailService;
+    private final BankTransferService bankTransferService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public TransactionService(TransactionRepository transactionRepository,
             UserRepository userRepository,
             WalletService walletService,
             MpesaService mpesaService,
-            EmailService emailService) {
+            EmailService emailService,
+            BankTransferService bankTransferService) {
         this.transactionRepository = transactionRepository;
         this.userRepository = userRepository;
         this.walletService = walletService;
         this.mpesaService = mpesaService;
         this.emailService = emailService;
+        this.bankTransferService = bankTransferService;
     }
 
     @Transactional
@@ -120,7 +123,6 @@ public class TransactionService {
         // For MPesa withdrawals, initiate immediately
         if ("MPESA".equalsIgnoreCase(provider)) {
             try {
-                // Initiate MPesa B2C payment
                 Map<String, Object> mpesaResult = mpesaService.initiateB2C(
                         destination, amount, "NylePay Withdrawal");
                 String conversationId = firstNonBlank(
@@ -142,9 +144,38 @@ public class TransactionService {
             } catch (Exception e) {
                 transaction.setStatus("FAILED");
                 transaction.setExternalId("FAILED_" + transaction.getExternalId());
-                // Refund the deducted amount
                 walletService.addBalance(userId, currency, totalDeduction);
                 throw new RuntimeException("Withdrawal failed: " + e.getMessage(), e);
+            }
+
+        } else if ("BANK".equalsIgnoreCase(provider)) {
+            // destination format: "accountNumber|bankCode|country" (PaymentController builds this)
+            String[] parts = destination.split("\\|");
+            String accountNumber = parts.length > 0 ? parts[0] : destination;
+            String bankCode      = parts.length > 1 ? parts[1] : "";
+            String country       = parts.length > 2 ? parts[2] : "KE";
+            try {
+                Map<String, Object> bankResult = bankTransferService.initiateLocalBankTransfer(
+                        country, accountNumber, bankCode, amount, currency,
+                        "NylePay Withdrawal " + transaction.getExternalId());
+                // Use Flutterwave transfer ID as the external correlation key
+                String transferId = String.valueOf(bankResult.getOrDefault("id",
+                        bankResult.getOrDefault("reference", transaction.getExternalId())));
+                transaction.setExternalId(transferId);
+                Map<String, Object> metadata = new HashMap<>();
+                metadata.put("destination", destination);
+                metadata.put("accountNumber", accountNumber);
+                metadata.put("bankCode", bankCode);
+                metadata.put("country", country);
+                metadata.put("fee", fee);
+                metadata.put("requestedAmount", amount);
+                metadata.put("totalDeduction", totalDeduction);
+                metadata.put("providerResponse", bankResult);
+                transaction.setMetadata(writeMetadata(metadata));
+            } catch (Exception e) {
+                transaction.setStatus("FAILED");
+                walletService.addBalance(userId, currency, totalDeduction);
+                throw new RuntimeException("Bank withdrawal failed: " + e.getMessage(), e);
             }
         }
 
@@ -415,54 +446,80 @@ public class TransactionService {
 
     @Transactional
     public void processBankCallback(Map<String, Object> callbackData) {
-        try {
-            String reference = (String) callbackData.get("reference");
-            if (reference == null && callbackData.containsKey("data") && callbackData.get("data") instanceof Map) {
-                // Flutterwave style
+        // Parse reference from either flat or Flutterwave-nested payload
+        String reference = (String) callbackData.get("reference");
+        if (reference == null && callbackData.containsKey("data") && callbackData.get("data") instanceof Map) {
                 Map<?, ?> dataObj = (Map<?, ?>) callbackData.get("data");
                 Map<String, Object> data = new java.util.HashMap<>();
                 dataObj.forEach((k, v) -> data.put(String.valueOf(k), v));
-                reference = (String) data.get("tx_ref");
+            reference = (String) data.get("tx_ref");
                 if (reference == null) reference = (String) data.get("reference");
-            }
-            
-            String status = (String) callbackData.get("status");
-            if (status == null && callbackData.containsKey("data") && callbackData.get("data") instanceof Map) {
-                status = (String) ((Map<?, ?>) callbackData.get("data")).get("status");
-            }
+        }
 
-            // Find transaction by reference
-            Optional<Transaction> transactionOpt = transactionRepository.findByExternalId(reference);
+        if (reference == null) {
+            logger.warn("Ignoring bank callback without reference: {}", callbackData);
+            return;
+        }
 
-            if (transactionOpt.isPresent()) {
-                Transaction transaction = transactionOpt.get();
+        String status = (String) callbackData.get("status");
+        if (status == null && callbackData.containsKey("data") && callbackData.get("data") instanceof Map) {
+            status = (String) ((Map<?, ?>) callbackData.get("data")).get("status");
+        }
 
-                if ("success".equalsIgnoreCase(status) || "successful".equalsIgnoreCase(status) || "completed".equalsIgnoreCase(status)) {
-                    transaction.setStatus("COMPLETED");
-                    walletService.addBalance(transaction.getUserId(), transaction.getCurrency(), transaction.getAmount());
-                    
-                    // CHECK FOR NEXT LEG IN METADATA
-                    if (transaction.getMetadata() != null) {
-                        Map<?, ?> metaObj = new ObjectMapper().readValue(transaction.getMetadata(), Map.class);
-                        Map<String, Object> meta = new java.util.HashMap<>();
-                        metaObj.forEach((k, v) -> meta.put(String.valueOf(k), v));
-                        
-                        if ("MPESA_PUSH".equals(meta.get("nextLeg"))) {
-                            String mpesaNumber = (String) meta.get("mpesaNumber");
-                            mpesaService.initiateB2C(mpesaNumber, transaction.getAmount(), "NylePay Routing");
+        Optional<Transaction> transactionOpt = transactionRepository.findByExternalId(reference);
+        if (transactionOpt.isEmpty()) {
+            logger.warn("No bank transaction found for reference={}", reference);
+            return;
+        }
+
+        Transaction transaction = transactionOpt.get();
+
+        // ACID-Idempotency: discard Flutterwave retries for already-settled txns
+        if (isFinalStatus(transaction.getStatus())) {
+            logger.info("Ignoring duplicate bank callback for settled transaction {}", transaction.getId());
+            return;
+        }
+
+        if ("success".equalsIgnoreCase(status) || "successful".equalsIgnoreCase(status)
+                || "completed".equalsIgnoreCase(status)) {
+
+            transaction.setStatus("COMPLETED");
+            // ACID-Isolation: SELECT FOR UPDATE inside addBalance
+            walletService.addBalance(transaction.getUserId(), transaction.getCurrency(), transaction.getAmount());
+
+            // Multi-leg routing: Bank -> M-Pesa
+            if (transaction.getMetadata() != null) {
+                try {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> meta = objectMapper.readValue(transaction.getMetadata(), Map.class);
+                    if ("MPESA_PUSH".equals(meta.get("nextLeg"))) {
+                        String mpesaNumber = (String) meta.get("mpesaNumber");
+                        if (mpesaNumber == null || mpesaNumber.isBlank()) {
+                            logger.error("Bank->M-Pesa routing metadata missing mpesaNumber for tx {}", transaction.getId());
+                        } else {
+                            // Throws propagate -> @Transactional rolls back wallet credit too
+                            mpesaService.initiateB2C(mpesaNumber, transaction.getAmount(), "NylePay Bank->M-Pesa");
+                            logger.info("Bank->M-Pesa routing dispatched: tx={} mpesa={}", transaction.getId(), mpesaNumber);
                         }
                     }
-                } else {
-                    transaction.setStatus("FAILED");
+                } catch (com.fasterxml.jackson.core.JsonProcessingException ex) {
+                    logger.error("Failed to parse routing metadata for bank tx {}: {}", transaction.getId(), ex.getMessage());
                 }
-
-                transactionRepository.save(transaction);
             }
-
-        } catch (Exception e) {
-            e.printStackTrace();
+        } else {
+            transaction.setStatus("FAILED");
         }
+
+        // ACID-Atomicity: propagates to @Transactional — any failure rolls back wallet credit
+        try {
+            transactionRepository.save(transaction);
+        } catch (DataIntegrityViolationException e) {
+            logger.warn("Duplicate bank callback rejected by unique constraint for reference={}", reference);
+            throw e;
+        }
+        notifyUser(transaction);
     }
+
 
     public Optional<Transaction> getTransactionById(Long id) {
         return transactionRepository.findById(id);

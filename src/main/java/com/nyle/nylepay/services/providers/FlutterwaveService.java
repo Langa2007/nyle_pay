@@ -18,6 +18,9 @@ public class FlutterwaveService {
     @Value("${flutterwave.secret-key}")
     private String secretKey;
 
+    @Value("${flutterwave.webhook-secret:}")
+    private String webhookSecret;
+
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final String BASE_URL = "https://api.flutterwave.com/v3";
@@ -78,5 +81,22 @@ public class FlutterwaveService {
         } catch (Exception e) {
             throw new RuntimeException("Account resolution failed: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Verifies the Flutterwave webhook X-Verif-Hash header.
+     * Flutterwave sends a static secret (set in your dashboard under Webhooks).
+     * Constant-time comparison prevents timing-oracle attacks.
+     *
+     * @param verifHash value of the X-Verif-Hash header from the incoming request
+     * @return true if the hash matches the configured webhook secret
+     */
+    public boolean verifyWebhookSignature(String verifHash) {
+        if (webhookSecret == null || webhookSecret.isBlank()) return false;
+        if (verifHash == null) return false;
+        return java.security.MessageDigest.isEqual(
+            webhookSecret.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+            verifHash.getBytes(java.nio.charset.StandardCharsets.UTF_8)
+        );
     }
 }
