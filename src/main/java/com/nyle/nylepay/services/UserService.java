@@ -12,9 +12,12 @@ import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class UserService {
+    private static final Logger log = LoggerFactory.getLogger(UserService.class);
 
     private final UserRepository userRepository;
     private final WalletRepository walletRepository;
@@ -199,9 +202,13 @@ public class UserService {
         }
 
         user.setBankAccountNumber(cleanedAccountNumber);
+        user.setBankName(bankName);
+        user.setBankVerificationStatus("PENDING");
+        
         User savedUser = userRepository.save(user);
 
-        // TODO: Initiate bank account verification process
+        // TODO: Initiate bank account verification process with provider (e.g., Flutterwave Account Resolve)
+        log.info("Bank account update initiated for user {}: {} ({})", userId, bankName, cleanedAccountNumber);
 
         return savedUser;
     }
@@ -408,3 +415,5 @@ public class UserService {
 
     // Password reset email is now sent via EmailService.sendPasswordResetEmail()
 }
+
+

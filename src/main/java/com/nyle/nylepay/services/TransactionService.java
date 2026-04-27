@@ -15,10 +15,12 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.nyle.nylepay.exceptions.NylePayException;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,6 +43,7 @@ public class TransactionService {
                 asset,
                 txHash,
                 writeMetadata(metadata));
+        transaction.setTransactionCode(generateTransactionCode("DEPOSIT", "CRYPTO"));
         transaction.setStatus("COMPLETED"); // Auto-credited
         return transactionRepository.save(transaction);
     }
@@ -62,6 +65,7 @@ public class TransactionService {
         metadata.put("destination", destination);
         metadata.put("txHash", txHash);
         transaction.setMetadata(writeMetadata(metadata));
+        transaction.setTransactionCode(generateTransactionCode("WITHDRAW", "CRYPTO"));
 
         return transactionRepository.save(transaction);
     }
@@ -111,6 +115,7 @@ public class TransactionService {
         transaction.setTimestamp(LocalDateTime.now());
         transaction.setExternalId(externalId);
         transaction.setMetadata(metadata);
+        transaction.setTransactionCode(generateTransactionCode("DEPOSIT", provider));
 
         return transactionRepository.save(transaction);
     }
@@ -158,6 +163,7 @@ public class TransactionService {
         transaction.setStatus("PROCESSING");
         transaction.setTimestamp(LocalDateTime.now());
         transaction.setExternalId("WDR_" + System.currentTimeMillis() + "_" + userId);
+        transaction.setTransactionCode(generateTransactionCode("WITHDRAW", provider));
 
         // For MPesa withdrawals, initiate immediately
         if ("MPESA".equalsIgnoreCase(provider)) {
@@ -310,6 +316,7 @@ public class TransactionService {
         senderTransaction.setStatus("COMPLETED");
         senderTransaction.setTimestamp(LocalDateTime.now());
         senderTransaction.setExternalId("TRF_" + System.currentTimeMillis());
+        senderTransaction.setTransactionCode(generateTransactionCode("TRANSFER_OUT", "NYLEPAY"));
         transactionRepository.save(senderTransaction);
 
         // Create fee transaction if applicable
@@ -336,6 +343,7 @@ public class TransactionService {
         recipientTransaction.setStatus("COMPLETED");
         recipientTransaction.setTimestamp(LocalDateTime.now());
         recipientTransaction.setExternalId("TRF_" + System.currentTimeMillis());
+        recipientTransaction.setTransactionCode(generateTransactionCode("TRANSFER_IN", "NYLEPAY"));
 
         return transactionRepository.save(recipientTransaction);
     }
@@ -372,6 +380,7 @@ public class TransactionService {
         transaction.setStatus("COMPLETED");
         transaction.setTimestamp(LocalDateTime.now());
         transaction.setExternalId("CVT_" + System.currentTimeMillis());
+        transaction.setTransactionCode(generateTransactionCode("CONVERSION", "EXCHANGE"));
 
         Transaction savedTransaction = transactionRepository.save(transaction);
 
@@ -1047,7 +1056,7 @@ public class TransactionService {
 
         String mpesaNumber = asString(meta.get("mpesaNumber"));
         if (mpesaNumber == null) {
-            throw new RuntimeException(
+            throw new NylePayException(
                     "Bank->M-Pesa routing metadata missing mpesaNumber for tx " + transaction.getId());
         }
 
@@ -1320,6 +1329,7 @@ public class TransactionService {
         transaction.setTimestamp(LocalDateTime.now());
         transaction.setExternalId(externalId);
         transaction.setMetadata(writeMetadata(metadata));
+        transaction.setTransactionCode(generateTransactionCode("LOCAL_PAYMENT", paymentType));
 
         Transaction saved = transactionRepository.save(transaction);
         logger.info("Local payment created: userId={} type={} amount={} destination={} txId={}",
@@ -1380,5 +1390,41 @@ public class TransactionService {
         mergeMetadata(transaction, Map.of("b2bResultCode", resultCode, "b2bCallback", payload));
         transactionRepository.save(transaction);
         notifyUser(transaction);
+    }
+
+    private String generateTransactionCode(String type, String provider) {
+        String prefix = "NYL";
+        String upperType = type != null ? type.toUpperCase() : "";
+        String upperProv = provider != null ? provider.toUpperCase() : "";
+
+        if (upperType.contains("DEPOSIT")) {
+            if (upperProv.contains("MPESA"))
+                prefix = "MP2NP";
+            else if (upperProv.contains("BANK"))
+                prefix = "BK2NP";
+            else if (upperProv.contains("CRYPTO"))
+                prefix = "CX2NP";
+            else
+                prefix = "DP2NP";
+        } else if (upperType.contains("WITHDRAW")) {
+            if (upperProv.contains("MPESA"))
+                prefix = "NP2MP";
+            else if (upperProv.contains("BANK"))
+                prefix = "NP2BK";
+            else if (upperProv.contains("CRYPTO"))
+                prefix = "NP2CX";
+            else
+                prefix = "NP2WD";
+        } else if (upperType.contains("TRANSFER")) {
+            prefix = "NP2NP";
+        } else if (upperType.contains("CONVERSION")) {
+            prefix = "NPXCH";
+        } else if (upperType.contains("LOCAL_PAYMENT") || upperType.contains("TILL") || upperType.contains("PAYBILL")
+                || upperType.contains("POCHI")) {
+            prefix = "NPPAY";
+        }
+
+        String randomPart = UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase();
+        return prefix + "-" + randomPart;
     }
 }

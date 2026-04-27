@@ -10,6 +10,10 @@ import org.springframework.web.bind.annotation.*;
 import com.nyle.nylepay.models.User;
 import com.nyle.nylepay.services.UserService;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.nyle.nylepay.exceptions.NylePayException;
 import java.math.BigDecimal;
 import java.util.Map;
 import java.util.Optional;
@@ -18,6 +22,7 @@ import java.util.Optional;
 @RequestMapping("/api/exchange")
 public class ExchangeController {
 
+    private static final Logger logger = LoggerFactory.getLogger(ExchangeController.class);
     private final CryptoExchangeService cryptoExchangeService;
     private final UserService userService;
 
@@ -37,7 +42,8 @@ public class ExchangeController {
                     Map.of("from", from.toUpperCase(), "to", to.toUpperCase(), "rate", rate)
             ));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+            logger.error("Error retrieving exchange rate: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(ApiResponse.error("Unable to retrieve exchange rate. Please try again later."));
         }
     }
 
@@ -52,7 +58,7 @@ public class ExchangeController {
             // Get logged in user context
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             if (authentication == null || !authentication.isAuthenticated()) {
-                throw new RuntimeException("User holds no valid authentication context");
+                throw new NylePayException("User holds no valid authentication context");
             }
             
             Object principal = authentication.getPrincipal();
@@ -65,18 +71,22 @@ public class ExchangeController {
 
             Optional<User> userOpt = userService.getUserByEmail(email);
             if (userOpt.isEmpty()) {
-                throw new RuntimeException("Authenticated user profile not found");
+                throw new NylePayException("Authenticated user profile not found");
             }
             Long userId = userOpt.get().getId();
 
             Map<String, Object> result = cryptoExchangeService.swapCrypto(userId, fromAsset, toAsset, amount);
             
             return ResponseEntity.ok(ApiResponse.success(
-                    "Crypto Swap executed successfully",
+                    "Crypto Swap executed successfully. Transaction Code: " + result.get("transactionCode"),
                     result
             ));
-        } catch (Exception e) {
+        } catch (NylePayException e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        } catch (Exception e) {
+            logger.error("Error during crypto swap: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(ApiResponse.error("Unable to complete swap. Please check your balance and try again."));
         }
     }
 }
+

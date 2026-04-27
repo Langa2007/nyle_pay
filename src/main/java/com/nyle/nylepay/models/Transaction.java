@@ -31,6 +31,9 @@ public class Transaction {
     @Column(columnDefinition = "TEXT")
     private String metadata;    // JSON string for complex routing ops
 
+    @Column(name = "transaction_code", unique = true, length = 32)
+    private String transactionCode;   // Unique human-readable reference (e.g. NP2MP-ABC123)
+
     // Getters and Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -52,4 +55,7 @@ public class Transaction {
     public void setExternalId(String externalId) { this.externalId = externalId; }
     public String getMetadata() { return metadata; }
     public void setMetadata(String metadata) { this.metadata = metadata; }
+    public String getTransactionCode() { return transactionCode; }
+    public void setTransactionCode(String transactionCode) { this.transactionCode = transactionCode; }
+
 }

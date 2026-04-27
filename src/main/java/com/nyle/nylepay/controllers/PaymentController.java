@@ -19,6 +19,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import com.nyle.nylepay.services.cex.CexRoutingService;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
@@ -26,7 +29,8 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/payments")
 public class PaymentController {
-    
+    private static final Logger log = LoggerFactory.getLogger(PaymentController.class);
+
     private final MpesaService mpesaService;
     private final TransactionService transactionService;
     private final CexRoutingService cexRoutingService;
@@ -49,14 +53,14 @@ public class PaymentController {
 
     @Value("${nylepay.bank.collection.swift-code:NYPWKENA}")
     private String collectionSwiftCode;
-    
-    public PaymentController(MpesaService mpesaService, 
-                           TransactionService transactionService,
-                           CexRoutingService cexRoutingService,
-                           UserBankDetailRepository userBankDetailRepository,
-                           ExchangeRoutingService exchangeRoutingService,
-                           FlutterwaveService flutterwaveService,
-                           BankTransferService bankTransferService) {
+
+    public PaymentController(MpesaService mpesaService,
+            TransactionService transactionService,
+            CexRoutingService cexRoutingService,
+            UserBankDetailRepository userBankDetailRepository,
+            ExchangeRoutingService exchangeRoutingService,
+            FlutterwaveService flutterwaveService,
+            BankTransferService bankTransferService) {
         this.mpesaService = mpesaService;
         this.transactionService = transactionService;
         this.cexRoutingService = cexRoutingService;
@@ -65,15 +69,15 @@ public class PaymentController {
         this.flutterwaveService = flutterwaveService;
         this.bankTransferService = bankTransferService;
     }
-    
+
     @PostMapping("/deposit/mpesa")
     public ResponseEntity<ApiResponse<Map<String, Object>>> mpesaDeposit(
             @Valid @RequestBody DepositRequest request) {
-        
+
         try {
             if (!"MPESA".equalsIgnoreCase(request.getMethod())) {
                 return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("Deposit method must be MPESA for this endpoint"));
+                        .body(ApiResponse.error("Deposit method must be MPESA "));
             }
 
             String normalizedPhoneNumber = mpesaService.normalizePhoneNumber(request.getMpesaNumber());
@@ -81,51 +85,52 @@ public class PaymentController {
 
             if (currency == null) {
                 return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("MPesa deposits are only supported in KSH/KES"));
+                        .body(ApiResponse.error("MPesa deposits are only supported in KSH/KES"));
             }
-            
+
             // Initiate MPesa STK push
             Map<String, Object> mpesaResponse = mpesaService.stkPush(
-                normalizedPhoneNumber,
-                request.getAmount(),
-                "DEPOSIT_" + System.currentTimeMillis()
-            );
-            
+                    normalizedPhoneNumber,
+                    request.getAmount(),
+                    "DEPOSIT_" + System.currentTimeMillis());
+
             // Create pending transaction
             var transaction = transactionService.createDeposit(
-                request.getUserId(),
-                "MPESA",
-                request.getAmount(),
-                currency,
-                (String) mpesaResponse.get("CheckoutRequestID"),
-                null // No routing metadata
+                    request.getUserId(),
+                    "MPESA",
+                    request.getAmount(),
+                    currency,
+                    (String) mpesaResponse.get("CheckoutRequestID"),
+                    null // No routing metadata
             );
-            
+
             Map<String, Object> response = Map.of(
                 "transactionId", transaction.getId(),
+                "transactionCode", transaction.getTransactionCode(),
                 "mpesaResponse", mpesaResponse,
-                "message", "MPesa payment initiated. Please check your phone to complete payment."
+                "message", "MPesa payment initiated. Please check your phone to complete payment. Transaction Code: " + transaction.getTransactionCode()
             );
-            
+
             return ResponseEntity.ok(ApiResponse.success(
-                "Deposit initiated successfully", 
+                "Deposit initiated successfully",
                 response
             ));
-            
+
         } catch (Exception e) {
+            log.error("Internal error during M-Pesa deposit: {}", e.getMessage(), e);
             return ResponseEntity.badRequest()
-                .body(ApiResponse.error(e.getMessage()));
+                .body(ApiResponse.error("Unable to initiate deposit. Please verify your details and try again."));
         }
     }
-    
+
     @PostMapping("/deposit/bank")
     public ResponseEntity<ApiResponse<Map<String, Object>>> bankDeposit(
             @Valid @RequestBody DepositRequest request) {
-        
+
         try {
             if (!"BANK".equalsIgnoreCase(request.getMethod())) {
                 return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("Deposit method must be BANK for this endpoint"));
+                        .body(ApiResponse.error("Deposit method must be BANK"));
             }
 
             String bankCode = firstNonBlank(request.getBankCode(), request.getBankName());
@@ -134,24 +139,23 @@ public class PaymentController {
 
             if (bankCode == null || bankCode.isBlank()) {
                 return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("bankCode is required for bank deposits"));
+                        .body(ApiResponse.error("bankCode is required for bank deposits"));
             }
             if (bankAccount == null || bankAccount.isBlank()) {
                 return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("bankAccount is required for bank deposits"));
+                        .body(ApiResponse.error("bankAccount is required for bank deposits"));
             }
 
             var transaction = transactionService.createBankDepositIntent(
-                request.getUserId(),
-                request.getAmount(),
-                request.getCurrency(),
-                bankCode,
-                request.getBankName(),
-                bankAccount,
-                accountName,
-                request.getCountry(),
-                request.getBankReference()
-            );
+                    request.getUserId(),
+                    request.getAmount(),
+                    request.getCurrency(),
+                    bankCode,
+                    request.getBankName(),
+                    bankAccount,
+                    accountName,
+                    request.getCountry(),
+                    request.getBankReference());
 
             Map<String, Object> bankDetails = new HashMap<>();
             bankDetails.put("bankName", collectionBankName);
@@ -165,20 +169,22 @@ public class PaymentController {
 
             Map<String, Object> response = Map.of(
                 "transactionId", transaction.getId(),
+                "transactionCode", transaction.getTransactionCode(),
                 "reference", transaction.getExternalId(),
                 "status", transaction.getStatus(),
                 "bankDetails", bankDetails,
-                "instructions", "Transfer the exact amount from your bank to the settlement account above and include the reference exactly as shown. Wallet credit happens only after the verified bank callback is received."
+                "instructions", "Transfer the exact amount from your bank to the settlement account above and include the reference exactly as shown. Transaction Code: " + transaction.getTransactionCode()
             );
-            
+
             return ResponseEntity.ok(ApiResponse.success(
                 "Bank deposit instructions generated",
                 response
             ));
-            
+
         } catch (Exception e) {
+            log.error("Internal error during bank deposit: {}", e.getMessage(), e);
             return ResponseEntity.badRequest()
-                .body(ApiResponse.error(e.getMessage()));
+                .body(ApiResponse.error("Unable to generate deposit instructions. Please try again later."));
         }
     }
 
@@ -223,170 +229,164 @@ public class PaymentController {
             Map<String, Object> result = exchangeRoutingService.moveBankToMpesa(
                     userId, bankCode, accountNumber, amount, mpesaNumber);
 
-            return ResponseEntity.ok(ApiResponse.success("Bank to M-Pesa routing initiated", result));
+            return ResponseEntity.ok(ApiResponse.success("Bank to M-Pesa payment initiated", result));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
     }
-    
+
     @PostMapping("/withdraw")
     public ResponseEntity<ApiResponse<Map<String, Object>>> withdraw(
             @Valid @RequestBody WithdrawalRequest request) {
-        
+
         try {
             String currency = request.getCurrency();
             if ("MPESA".equalsIgnoreCase(request.getMethod())) {
                 currency = normalizeMpesaCurrency(request.getCurrency());
                 if (currency == null) {
                     return ResponseEntity.badRequest()
-                        .body(ApiResponse.error("MPesa withdrawals are only supported in KSH/KES"));
+                            .body(ApiResponse.error("MPesa withdrawals are only supported in KSH/KES"));
                 }
             }
 
             var transaction = transactionService.createWithdrawal(
-                request.getUserId(),
-                request.getMethod(),
-                request.getAmount(),
-                currency,
-                getDestination(request)
-            );
-            
+                    request.getUserId(),
+                    request.getMethod(),
+                    request.getAmount(),
+                    currency,
+                    getDestination(request));
+
             Map<String, Object> response = Map.of(
-                "transactionId", transaction.getId(),
-                "amount", request.getAmount(),
-                "currency", currency,
-                "method", request.getMethod(),
-                "status", transaction.getStatus(),
-                "estimatedCompletion", "1-3 business days"
-            );
-            
+                    "transactionId", transaction.getId(),
+                    "transactionCode", transaction.getTransactionCode(),
+                    "amount", request.getAmount(),
+                    "currency", currency,
+                    "method", request.getMethod(),
+                    "status", transaction.getStatus(),
+                    "estimatedCompletion", "1-3 business days");
+
             return ResponseEntity.ok(ApiResponse.success(
-                "Withdrawal request submitted",
-                response
-            ));
-            
+                    "Withdrawal request submitted. Transaction Code: " + transaction.getTransactionCode(),
+                    response));
+
         } catch (Exception e) {
+            log.error("Internal error during withdrawal: {}", e.getMessage(), e);
             return ResponseEntity.badRequest()
-                .body(ApiResponse.error(e.getMessage()));
+                    .body(ApiResponse.error("Unable to process withdrawal. Please check your balance and try again."));
         }
     }
-    
+
     @PostMapping("/transfer")
     public ResponseEntity<ApiResponse<Map<String, Object>>> transfer(
             @Valid @RequestBody TransferRequest request) {
-        
+
         try {
             var transaction = transactionService.createTransfer(
-                request.getFromUserId(),
-                request.getToIdentifier(),
-                request.getAmount(),
-                request.getCurrency(),
-                request.getDescription()
-            );
-            
+                    request.getFromUserId(),
+                    request.getToIdentifier(),
+                    request.getAmount(),
+                    request.getCurrency(),
+                    request.getDescription());
+
             Map<String, Object> response = Map.of(
-                "transactionId", transaction.getId(),
-                "fromUserId", request.getFromUserId(),
-                "toIdentifier", request.getToIdentifier(),
-                "amount", request.getAmount(),
-                "currency", request.getCurrency(),
-                "status", transaction.getStatus()
-            );
-            
+                    "transactionId", transaction.getId(),
+                    "transactionCode", transaction.getTransactionCode(),
+                    "fromUserId", request.getFromUserId(),
+                    "toIdentifier", request.getToIdentifier(),
+                    "amount", request.getAmount(),
+                    "currency", request.getCurrency(),
+                    "status", transaction.getStatus());
+
             return ResponseEntity.ok(ApiResponse.success(
-                "Transfer initiated successfully",
-                response
-            ));
-            
+                    "Transfer initiated successfully. Transaction Code: " + transaction.getTransactionCode(),
+                    response));
+
         } catch (Exception e) {
+            log.error("Internal error during transfer: {}", e.getMessage(), e);
             return ResponseEntity.badRequest()
-                .body(ApiResponse.error(e.getMessage()));
+                    .body(ApiResponse.error("Unable to complete transfer. Please verify recipient details and try again."));
         }
     }
-    
+
     @PostMapping("/convert")
     public ResponseEntity<ApiResponse<Map<String, Object>>> convertCurrency(
             @Valid @RequestBody ConversionRequest request) {
-        
+
         try {
             var transaction = transactionService.createConversion(
-                request.getUserId(),
-                request.getFromCurrency(),
-                request.getToCurrency(),
-                request.getAmount()
-            );
-            
+                    request.getUserId(),
+                    request.getFromCurrency(),
+                    request.getToCurrency(),
+                    request.getAmount());
+
             Map<String, Object> response = Map.of(
-                "transactionId", transaction.getId(),
-                "fromCurrency", request.getFromCurrency(),
-                "toCurrency", request.getToCurrency(),
-                "amount", request.getAmount(),
-                "exchangeRate", transaction.getAmount(), // Amount after conversion
-                "status", transaction.getStatus()
-            );
-            
+                    "transactionId", transaction.getId(),
+                    "transactionCode", transaction.getTransactionCode(),
+                    "fromCurrency", request.getFromCurrency(),
+                    "toCurrency", request.getToCurrency(),
+                    "amount", request.getAmount(),
+                    "exchangeRate", transaction.getAmount(), // Amount after conversion
+                    "status", transaction.getStatus());
+
             return ResponseEntity.ok(ApiResponse.success(
-                "Currency conversion initiated",
-                response
-            ));
-            
+                    "Currency conversion initiated. Transaction Code: " + transaction.getTransactionCode(),
+                    response));
+
         } catch (Exception e) {
+            log.error("Internal error during currency conversion: {}", e.getMessage(), e);
             return ResponseEntity.badRequest()
-                .body(ApiResponse.error(e.getMessage()));
+                    .body(ApiResponse.error("Unable to perform conversion. Please try again later."));
         }
     }
-    
+
     @GetMapping("/transaction/{id}")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getTransaction(
             @PathVariable Long id) {
-        
+
         try {
             var transaction = transactionService.getTransactionById(id);
-            
+
             if (transaction.isEmpty()) {
                 return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("Transaction not found"));
+                        .body(ApiResponse.error("Transaction not found"));
             }
-            
+
             return ResponseEntity.ok(ApiResponse.success(
-                "Transaction retrieved",
-                Map.of("transaction", transaction.get())
-            ));
-            
+                    "Transaction retrieved",
+                    Map.of("transaction", transaction.get())));
+
         } catch (Exception e) {
             return ResponseEntity.badRequest()
-                .body(ApiResponse.error(e.getMessage()));
+                    .body(ApiResponse.error(e.getMessage()));
         }
     }
-    
+
     @GetMapping("/user/{userId}/transactions")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getUserTransactions(
             @PathVariable Long userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        
+
         try {
             var transactions = transactionService.getUserTransactions(userId, page, size);
             var stats = transactionService.getTransactionStats(userId);
-            
+
             Map<String, Object> response = Map.of(
-                "transactions", transactions,
-                "stats", stats,
-                "page", page,
-                "size", size
-            );
-            
+                    "transactions", transactions,
+                    "stats", stats,
+                    "page", page,
+                    "size", size);
+
             return ResponseEntity.ok(ApiResponse.success(
-                "Transactions retrieved",
-                response
-            ));
-            
+                    "Transactions retrieved",
+                    response));
+
         } catch (Exception e) {
             return ResponseEntity.badRequest()
-                .body(ApiResponse.error(e.getMessage()));
+                    .body(ApiResponse.error(e.getMessage()));
         }
     }
-    
+
     @PostMapping("/webhook/mpesa")
     public ResponseEntity<String> mpesaWebhook(@RequestBody Map<String, Object> payload) {
         try {
@@ -429,7 +429,7 @@ public class PaymentController {
             return ResponseEntity.badRequest().body("Error processing B2B callback");
         }
     }
-    
+
     @PostMapping("/webhook/bank")
     public ResponseEntity<String> bankWebhook(
             @RequestBody Map<String, Object> payload,
@@ -445,7 +445,7 @@ public class PaymentController {
             return ResponseEntity.badRequest().body("Error processing callback");
         }
     }
-    
+
     @PostMapping("/cex/connect")
     public ResponseEntity<ApiResponse<String>> connectCex(
             @RequestBody Map<String, Object> request) {
@@ -456,7 +456,7 @@ public class PaymentController {
             String apiSecret = request.get("apiSecret").toString();
 
             cexRoutingService.linkAccount(userId, exchange, apiKey, apiSecret);
-            
+
             return ResponseEntity.ok(ApiResponse.success("Successfully linked " + exchange + " account", null));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
@@ -484,13 +484,13 @@ public class PaymentController {
             String mpesaNumber = request.get("mpesaNumber").toString();
 
             Map<String, Object> result = cexRoutingService.autoRouteToMpesa(userId, asset, amount, mpesaNumber);
-            
+
             return ResponseEntity.ok(ApiResponse.success("CEX Withdrawal to M-Pesa initiated", result));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
     }
-    
+
     private String getDestination(WithdrawalRequest request) {
         switch (request.getMethod().toUpperCase()) {
             case "MPESA":

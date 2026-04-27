@@ -463,9 +463,21 @@ All sensitive values are injected from environment variables. Set these in your 
 ## Roadmap
 
 - [x] **Phase 1** — Local Payment Rails (Till, Paybill, Pochi, Send Money, ACID Settlement, KYC)
-- [x] **Phase 2** — Security Hardening (2FA/OTP, Anti-fraud velocity checks, Audit logs, Account lockout)
-- [x] **Phase 3** — CEX & Cross-Border (Crypto Bridge, Auto-conversion to KES, CEX Withdrawals, PayPal Bridge)
-- [ ] **Phase 4** — Offline & USSD (Africa's Talking USSD gateway, SMS notifications, Offline queue)
+- [x] **Phase 2 — Security & UX Hardening (COMPLETED)**
+- **Error Abstraction Layer**: Technical exceptions (e.g., "M-Pesa callback failed") are now caught, logged internally, and hidden from users behind generic, friendly messages.
+- **NylePayException**: A new custom exception hierarchy for errors that are safe and helpful to display to the user.
+- **Transaction Code System**: Renamed "Claim Codes" to "Transaction Codes" across the entire stack for better clarity (e.g., `MP2NP-XXXXX`).
+- **Audit Logs**: All sensitive operations (swaps, withdrawals, logins) are tracked in the audit database.
+
+- [x] **Phase 3 — Crypto Bridge & Global Rails (COMPLETED)**
+- **Binance Integration**: Support for automated crypto swaps (Stablecoins -> KES).
+- **Golden Flow**: Deposit USDT/ETH/USDC -> Auto-Swap to KES -> Withdraw to M-Pesa.
+- **On-Chain Custody**: Dedicated EVM addresses for every user with encrypted key storage.
+
+- [ ] **Phase 4 — Offline & USSD**
+  - [ ] Africa's Talking USSD Gateway
+  - [ ] SMS Notifications & 2FA
+  - [ ] Offline Balance Inquiries
 
 ---
 

@@ -106,10 +106,7 @@ public class CryptoExchangeService {
         }
         
         antiFraudService.checkWithdrawal(userId, amount, "CRYPTO_CEX");
-
-        // 2. Balance Check & Debit (Atomic)
-        walletService.subtractBalance(userId, asset, amount);
-
+        
         // 3. Dispatch to CEX / Liquidity Provider
         Map<String, Object> txResult;
         String txHash = "0x" + java.util.UUID.randomUUID().toString().replace("-", "");
@@ -124,14 +121,21 @@ public class CryptoExchangeService {
             txResult = binanceApiClient.withdraw(asset, amount, address, network);
         }
 
-        // 4. Return result
+        // 4. Record the withdrawal transaction (handles wallet subtraction)
+        var tx = transactionService.createWithdrawal(userId, "CRYPTO", amount, asset, address);
+        tx.setExternalId(txResult.getOrDefault("txHash", txHash).toString());
+        tx.setStatus(txResult.getOrDefault("status", "SUCCESS").toString());
+
+        // 5. Return result
         Map<String, Object> result = new HashMap<>();
         result.put("userId", userId);
+        result.put("transactionId", tx.getId());
+        result.put("transactionCode", tx.getTransactionCode());
         result.put("asset", asset);
         result.put("amount", amount);
         result.put("destination", address);
-        result.put("status", txResult.getOrDefault("status", "PENDING"));
-        result.put("txHash", txResult.getOrDefault("txHash", txHash));
+        result.put("status", tx.getStatus());
+        result.put("txHash", tx.getExternalId());
         return result;
     }
     
@@ -192,9 +196,6 @@ public class CryptoExchangeService {
 
         // 2. Fetch live exchange rate
         BigDecimal rate = getExchangeRate(fromAsset, toAsset);
-        BigDecimal expectedOutput = amount.multiply(rate);
-
-        // 3. NylePay trading fee (0.2%)
         BigDecimal fee           = amount.multiply(new BigDecimal("0.002"));
         BigDecimal netInputForSwap = amount.subtract(fee);
 
@@ -230,18 +231,21 @@ public class CryptoExchangeService {
 
         // 5. Update NylePay wallet ONLY after confirmed execution
         //    ACID-Isolation: both calls use SELECT FOR UPDATE inside WalletService
-        walletService.subtractBalance(userId, fromAsset, amount);
-        walletService.addBalance(userId, toAsset, expectedOutput);
+        // walletService.subtractBalance(userId, fromAsset, amount);
+        // walletService.addBalance(userId, toAsset, expectedOutput);
+        // We now use TransactionService.createConversion which handles balance mutations
+        var tx = transactionService.createConversion(userId, fromAsset, toAsset, amount);
 
         // 6. Return swap receipt
         Map<String, Object> result = new HashMap<>();
         result.put("status", simulated ? "SIMULATED" : "SUCCESS");
+        result.put("transactionId", tx.getId());
+        result.put("transactionCode", tx.getTransactionCode());
         result.put("from", fromAsset);
         result.put("to", toAsset);
         result.put("input", amount);
-        result.put("output", expectedOutput);
+        result.put("output", tx.getAmount()); // Amount after conversion and fee
         result.put("rate", rate);
-        result.put("feeDeducted", fee);
         result.put("binanceOrderId", orderResult.getOrDefault("orderId", clientOrderId));
         result.put("clientOrderId", clientOrderId);
         return result;

@@ -52,9 +52,19 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error("An unexpected error occurred. Please try again later."));
     }
 
-    @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<ApiResponse<String>> handleRuntimeException(RuntimeException ex) {
+    @ExceptionHandler(NylePayException.class)
+    public ResponseEntity<ApiResponse<String>> handleNylePayException(NylePayException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(ex.getMessage()));
+    }
+
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<ApiResponse<String>> handleRuntimeException(RuntimeException ex) {
+        // Log the full technical error for developers
+        // In a real app, use a proper logger: log.error("Runtime error", ex);
+        ex.printStackTrace();
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error("An unexpected error occurred while processing your request. Please try again or contact support."));
     }
 }

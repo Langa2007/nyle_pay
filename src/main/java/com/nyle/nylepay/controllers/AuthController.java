@@ -1,3 +1,6 @@
+/**
+ * AuthController - Stabilized version
+ */
 package com.nyle.nylepay.controllers;
 
 import com.nyle.nylepay.dto.ApiResponse;
@@ -7,9 +10,12 @@ import com.nyle.nylepay.services.AuditLogService;
 import com.nyle.nylepay.services.OtpService;
 import com.nyle.nylepay.services.UserService;
 import com.nyle.nylepay.models.User;
+import com.nyle.nylepay.exceptions.NylePayException;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.Optional;
@@ -17,6 +23,7 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
+    private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
 
     private final UserService userService;
     private final org.springframework.security.authentication.AuthenticationManager authenticationManager;
@@ -60,12 +67,15 @@ public class AuthController {
                     "Registration successful. Please verify your email.",
                     result));
 
+        } catch (NylePayException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         } catch (Exception e) {
+            logger.error("Internal error during registration: {}", e.getMessage(), e);
             auditLogService.logEvent(null, "USER_REGISTRATION_FAILED",
-                    "Registration failed for: " + request.getEmail() + " Reason: " + e.getMessage(),
+                    "Registration failed for: " + request.getEmail() + " Reason: Internal Error",
                     "FAILED", httpServletRequest, null);
             return ResponseEntity.badRequest()
-                    .body(ApiResponse.error(e.getMessage()));
+                    .body(ApiResponse.error("Unable to complete registration. Please try again or contact support."));
         }
     }
 
@@ -89,7 +99,7 @@ public class AuthController {
                             request.getEmail(),
                             request.getPassword()));
 
-            User user = userOpt.orElseThrow(() -> new RuntimeException("User not found after authentication"));
+            User user = userOpt.orElseThrow(() -> new NylePayException("User not found after authentication"));
             userService.resetFailedAttempts(user);
 
             var userDetails = userDetailsService.loadUserByUsername(request.getEmail());
@@ -118,9 +128,12 @@ public class AuthController {
             auditLogService.logLoginFailed(null, request.getEmail(), httpServletRequest);
             return ResponseEntity.status(401)
                     .body(ApiResponse.error("Invalid credentials"));
+        } catch (NylePayException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         } catch (Exception e) {
+            logger.error("Internal error during login: {}", e.getMessage(), e);
             return ResponseEntity.badRequest()
-                    .body(ApiResponse.error(e.getMessage()));
+                    .body(ApiResponse.error("Unable to process login. Please try again later."));
         }
     }
 
@@ -140,9 +153,12 @@ public class AuthController {
                         .body(ApiResponse.error("Invalid verification code"));
             }
 
+        } catch (NylePayException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         } catch (Exception e) {
+            logger.error("Internal error during MPesa verification: {}", e.getMessage(), e);
             return ResponseEntity.badRequest()
-                    .body(ApiResponse.error(e.getMessage()));
+                    .body(ApiResponse.error("Verification failed. Please try again later."));
         }
     }
 
@@ -163,7 +179,8 @@ public class AuthController {
             }
             return ResponseEntity.status(401).body(ApiResponse.error("Invalid refresh token"));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+            logger.error("Internal error during token refresh: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(ApiResponse.error("Token refresh failed. Please login again."));
         }
     }
 
@@ -185,9 +202,12 @@ public class AuthController {
                 return ResponseEntity.badRequest()
                         .body(ApiResponse.error("User not found or request failed"));
             }
+        } catch (NylePayException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         } catch (Exception e) {
+            logger.error("Internal error during forgot password: {}", e.getMessage(), e);
             return ResponseEntity.badRequest()
-                    .body(ApiResponse.error(e.getMessage()));
+                    .body(ApiResponse.error("Request failed. Please try again later."));
         }
     }
 
@@ -205,9 +225,12 @@ public class AuthController {
                 return ResponseEntity.badRequest()
                         .body(ApiResponse.error("Invalid token or token expired"));
             }
+        } catch (NylePayException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         } catch (Exception e) {
+            logger.error("Internal error during password reset: {}", e.getMessage(), e);
             return ResponseEntity.badRequest()
-                    .body(ApiResponse.error(e.getMessage()));
+                    .body(ApiResponse.error("Reset failed. Please try again later."));
         }
     }
 
@@ -227,11 +250,14 @@ public class AuthController {
             auditLogService.logEvent(userId, "AUTH_OTP_REQUEST",
                     "OTP requested for purpose: " + purpose, "SUCCESS", httpServletRequest, Map.of("purpose", purpose));
             return ResponseEntity.ok(ApiResponse.success("OTP sent successfully", result));
-        } catch (Exception e) {
-            auditLogService.logEvent(userId, "AUTH_OTP_REQUEST_FAILED",
-                    "OTP request failed for purpose: " + purpose + " Reason: " + e.getMessage(),
-                    "FAILED", httpServletRequest, Map.of("purpose", purpose));
+        } catch (NylePayException e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        } catch (Exception e) {
+            logger.error("Internal error during OTP request: {}", e.getMessage(), e);
+            auditLogService.logEvent(userId, "AUTH_OTP_REQUEST_FAILED",
+                    "OTP request failed for purpose: " + purpose + " Reason: Internal Error",
+                    "FAILED", httpServletRequest, Map.of("purpose", purpose));
+            return ResponseEntity.badRequest().body(ApiResponse.error("Unable to send OTP. Please try again later."));
         }
     }
 
@@ -260,8 +286,11 @@ public class AuthController {
                         Map.of("purpose", purpose));
                 return ResponseEntity.badRequest().body(ApiResponse.error("Invalid or expired OTP"));
             }
-        } catch (Exception e) {
+        } catch (NylePayException e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        } catch (Exception e) {
+            logger.error("Internal error during OTP verification: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(ApiResponse.error("Verification failed. Please try again later."));
         }
     }
 
@@ -274,8 +303,11 @@ public class AuthController {
         try {
             otpService.enableOtp(userId);
             return ResponseEntity.ok(ApiResponse.success("2FA has been enabled for your account"));
-        } catch (Exception e) {
+        } catch (NylePayException e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        } catch (Exception e) {
+            logger.error("Internal error during 2FA enable: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(ApiResponse.error("Unable to enable 2FA. Please try again later."));
         }
     }
 
@@ -285,12 +317,15 @@ public class AuthController {
      * purpose=DISABLE_2FA).
      */
     @PostMapping("/otp/disable")
-    public ResponseEntity<ApiResponse<String>> disableOtp(@RequestParam Long userId) {
+    public ResponseEntity<ApiResponse<String>> disableTwoFactorAuth(@RequestParam Long userId) {
         try {
             otpService.disableOtp(userId);
             return ResponseEntity.ok(ApiResponse.success("2FA has been disabled for your account"));
-        } catch (Exception e) {
+        } catch (NylePayException e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        } catch (Exception e) {
+            logger.error("Internal error during 2FA disable: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(ApiResponse.error("Unable to disable 2FA. Please try again later."));
         }
     }
 }

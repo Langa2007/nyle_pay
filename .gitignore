@@ -37,6 +37,7 @@ build/
 business-requirements.md
 ACCOUNT_POLICY.md
 FUNDS_FLOW.md
+API_KEYS.md
 
 # Secrets
 .env

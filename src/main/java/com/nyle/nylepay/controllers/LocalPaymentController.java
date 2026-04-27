@@ -103,9 +103,10 @@ public class LocalPaymentController {
                             request.getAmount()));
 
             return ResponseEntity.ok(ApiResponse.success(
-                    "Till payment initiated",
+                    "Till payment initiated. Transaction Code: " + transaction.getTransactionCode(),
                     Map.of(
                             "transactionId", transaction.getId(),
+                            "transactionCode", transaction.getTransactionCode(),
                             "tillNumber", request.getTillNumber(),
                             "amount", request.getAmount(),
                             "status", transaction.getStatus(),
@@ -161,9 +162,10 @@ public class LocalPaymentController {
                             request.getAmount()));
 
             return ResponseEntity.ok(ApiResponse.success(
-                    "Paybill payment initiated",
+                    "Paybill payment initiated. Transaction Code: " + transaction.getTransactionCode(),
                     Map.of(
                             "transactionId", transaction.getId(),
+                            "transactionCode", transaction.getTransactionCode(),
                             "paybillNumber", request.getPaybillNumber(),
                             "accountNumber", request.getAccountNumber() != null ? request.getAccountNumber() : "",
                             "amount", request.getAmount(),
@@ -218,9 +220,10 @@ public class LocalPaymentController {
                             "amount", request.getAmount()));
 
             return ResponseEntity.ok(ApiResponse.success(
-                    "Pochi la Biashara payment initiated",
+                    "Pochi la Biashara payment initiated. Transaction Code: " + transaction.getTransactionCode(),
                     Map.of(
                             "transactionId", transaction.getId(),
+                            "transactionCode", transaction.getTransactionCode(),
                             "recipientPhone", request.getRecipientPhone(),
                             "amount", request.getAmount(),
                             "status", transaction.getStatus(),
@@ -276,9 +279,10 @@ public class LocalPaymentController {
                             request.getAmount()));
 
             return ResponseEntity.ok(ApiResponse.success(
-                    "Send Money initiated",
+                    "Send Money initiated. Transaction Code: " + transaction.getTransactionCode(),
                     Map.of(
                             "transactionId", transaction.getId(),
+                            "transactionCode", transaction.getTransactionCode(),
                             "recipientPhone", normalizedPhone,
                             "amount", request.getAmount(),
                             "status", transaction.getStatus(),

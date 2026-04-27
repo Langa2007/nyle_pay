@@ -25,6 +25,8 @@ public class User {
     // Financial Rails
     private String mpesaNumber;
     private String bankAccountNumber;
+    private String bankName;
+    private String bankVerificationStatus = "NONE"; // NONE | PENDING | VERIFIED | REJECTED
     private String cryptoAddress;
 
     // KYC — Central Bank of Kenya requirement
@@ -66,6 +68,10 @@ public class User {
     public void setMpesaNumber(String mpesaNumber) { this.mpesaNumber = mpesaNumber; }
     public String getBankAccountNumber() { return bankAccountNumber; }
     public void setBankAccountNumber(String bankAccountNumber) { this.bankAccountNumber = bankAccountNumber; }
+    public String getBankName() { return bankName; }
+    public void setBankName(String bankName) { this.bankName = bankName; }
+    public String getBankVerificationStatus() { return bankVerificationStatus; }
+    public void setBankVerificationStatus(String bankVerificationStatus) { this.bankVerificationStatus = bankVerificationStatus; }
     public String getCryptoAddress() { return cryptoAddress; }
     public void setCryptoAddress(String cryptoAddress) { this.cryptoAddress = cryptoAddress; }
     public LocalDateTime getCreatedAt()                        { return createdAt; }
