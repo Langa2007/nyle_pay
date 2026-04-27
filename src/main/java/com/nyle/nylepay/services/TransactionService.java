@@ -1,5 +1,4 @@
-// TransactionService.java - UPDATED
-// TransactionService.java - UPDATED
+
 package com.nyle.nylepay.services;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -27,6 +26,46 @@ import org.slf4j.LoggerFactory;
 public class TransactionService {
 
     private static final Logger logger = LoggerFactory.getLogger(TransactionService.class);
+
+    @Transactional
+    public Transaction createCryptoDeposit(Long userId, String asset, BigDecimal amount, String txHash) {
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("txHash", txHash);
+        metadata.put("asset", asset);
+        metadata.put("flow", "CRYPTO_TO_WALLET");
+
+        Transaction transaction = createDeposit(
+                userId,
+                "CRYPTO",
+                amount,
+                asset,
+                txHash,
+                writeMetadata(metadata));
+        transaction.setStatus("COMPLETED"); // Auto-credited
+        return transactionRepository.save(transaction);
+    }
+
+    @Transactional
+    public Transaction createCryptoWithdrawal(Long userId, String asset, BigDecimal amount, String destination,
+            String txHash) {
+        Transaction transaction = new Transaction();
+        transaction.setUserId(userId);
+        transaction.setType("WITHDRAW");
+        transaction.setProvider("CRYPTO");
+        transaction.setAmount(amount);
+        transaction.setCurrency(asset);
+        transaction.setStatus("COMPLETED");
+        transaction.setTimestamp(LocalDateTime.now());
+        transaction.setExternalId(txHash);
+
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("destination", destination);
+        metadata.put("txHash", txHash);
+        transaction.setMetadata(writeMetadata(metadata));
+
+        return transactionRepository.save(transaction);
+    }
+
     private final TransactionRepository transactionRepository;
     private final UserRepository userRepository;
     private final WalletService walletService;
@@ -152,9 +191,9 @@ public class TransactionService {
             // destination format: "accountNumber|bankCode|country|accountName"
             String[] parts = destination.split("\\|");
             String accountNumber = parts.length > 0 ? parts[0] : destination;
-            String bankCode      = parts.length > 1 ? parts[1] : "";
-            String country       = parts.length > 2 ? parts[2] : "KE";
-            String accountName   = parts.length > 3 ? parts[3] : "";
+            String bankCode = parts.length > 1 ? parts[1] : "";
+            String country = parts.length > 2 ? parts[2] : "KE";
+            String accountName = parts.length > 3 ? parts[3] : "";
             try {
                 Map<String, Object> bankResult = bankTransferService.initiateLocalBankTransfer(
                         country, accountNumber, bankCode, amount, currency,
@@ -378,7 +417,8 @@ public class TransactionService {
 
         Transaction transaction = pendingTransaction.get();
         if (isFinalStatus(transaction.getStatus())) {
-            // ACID-Idempotency: Safaricom retries the same webhook — already settled, discard safely.
+            // ACID-Idempotency: Safaricom retries the same webhook — already settled,
+            // discard safely.
             logger.info("Ignoring duplicate MPesa callback for settled transaction {}", transaction.getId());
             return;
         }
@@ -396,8 +436,7 @@ public class TransactionService {
                         "reviewRequired", true,
                         "amountMismatch", true,
                         "requestedAmount", transaction.getAmount(),
-                        "callbackAmount", callbackAmount
-                ));
+                        "callbackAmount", callbackAmount));
                 logger.warn("MPesa callback amount mismatch for transaction {}. requested={}, callback={}",
                         transaction.getId(), transaction.getAmount(), callbackAmount);
             }
@@ -419,11 +458,14 @@ public class TransactionService {
             // ACID-Consistency: The @UniqueConstraint on external_id caught a race between
             // two concurrent webhook deliveries for the same CheckoutRequestID. The first
             // one committed successfully; this is a harmless duplicate — log and discard.
-            logger.warn("Duplicate MPesa callback rejected by unique constraint for CheckoutRequestID={} — already processed.",
+            logger.warn(
+                    "Duplicate MPesa callback rejected by unique constraint for CheckoutRequestID={} — already processed.",
                     checkoutRequestId);
-            throw e; // re-throw so @Transactional rolls back the wallet credit for this duplicate thread
+            throw e; // re-throw so @Transactional rolls back the wallet credit for this duplicate
+                     // thread
         }
-        // notifyUser runs after save to prevent email-send failure from rolling back a settled transaction
+        // notifyUser runs after save to prevent email-send failure from rolling back a
+        // settled transaction
         notifyUser(transaction);
     }
 
@@ -507,7 +549,8 @@ public class TransactionService {
         String status = extractBankStatus(callbackData);
         Optional<Transaction> transactionOpt = findBankTransaction(reference, providerTransferId);
         if (transactionOpt.isEmpty()) {
-            logger.warn("No bank transaction found for reference={} providerTransferId={}", reference, providerTransferId);
+            logger.warn("No bank transaction found for reference={} providerTransferId={}", reference,
+                    providerTransferId);
             return;
         }
 
@@ -522,8 +565,7 @@ public class TransactionService {
         mergeMetadata(transaction, Map.of(
                 "lastBankCallback", callbackData,
                 "providerReference", reference != null ? reference : "",
-                "providerTransferId", providerTransferId != null ? providerTransferId : ""
-        ));
+                "providerTransferId", providerTransferId != null ? providerTransferId : ""));
 
         if (isSuccessfulBankStatus(status)) {
             handleSuccessfulBankCallback(transaction);
@@ -535,7 +577,8 @@ public class TransactionService {
             return;
         }
 
-        // ACID-Atomicity: propagates to @Transactional — any failure rolls back wallet credit
+        // ACID-Atomicity: propagates to @Transactional — any failure rolls back wallet
+        // credit
         try {
             transactionRepository.save(transaction);
         } catch (DataIntegrityViolationException e) {
@@ -544,7 +587,6 @@ public class TransactionService {
         }
         notifyUser(transaction);
     }
-
 
     public Optional<Transaction> getTransactionById(Long id) {
         return transactionRepository.findById(id);
@@ -1005,7 +1047,8 @@ public class TransactionService {
 
         String mpesaNumber = asString(meta.get("mpesaNumber"));
         if (mpesaNumber == null) {
-            throw new RuntimeException("Bank->M-Pesa routing metadata missing mpesaNumber for tx " + transaction.getId());
+            throw new RuntimeException(
+                    "Bank->M-Pesa routing metadata missing mpesaNumber for tx " + transaction.getId());
         }
 
         // Throws propagate -> @Transactional rolls back wallet credit too
@@ -1150,7 +1193,6 @@ public class TransactionService {
         return null;
     }
 
-
     private String extractBankReference(Map<String, Object> payload, String fallback) {
         if (payload == null) {
             return fallback;
@@ -1175,7 +1217,6 @@ public class TransactionService {
         return fallback;
     }
 
-
     private String extractBankTransferId(Map<String, Object> payload) {
         if (payload == null) {
             return null;
@@ -1192,7 +1233,6 @@ public class TransactionService {
         }
         return null;
     }
-
 
     private String extractBankStatus(Map<String, Object> payload) {
         if (payload == null) {
@@ -1246,9 +1286,9 @@ public class TransactionService {
      */
     @Transactional
     public Transaction createLocalPayment(Long userId, String paymentType,
-                                           BigDecimal amount, String destination,
-                                           String accountRef,
-                                           Map<String, Object> mpesaResponse) {
+            BigDecimal amount, String destination,
+            String accountRef,
+            Map<String, Object> mpesaResponse) {
 
         String externalId = null;
         if (mpesaResponse != null) {
@@ -1265,8 +1305,10 @@ public class TransactionService {
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("paymentType", paymentType);
         metadata.put("destination", destination);
-        if (accountRef != null) metadata.put("accountReference", accountRef);
-        if (mpesaResponse != null) metadata.put("mpesaResponse", mpesaResponse);
+        if (accountRef != null)
+            metadata.put("accountReference", accountRef);
+        if (mpesaResponse != null)
+            metadata.put("mpesaResponse", mpesaResponse);
 
         Transaction transaction = new Transaction();
         transaction.setUserId(userId);
@@ -1320,7 +1362,8 @@ public class TransactionService {
 
         Transaction transaction = txOpt.get();
         if (isFinalStatus(transaction.getStatus())) {
-            logger.info("B2B callback: transaction {} already in final status {}", transaction.getId(), transaction.getStatus());
+            logger.info("B2B callback: transaction {} already in final status {}", transaction.getId(),
+                    transaction.getStatus());
             return;
         }
 
@@ -1339,4 +1382,3 @@ public class TransactionService {
         notifyUser(transaction);
     }
 }
-

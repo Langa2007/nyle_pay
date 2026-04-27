@@ -33,7 +33,7 @@ public class WalletService {
     private final EncryptionUtils encryptionUtils;
 
     public WalletService(UserRepository userRepository, WalletRepository walletRepository,
-                         CryptoWalletRepository cryptoWalletRepository, EncryptionUtils encryptionUtils) {
+            CryptoWalletRepository cryptoWalletRepository, EncryptionUtils encryptionUtils) {
         this.userRepository = userRepository;
         this.walletRepository = walletRepository;
         this.cryptoWalletRepository = cryptoWalletRepository;
@@ -45,9 +45,9 @@ public class WalletService {
      * record per supported chain (ETHEREUM, POLYGON, ARBITRUM, BASE).
      *
      * Security:
-     *   - The private key is AES-256-GCM encrypted before being persisted.
-     *   - The plaintext private key is NOT returned in the response.
-     *   - The same key pair works across all EVM chains.
+     * - The private key is AES-256-GCM encrypted before being persisted.
+     * - The plaintext private key is NOT returned in the response.
+     * - The same key pair works across all EVM chains.
      */
     public Map<String, Object> createCryptoWallet(Long userId) throws Exception {
 
@@ -58,35 +58,35 @@ public class WalletService {
         ECKeyPair keyPair = Keys.createEcKeyPair(random);
 
         String privateKeyHex = keyPair.getPrivateKey().toString(16);
-        String address       = "0x" + Keys.getAddress(keyPair);
-        String encryptedKey  = encryptionUtils.encrypt(privateKeyHex);
+        String address = "0x" + Keys.getAddress(keyPair);
+        String encryptedKey = encryptionUtils.encrypt(privateKeyHex);
         // Overwrite plaintext — best-effort; JVM GC handles final cleanup
         privateKeyHex = null;
 
         // Store one CryptoWallet per chain (same address, different chain metadata)
         for (String chain : SUPPORTED_CHAINS) {
             cryptoWalletRepository.findByUserIdAndChain(userId, chain).ifPresentOrElse(
-                existing -> { /* already exists for this chain — skip */ },
-                () -> {
-                    CryptoWallet cw = new CryptoWallet();
-                    cw.setUserId(userId);
-                    cw.setChain(chain);
-                    cw.setAddress(address);
-                    cw.setEncryptedPrivateKey(encryptedKey);
-                    cryptoWalletRepository.save(cw);
-                }
-            );
+                    existing -> {
+                        /* already exists for this chain — skip */ },
+                    () -> {
+                        CryptoWallet cw = new CryptoWallet();
+                        cw.setUserId(userId);
+                        cw.setChain(chain);
+                        cw.setAddress(address);
+                        cw.setEncryptedPrivateKey(encryptedKey);
+                        cryptoWalletRepository.save(cw);
+                    });
         }
 
         // Create NylePay internal balance ledger
         Wallet wallet = walletRepository.findByUserId(userId).orElseGet(Wallet::new);
         wallet.setUserId(userId);
-        wallet.getBalances().putIfAbsent("ETH",  new Wallet.Balance(BigDecimal.ZERO));
+        wallet.getBalances().putIfAbsent("ETH", new Wallet.Balance(BigDecimal.ZERO));
         wallet.getBalances().putIfAbsent("USDT", new Wallet.Balance(BigDecimal.ZERO));
         wallet.getBalances().putIfAbsent("USDC", new Wallet.Balance(BigDecimal.ZERO));
-        wallet.getBalances().putIfAbsent("DAI",  new Wallet.Balance(BigDecimal.ZERO));
-        wallet.getBalances().putIfAbsent("KSH",  new Wallet.Balance(BigDecimal.ZERO));
-        wallet.getBalances().putIfAbsent("USD",  new Wallet.Balance(BigDecimal.ZERO));
+        wallet.getBalances().putIfAbsent("DAI", new Wallet.Balance(BigDecimal.ZERO));
+        wallet.getBalances().putIfAbsent("KSH", new Wallet.Balance(BigDecimal.ZERO));
+        wallet.getBalances().putIfAbsent("USD", new Wallet.Balance(BigDecimal.ZERO));
         walletRepository.save(wallet);
 
         user.setCryptoAddress(address);
@@ -96,7 +96,8 @@ public class WalletService {
         response.put("address", address);
         response.put("chains", SUPPORTED_CHAINS);
         response.put("supportedTokens", List.of("ETH", "USDT", "USDC", "DAI"));
-        response.put("message", "Custody wallet created on Ethereum, Polygon, Arbitrum, and Base. Deposit to the address above on any of these chains.");
+        response.put("message",
+                "Custody wallet created on Ethereum, Polygon, Arbitrum, and Base. Deposit to the address above on any of these chains.");
         // ⚠ Private key is NOT returned — it is stored encrypted in the DB only.
         return response;
     }
@@ -128,7 +129,8 @@ public class WalletService {
     @Transactional
     public void subtractBalance(Long userId, String currency, BigDecimal amount) {
 
-        // ACID-Isolation: exclusive row lock — serialises concurrent withdrawal attempts
+        // ACID-Isolation: exclusive row lock — serialises concurrent withdrawal
+        // attempts
         // so that both cannot pass the balance check with stale reads.
         Wallet wallet = walletRepository.findByUserIdForUpdate(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Wallet not found"));
@@ -136,7 +138,8 @@ public class WalletService {
         Wallet.Balance balance = wallet.getBalances().get(currency);
 
         if (balance == null || balance.getAmount().compareTo(amount) < 0) {
-            throw new InsufficientBalanceException(currency, amount.doubleValue(), balance == null ? 0.0 : balance.getAmount().doubleValue());
+            throw new InsufficientBalanceException(currency, amount.doubleValue(),
+                    balance == null ? 0.0 : balance.getAmount().doubleValue());
         }
 
         balance.setAmount(balance.getAmount().subtract(amount));

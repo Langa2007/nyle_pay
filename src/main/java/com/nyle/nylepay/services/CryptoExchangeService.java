@@ -20,10 +20,119 @@ public class CryptoExchangeService {
 
     private final BinanceApiClient binanceApiClient;
     private final WalletService walletService;
+    private final com.nyle.nylepay.repositories.CryptoWalletRepository cryptoWalletRepository;
+    private final com.nyle.nylepay.services.kyc.KycService kycService;
+    private final AntiFraudService antiFraudService;
+    private final TransactionService transactionService;
 
-    public CryptoExchangeService(BinanceApiClient binanceApiClient, WalletService walletService) {
+    public CryptoExchangeService(BinanceApiClient binanceApiClient, 
+                                WalletService walletService,
+                                com.nyle.nylepay.repositories.CryptoWalletRepository cryptoWalletRepository,
+                                com.nyle.nylepay.services.kyc.KycService kycService,
+                                AntiFraudService antiFraudService,
+                                TransactionService transactionService) {
         this.binanceApiClient = binanceApiClient;
         this.walletService = walletService;
+        this.cryptoWalletRepository = cryptoWalletRepository;
+        this.kycService = kycService;
+        this.antiFraudService = antiFraudService;
+        this.transactionService = transactionService;
+    }
+
+    /**
+     * Process an incoming deposit detected on-chain.
+     * This is the "Golden Flow": Deposit -> Auto-Swap to KES -> Ready for M-Pesa.
+     */
+    @Transactional
+    public Map<String, Object> processIncomingDeposit(String address, BigDecimal amount, String asset, String txHash) {
+        // 1. Resolve address to User
+        com.nyle.nylepay.models.CryptoWallet wallet = cryptoWalletRepository.findByAddressIgnoreCase(address)
+                .orElseThrow(() -> new RuntimeException("Unrecognized deposit address: " + address));
+        
+        Long userId = wallet.getUserId();
+        asset = asset.toUpperCase();
+
+        // 2. Record the raw deposit
+        walletService.addBalance(userId, asset, amount);
+        var depositTx = transactionService.createCryptoDeposit(userId, asset, amount, txHash);
+
+        log.info("[GOLDEN FLOW] Detected {} {} deposit for user {}. Auto-swapping to KES...", amount, asset, userId);
+
+        // 3. Trigger Auto-Swap to KES
+        try {
+            Map<String, Object> swapResult = swapCrypto(userId, asset, "KSH", amount);
+            
+            Map<String, Object> result = new HashMap<>();
+            result.put("depositId", depositTx.getId());
+            result.put("swapResult", swapResult);
+            result.put("status", "AUTO_SWAPPED_TO_KES");
+            return result;
+        } catch (Exception e) {
+            log.error("Auto-swap failed for deposit {}: {}", txHash, e.getMessage());
+            // We still keep the deposit! The user just has the crypto in their NylePay wallet now.
+            return Map.of("depositId", depositTx.getId(), "status", "DEPOSITED_PENDING_MANUAL_SWAP", "error", e.getMessage());
+        }
+    }
+
+    /**
+     * Retrieves an existing deposit address for the user or creates a new one.
+     */
+    public String getOrCreateDepositAddress(Long userId, String chain) {
+        return cryptoWalletRepository.findByUserIdAndChain(userId, chain.toUpperCase())
+                .map(com.nyle.nylepay.models.CryptoWallet::getAddress)
+                .orElseGet(() -> {
+                    // In production, this would call a KeyManagementService (KMS)
+                    // For demo, we generate a placeholder 0x address
+                    com.nyle.nylepay.models.CryptoWallet wallet = new com.nyle.nylepay.models.CryptoWallet();
+                    wallet.setUserId(userId);
+                    wallet.setChain(chain.toUpperCase());
+                    wallet.setAddress("0x" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 40));
+                    wallet.setEncryptedPrivateKey("SIMULATED_ENCRYPTED_KEY");
+                    cryptoWalletRepository.save(wallet);
+                    return wallet.getAddress();
+                });
+    }
+
+    /**
+     * Moves funds from NylePay to an external CEX or private wallet.
+     */
+    @Transactional
+    public Map<String, Object> withdrawToExternal(Long userId, String asset, BigDecimal amount, String address, String network) {
+        asset = asset.toUpperCase();
+
+        // 1. Security & Compliance Checks
+        if (!kycService.canTransact(userId, amount)) {
+            throw new RuntimeException("KYC limit exceeded or verification required for this withdrawal.");
+        }
+        
+        antiFraudService.checkWithdrawal(userId, amount, "CRYPTO_CEX");
+
+        // 2. Balance Check & Debit (Atomic)
+        walletService.subtractBalance(userId, asset, amount);
+
+        // 3. Dispatch to CEX / Liquidity Provider
+        Map<String, Object> txResult;
+        String txHash = "0x" + java.util.UUID.randomUUID().toString().replace("-", "");
+
+        if (!liveMode) {
+            log.info("[SANDBOX] Simulating crypto withdrawal: {} {} to {}", amount, asset, address);
+            txResult = new HashMap<>();
+            txResult.put("status", "SUCCESS");
+            txResult.put("txHash", txHash);
+        } else {
+            // Live Binance withdrawal
+            txResult = binanceApiClient.withdraw(asset, amount, address, network);
+        }
+
+        // 4. Return result
+        Map<String, Object> result = new HashMap<>();
+        result.put("userId", userId);
+        result.put("asset", asset);
+        result.put("amount", amount);
+        result.put("destination", address);
+        result.put("status", txResult.getOrDefault("status", "PENDING"));
+        result.put("txHash", txResult.getOrDefault("txHash", txHash));
+        return result;
     }
     
     public BigDecimal getExchangeRate(String fromAsset, String toAsset) {

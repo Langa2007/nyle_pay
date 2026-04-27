@@ -50,6 +50,73 @@ public class BinanceApiClient {
         return placeSignedOrder(symbol, side, "MARKET", quantity, null);
     }
 
+    public Map<String, Object> withdraw(String asset, BigDecimal amount, String address, String network) {
+        try {
+            long timestamp = System.currentTimeMillis();
+            StringBuilder queryBuilder = new StringBuilder();
+            queryBuilder.append("coin=").append(asset.toUpperCase());
+            queryBuilder.append("&address=").append(address);
+            queryBuilder.append("&amount=").append(amount.toPlainString());
+            if (network != null) {
+                queryBuilder.append("&network=").append(network);
+            }
+            queryBuilder.append("&timestamp=").append(timestamp);
+
+            String queryData = queryBuilder.toString();
+            String signature = generateHmacSha256(queryData, apiSecret);
+            queryBuilder.append("&signature=").append(signature);
+
+            String url = BINANCE_API_URL + "/sapi/v1/capital/withdraw/apply?" + queryBuilder.toString();
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-MBX-APIKEY", apiKey);
+            HttpEntity<String> entity = new HttpEntity<>(headers);
+
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    entity,
+                    new ParameterizedTypeReference<Map<String, Object>>() {}
+            );
+
+            return response.getBody();
+        } catch (Exception e) {
+            throw new RuntimeException("Binance withdrawal failed: " + e.getMessage(), e);
+        }
+    }
+
+    public java.util.List<Map<String, Object>> getDepositHistory(String asset, long startTime) {
+        try {
+            StringBuilder urlBuilder = new StringBuilder(BINANCE_API_URL + "/sapi/v1/capital/deposit/hisrec?");
+            urlBuilder.append("timestamp=").append(System.currentTimeMillis());
+            if (asset != null) {
+                urlBuilder.append("&coin=").append(asset.toUpperCase());
+            }
+            if (startTime > 0) {
+                urlBuilder.append("&startTime=").append(startTime);
+            }
+
+            String queryData = urlBuilder.toString().split("\\?")[1];
+            String signature = generateHmacSha256(queryData, apiSecret);
+            String url = urlBuilder.toString() + "&signature=" + signature;
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-MBX-APIKEY", apiKey);
+            HttpEntity<String> entity = new HttpEntity<>(headers);
+
+            ResponseEntity<java.util.List<Map<String, Object>>> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    entity,
+                    new ParameterizedTypeReference<java.util.List<Map<String, Object>>>() {}
+            );
+
+            return response.getBody();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to fetch Binance deposit history", e);
+        }
+    }
+
     private Map<String, Object> placeSignedOrder(String symbol, String side, String type, BigDecimal quantity, BigDecimal price) {
         try {
             long timestamp = System.currentTimeMillis();

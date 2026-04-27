@@ -15,22 +15,24 @@ import java.util.Map;
 /**
  * Anti-fraud engine with velocity checks and behavioral analysis.
  *
- * Checks performed on every outbound transaction (withdrawals, local payments, transfers):
- *   1. Velocity — max N transactions per hour per user
- *   2. Daily amount — max KES per day per user
- *   3. Large transaction — flag single transactions above threshold
- *   4. Rapid-fire — detect burst patterns (multiple txns within seconds)
- *   5. New account — stricter limits for accounts created less than 7 days ago
- *   6. IP anomaly — flag if user's IP changes mid-session
+ * Checks performed on every outbound transaction (withdrawals, local payments,
+ * transfers):
+ * 1. Velocity — max N transactions per hour per user
+ * 2. Daily amount — max KES per day per user
+ * 3. Large transaction — flag single transactions above threshold
+ * 4. Rapid-fire — detect burst patterns (multiple txns within seconds)
+ * 5. New account — stricter limits for accounts created less than 7 days ago
+ * 6. IP anomaly — flag if user's IP changes mid-session
  *
  * When a check FAILS, the service:
- *   - Returns a FraudCheckResult with blocked=true and reason
- *   - Logs a FRAUD_ALERT or FRAUD_BLOCKED audit event
- *   - Does NOT process the transaction
+ * - Returns a FraudCheckResult with blocked=true and reason
+ * - Logs a FRAUD_ALERT or FRAUD_BLOCKED audit event
+ * - Does NOT process the transaction
  *
  * When a check raises SUSPICION (soft flag), the service:
- *   - Logs a FRAUD_ALERT audit event
- *   - Returns blocked=false but flagged=true (allows the transaction but flags it for review)
+ * - Logs a FRAUD_ALERT audit event
+ * - Returns blocked=false but flagged=true (allows the transaction but flags it
+ * for review)
  */
 @Service
 public class AntiFraudService {
@@ -64,8 +66,8 @@ public class AntiFraudService {
     private final AuditLogService auditLogService;
 
     public AntiFraudService(TransactionRepository transactionRepository,
-                            StringRedisTemplate redisTemplate,
-                            AuditLogService auditLogService) {
+            StringRedisTemplate redisTemplate,
+            AuditLogService auditLogService) {
         this.transactionRepository = transactionRepository;
         this.redisTemplate = redisTemplate;
         this.auditLogService = auditLogService;
@@ -74,16 +76,16 @@ public class AntiFraudService {
     /**
      * Runs all fraud checks against a proposed transaction.
      *
-     * @param userId       the user initiating the transaction
-     * @param amount       transaction amount in KES
-     * @param txnType      WITHDRAWAL, LOCAL_PAYMENT, TRANSFER, etc.
-     * @param accountAge   user's account creation date
-     * @param request      HTTP request (for IP extraction)
+     * @param userId     the user initiating the transaction
+     * @param amount     transaction amount in KES
+     * @param txnType    WITHDRAWAL, LOCAL_PAYMENT, TRANSFER, etc.
+     * @param accountAge user's account creation date
+     * @param request    HTTP request (for IP extraction)
      * @return FraudCheckResult — call .isBlocked() before proceeding
      */
     public FraudCheckResult checkTransaction(Long userId, BigDecimal amount,
-                                              String txnType, LocalDateTime accountAge,
-                                              HttpServletRequest request) {
+            String txnType, LocalDateTime accountAge,
+            HttpServletRequest request) {
         if (!fraudEnabled) {
             return FraudCheckResult.pass();
         }
@@ -127,9 +129,31 @@ public class AntiFraudService {
         return FraudCheckResult.pass();
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
+    /**
+     * Simplified fraud check for service-to-service calls (no HttpServletRequest
+     * available).
+     */
+    public void checkWithdrawal(Long userId, BigDecimal amount, String txnType) {
+        if (!fraudEnabled)
+            return;
+
+        // Velocity check
+        FraudCheckResult velocityResult = checkVelocity(userId);
+        if (velocityResult.isBlocked()) {
+            throw new RuntimeException("Fraud Check Blocked: " + velocityResult.getReason());
+        }
+
+        // Daily amount check (ignoring account age for simple check)
+        FraudCheckResult dailyResult = checkDailyAmount(userId, amount, null);
+        if (dailyResult.isBlocked()) {
+            throw new RuntimeException("Fraud Check Blocked: " + dailyResult.getReason());
+        }
+
+        // Record for future velocity
+        recordTransactionEvent(userId);
+    }
+
     // Individual checks
-    // ─────────────────────────────────────────────────────────────────────────
 
     private FraudCheckResult checkVelocity(Long userId) {
         String key = "fraud:velocity:" + userId;
@@ -138,17 +162,16 @@ public class AntiFraudService {
 
         if (count >= maxTransactionsPerHour) {
             return FraudCheckResult.blocked(
-                "VELOCITY_LIMIT",
-                "Too many transactions. You have exceeded " + maxTransactionsPerHour +
-                " transactions per hour. Please wait before trying again.",
-                Map.of("count", count, "limit", maxTransactionsPerHour)
-            );
+                    "VELOCITY_LIMIT",
+                    "Too many transactions. You have exceeded " + maxTransactionsPerHour +
+                            " transactions per hour. Please wait before trying again.",
+                    Map.of("count", count, "limit", maxTransactionsPerHour));
         }
         return FraudCheckResult.pass();
     }
 
     private FraudCheckResult checkDailyAmount(Long userId, BigDecimal amount,
-                                               LocalDateTime accountCreated) {
+            LocalDateTime accountCreated) {
         LocalDateTime dayStart = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0);
         LocalDateTime dayEnd = LocalDateTime.now();
 
@@ -166,15 +189,15 @@ public class AntiFraudService {
         BigDecimal projected = dailyTotal.add(amount);
         if (projected.compareTo(BigDecimal.valueOf(effectiveLimit)) > 0) {
             return FraudCheckResult.blocked(
-                "DAILY_LIMIT",
-                "Daily transaction limit exceeded. " +
-                (isNewAccount ? "New accounts are limited to KES " + newAccountMaxDailyKes + "/day. " : "") +
-                "Today's total: " + dailyTotal + " + " + amount + " = " + projected +
-                " (limit: " + effectiveLimit + ")",
-                Map.of("dailyTotal", dailyTotal, "proposed", amount,
-                       "projected", projected, "limit", effectiveLimit,
-                       "isNewAccount", isNewAccount)
-            );
+                    "DAILY_LIMIT",
+                    "Daily transaction limit exceeded. " +
+                            (isNewAccount ? "New accounts are limited to KES " + newAccountMaxDailyKes + "/day. " : "")
+                            +
+                            "Today's total: " + dailyTotal + " + " + amount + " = " + projected +
+                            " (limit: " + effectiveLimit + ")",
+                    Map.of("dailyTotal", dailyTotal, "proposed", amount,
+                            "projected", projected, "limit", effectiveLimit,
+                            "isNewAccount", isNewAccount));
         }
         return FraudCheckResult.pass();
     }
@@ -186,12 +209,11 @@ public class AntiFraudService {
 
         if (count >= rapidFireMaxCount) {
             return FraudCheckResult.blocked(
-                "RAPID_FIRE",
-                "Suspicious rapid transaction pattern detected. " +
-                count + " transactions in " + rapidFireWindowSeconds + " seconds. " +
-                "Please wait before trying again.",
-                Map.of("count", count, "windowSeconds", rapidFireWindowSeconds)
-            );
+                    "RAPID_FIRE",
+                    "Suspicious rapid transaction pattern detected. " +
+                            count + " transactions in " + rapidFireWindowSeconds + " seconds. " +
+                            "Please wait before trying again.",
+                    Map.of("count", count, "windowSeconds", rapidFireWindowSeconds));
         }
         return FraudCheckResult.pass();
     }
@@ -223,7 +245,7 @@ public class AntiFraudService {
         private final Map<String, Object> details;
 
         private FraudCheckResult(boolean blocked, String checkType,
-                                  String reason, Map<String, Object> details) {
+                String reason, Map<String, Object> details) {
             this.blocked = blocked;
             this.checkType = checkType;
             this.reason = reason;
@@ -235,20 +257,33 @@ public class AntiFraudService {
         }
 
         public static FraudCheckResult blocked(String checkType, String reason,
-                                                Map<String, Object> details) {
+                Map<String, Object> details) {
             return new FraudCheckResult(true, checkType, reason, details);
         }
 
-        public boolean isBlocked()            { return blocked; }
-        public String getCheckType()          { return checkType; }
-        public String getReason()             { return reason; }
-        public Map<String, Object> getDetails() { return details; }
+        public boolean isBlocked() {
+            return blocked;
+        }
+
+        public String getCheckType() {
+            return checkType;
+        }
+
+        public String getReason() {
+            return reason;
+        }
+
+        public Map<String, Object> getDetails() {
+            return details;
+        }
 
         public Map<String, Object> toMap() {
             Map<String, Object> map = new HashMap<>();
             map.put("blocked", blocked);
-            if (checkType != null) map.put("checkType", checkType);
-            if (reason != null) map.put("reason", reason);
+            if (checkType != null)
+                map.put("checkType", checkType);
+            if (reason != null)
+                map.put("reason", reason);
             map.putAll(details);
             return map;
         }

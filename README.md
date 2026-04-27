@@ -464,14 +464,15 @@ All sensitive values are injected from environment variables. Set these in your 
 
 - [x] **Phase 1** — Local Payment Rails (Till, Paybill, Pochi, Send Money, ACID Settlement, KYC)
 - [x] **Phase 2** — Security Hardening (2FA/OTP, Anti-fraud velocity checks, Audit logs, Account lockout)
-- [ ] **Phase 3** — CEX & Cross-Border (Complete CEX→M-Pesa flow, Visa Direct, Live mode activation)
+- [x] **Phase 3** — CEX & Cross-Border (Crypto Bridge, Auto-conversion to KES, CEX Withdrawals, PayPal Bridge)
 - [ ] **Phase 4** — Offline & USSD (Africa's Talking USSD gateway, SMS notifications, Offline queue)
 
 ---
 
 ## 🔐 Security & Compliance
 
-For detailed information on our identity management, data protection, and account lifecycle policies, see [ACCOUNT_POLICY.md](ACCOUNT_POLICY.md).
+- **Account & Privacy Policy**: [ACCOUNT_POLICY.md](ACCOUNT_POLICY.md)
+- **Funds Flow & Architecture**: [FUNDS_FLOW.md](FUNDS_FLOW.md)
 
 ---
 

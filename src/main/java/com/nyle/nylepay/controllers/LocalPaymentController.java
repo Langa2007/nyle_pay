@@ -21,15 +21,16 @@ import java.math.BigDecimal;
 import java.util.Map;
 
 /**
- * Handles local Kenyan payments: Till, Paybill, Pochi la Biashara, and Send Money.
+ * Handles local Kenyan payments: Till, Paybill, Pochi la Biashara, and Send
+ * Money.
  *
  * Flow for each payment type:
- *   1. Validate KYC status and monthly limits
- *   2. Run Anti-Fraud velocity and amount checks
- *   3. Debit user's KSH wallet balance
- *   4. Dispatch to Safaricom (B2B for Till/Paybill/Pochi, B2C for Send Money)
- *   5. Record PENDING transaction (finalized on callback)
- *   6. Log security audit event
+ * 1. Validate KYC status and monthly limits
+ * 2. Run Anti-Fraud velocity and amount checks
+ * 3. Debit user's KSH wallet balance
+ * 4. Dispatch to Safaricom (B2B for Till/Paybill/Pochi, B2C for Send Money)
+ * 5. Record PENDING transaction (finalized on callback)
+ * 6. Log security audit event
  */
 @RestController
 @RequestMapping("/api/payments/local")
@@ -46,12 +47,12 @@ public class LocalPaymentController {
     private final UserService userService;
 
     public LocalPaymentController(MpesaService mpesaService,
-                                  TransactionService transactionService,
-                                  WalletService walletService,
-                                  KycService kycService,
-                                  AntiFraudService antiFraudService,
-                                  AuditLogService auditLogService,
-                                  UserService userService) {
+            TransactionService transactionService,
+            WalletService walletService,
+            KycService kycService,
+            AntiFraudService antiFraudService,
+            AuditLogService auditLogService,
+            UserService userService) {
         this.mpesaService = mpesaService;
         this.transactionService = transactionService;
         this.walletService = walletService;
@@ -74,7 +75,7 @@ public class LocalPaymentController {
 
             if (request.getTillNumber() == null || request.getTillNumber().isBlank()) {
                 return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("tillNumber is required for Till payments"));
+                        .body(ApiResponse.error("tillNumber is required for Till payments"));
             }
 
             // Debit wallet
@@ -82,40 +83,37 @@ public class LocalPaymentController {
 
             // Dispatch B2B to Safaricom
             Map<String, Object> mpesaResponse = mpesaService.payToTill(
-                request.getTillNumber(),
-                request.getAmount(),
-                request.getDescription()
-            );
+                    request.getTillNumber(),
+                    request.getAmount(),
+                    request.getDescription());
 
             // Record transaction
             var transaction = transactionService.createLocalPayment(
-                request.getUserId(),
-                "TILL",
-                request.getAmount(),
-                request.getTillNumber(),
-                null,
-                mpesaResponse
-            );
+                    request.getUserId(),
+                    "TILL",
+                    request.getAmount(),
+                    request.getTillNumber(),
+                    null,
+                    mpesaResponse);
 
             // Audit Log
             auditLogService.logPaymentEvent(request.getUserId(), "PAYMENT_INITIATED",
-                "Till payment to " + request.getTillNumber(), "SUCCESS",
-                Map.of("transactionId", transaction.getId(), "tillNumber", request.getTillNumber(), "amount", request.getAmount()));
+                    "Till payment to " + request.getTillNumber(), "SUCCESS",
+                    Map.of("transactionId", transaction.getId(), "tillNumber", request.getTillNumber(), "amount",
+                            request.getAmount()));
 
             return ResponseEntity.ok(ApiResponse.success(
-                "Till payment initiated",
-                Map.of(
-                    "transactionId", transaction.getId(),
-                    "tillNumber", request.getTillNumber(),
-                    "amount", request.getAmount(),
-                    "status", transaction.getStatus(),
-                    "mpesaResponse", mpesaResponse
-                )
-            ));
+                    "Till payment initiated",
+                    Map.of(
+                            "transactionId", transaction.getId(),
+                            "tillNumber", request.getTillNumber(),
+                            "amount", request.getAmount(),
+                            "status", transaction.getStatus(),
+                            "mpesaResponse", mpesaResponse)));
         } catch (Exception e) {
             auditLogService.logPaymentEvent(request.getUserId(), "PAYMENT_FAILED",
-                "Till payment failed: " + e.getMessage(), "FAILED",
-                Map.of("tillNumber", request.getTillNumber(), "amount", request.getAmount()));
+                    "Till payment failed: " + e.getMessage(), "FAILED",
+                    Map.of("tillNumber", request.getTillNumber(), "amount", request.getAmount()));
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
     }
@@ -133,7 +131,7 @@ public class LocalPaymentController {
 
             if (request.getPaybillNumber() == null || request.getPaybillNumber().isBlank()) {
                 return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("paybillNumber is required for Paybill payments"));
+                        .body(ApiResponse.error("paybillNumber is required for Paybill payments"));
             }
 
             // Debit wallet
@@ -141,42 +139,40 @@ public class LocalPaymentController {
 
             // Dispatch B2B to Safaricom
             Map<String, Object> mpesaResponse = mpesaService.payToPaybill(
-                request.getPaybillNumber(),
-                request.getAccountNumber(),
-                request.getAmount(),
-                request.getDescription()
-            );
+                    request.getPaybillNumber(),
+                    request.getAccountNumber(),
+                    request.getAmount(),
+                    request.getDescription());
 
             // Record transaction
             var transaction = transactionService.createLocalPayment(
-                request.getUserId(),
-                "PAYBILL",
-                request.getAmount(),
-                request.getPaybillNumber(),
-                request.getAccountNumber(),
-                mpesaResponse
-            );
+                    request.getUserId(),
+                    "PAYBILL",
+                    request.getAmount(),
+                    request.getPaybillNumber(),
+                    request.getAccountNumber(),
+                    mpesaResponse);
 
             // Audit Log
             auditLogService.logPaymentEvent(request.getUserId(), "PAYMENT_INITIATED",
-                "Paybill payment to " + request.getPaybillNumber() + " (Acc: " + request.getAccountNumber() + ")", "SUCCESS",
-                Map.of("transactionId", transaction.getId(), "paybillNumber", request.getPaybillNumber(), "amount", request.getAmount()));
+                    "Paybill payment to " + request.getPaybillNumber() + " (Acc: " + request.getAccountNumber() + ")",
+                    "SUCCESS",
+                    Map.of("transactionId", transaction.getId(), "paybillNumber", request.getPaybillNumber(), "amount",
+                            request.getAmount()));
 
             return ResponseEntity.ok(ApiResponse.success(
-                "Paybill payment initiated",
-                Map.of(
-                    "transactionId", transaction.getId(),
-                    "paybillNumber", request.getPaybillNumber(),
-                    "accountNumber", request.getAccountNumber() != null ? request.getAccountNumber() : "",
-                    "amount", request.getAmount(),
-                    "status", transaction.getStatus(),
-                    "mpesaResponse", mpesaResponse
-                )
-            ));
+                    "Paybill payment initiated",
+                    Map.of(
+                            "transactionId", transaction.getId(),
+                            "paybillNumber", request.getPaybillNumber(),
+                            "accountNumber", request.getAccountNumber() != null ? request.getAccountNumber() : "",
+                            "amount", request.getAmount(),
+                            "status", transaction.getStatus(),
+                            "mpesaResponse", mpesaResponse)));
         } catch (Exception e) {
             auditLogService.logPaymentEvent(request.getUserId(), "PAYMENT_FAILED",
-                "Paybill payment failed: " + e.getMessage(), "FAILED",
-                Map.of("paybillNumber", request.getPaybillNumber(), "amount", request.getAmount()));
+                    "Paybill payment failed: " + e.getMessage(), "FAILED",
+                    Map.of("paybillNumber", request.getPaybillNumber(), "amount", request.getAmount()));
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
     }
@@ -194,7 +190,7 @@ public class LocalPaymentController {
 
             if (request.getRecipientPhone() == null || request.getRecipientPhone().isBlank()) {
                 return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("recipientPhone is required for Pochi payments"));
+                        .body(ApiResponse.error("recipientPhone is required for Pochi payments"));
             }
 
             // Debit wallet
@@ -202,40 +198,37 @@ public class LocalPaymentController {
 
             // Dispatch via B2B (Pochi shortcode 440000 + phone as account reference)
             Map<String, Object> mpesaResponse = mpesaService.payToPochi(
-                request.getRecipientPhone(),
-                request.getAmount(),
-                request.getDescription()
-            );
+                    request.getRecipientPhone(),
+                    request.getAmount(),
+                    request.getDescription());
 
             // Record transaction
             var transaction = transactionService.createLocalPayment(
-                request.getUserId(),
-                "POCHI",
-                request.getAmount(),
-                "440000",
-                request.getRecipientPhone(),
-                mpesaResponse
-            );
+                    request.getUserId(),
+                    "POCHI",
+                    request.getAmount(),
+                    "440000",
+                    request.getRecipientPhone(),
+                    mpesaResponse);
 
             // Audit Log
             auditLogService.logPaymentEvent(request.getUserId(), "PAYMENT_INITIATED",
-                "Pochi payment to " + request.getRecipientPhone(), "SUCCESS",
-                Map.of("transactionId", transaction.getId(), "recipientPhone", request.getRecipientPhone(), "amount", request.getAmount()));
+                    "Pochi payment to " + request.getRecipientPhone(), "SUCCESS",
+                    Map.of("transactionId", transaction.getId(), "recipientPhone", request.getRecipientPhone(),
+                            "amount", request.getAmount()));
 
             return ResponseEntity.ok(ApiResponse.success(
-                "Pochi la Biashara payment initiated",
-                Map.of(
-                    "transactionId", transaction.getId(),
-                    "recipientPhone", request.getRecipientPhone(),
-                    "amount", request.getAmount(),
-                    "status", transaction.getStatus(),
-                    "mpesaResponse", mpesaResponse
-                )
-            ));
+                    "Pochi la Biashara payment initiated",
+                    Map.of(
+                            "transactionId", transaction.getId(),
+                            "recipientPhone", request.getRecipientPhone(),
+                            "amount", request.getAmount(),
+                            "status", transaction.getStatus(),
+                            "mpesaResponse", mpesaResponse)));
         } catch (Exception e) {
             auditLogService.logPaymentEvent(request.getUserId(), "PAYMENT_FAILED",
-                "Pochi payment failed: " + e.getMessage(), "FAILED",
-                Map.of("recipientPhone", request.getRecipientPhone(), "amount", request.getAmount()));
+                    "Pochi payment failed: " + e.getMessage(), "FAILED",
+                    Map.of("recipientPhone", request.getRecipientPhone(), "amount", request.getAmount()));
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
     }
@@ -253,7 +246,7 @@ public class LocalPaymentController {
 
             if (request.getRecipientPhone() == null || request.getRecipientPhone().isBlank()) {
                 return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("recipientPhone is required for Send Money"));
+                        .body(ApiResponse.error("recipientPhone is required for Send Money"));
             }
 
             String normalizedPhone = mpesaService.normalizePhoneNumber(request.getRecipientPhone());
@@ -263,47 +256,40 @@ public class LocalPaymentController {
 
             // Dispatch B2C to Safaricom
             Map<String, Object> mpesaResponse = mpesaService.initiateB2C(
-                normalizedPhone,
-                request.getAmount(),
-                request.getDescription() != null ? request.getDescription() : "NylePay Send Money"
-            );
+                    normalizedPhone,
+                    request.getAmount(),
+                    request.getDescription() != null ? request.getDescription() : "NylePay Send Money");
 
             // Record transaction
             var transaction = transactionService.createLocalPayment(
-                request.getUserId(),
-                "SEND_MONEY",
-                request.getAmount(),
-                normalizedPhone,
-                null,
-                mpesaResponse
-            );
+                    request.getUserId(),
+                    "SEND_MONEY",
+                    request.getAmount(),
+                    normalizedPhone,
+                    null,
+                    mpesaResponse);
 
             // Audit Log
             auditLogService.logPaymentEvent(request.getUserId(), "WITHDRAWAL_INITIATED",
-                "Send Money to " + normalizedPhone, "SUCCESS",
-                Map.of("transactionId", transaction.getId(), "recipientPhone", normalizedPhone, "amount", request.getAmount()));
+                    "Send Money to " + normalizedPhone, "SUCCESS",
+                    Map.of("transactionId", transaction.getId(), "recipientPhone", normalizedPhone, "amount",
+                            request.getAmount()));
 
             return ResponseEntity.ok(ApiResponse.success(
-                "Send Money initiated",
-                Map.of(
-                    "transactionId", transaction.getId(),
-                    "recipientPhone", normalizedPhone,
-                    "amount", request.getAmount(),
-                    "status", transaction.getStatus(),
-                    "mpesaResponse", mpesaResponse
-                )
-            ));
+                    "Send Money initiated",
+                    Map.of(
+                            "transactionId", transaction.getId(),
+                            "recipientPhone", normalizedPhone,
+                            "amount", request.getAmount(),
+                            "status", transaction.getStatus(),
+                            "mpesaResponse", mpesaResponse)));
         } catch (Exception e) {
             auditLogService.logPaymentEvent(request.getUserId(), "WITHDRAWAL_FAILED",
-                "Send Money failed: " + e.getMessage(), "FAILED",
-                Map.of("recipientPhone", request.getRecipientPhone(), "amount", request.getAmount()));
+                    "Send Money failed: " + e.getMessage(), "FAILED",
+                    Map.of("recipientPhone", request.getRecipientPhone(), "amount", request.getAmount()));
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
     }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Validation helpers
-    // ─────────────────────────────────────────────────────────────────────────
 
     private void validateLocalPayment(Long userId, BigDecimal amount, String paymentType, HttpServletRequest request) {
         User user = userService.getUserById(userId)
@@ -319,17 +305,15 @@ public class LocalPaymentController {
         // KYC check
         if (!kycService.canTransact(userId, amount)) {
             throw new RuntimeException(
-                "Transaction blocked: KYC not verified or monthly limit exceeded. " +
-                "Complete KYC at /api/kyc/submit to increase your limits."
-            );
+                    "Transaction blocked: KYC not verified or monthly limit exceeded. " +
+                            "Complete KYC at /api/kyc/submit to increase your limits.");
         }
 
         // Balance check
         BigDecimal balance = walletService.getBalance(userId, "KSH");
         if (balance.compareTo(amount) < 0) {
             throw new RuntimeException(
-                "Insufficient KSH balance. Available: " + balance + ", Required: " + amount
-            );
+                    "Insufficient KSH balance. Available: " + balance + ", Required: " + amount);
         }
 
         // Minimum amount (Safaricom minimum is KES 1)
