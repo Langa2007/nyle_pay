@@ -35,8 +35,6 @@ build/
 # Removed application.properties so it syncs with Render
 
 business-requirements.md
-ACCOUNT_POLICY.md
-FUNDS_FLOW.md
 API_KEYS.md
 
 # Secrets
