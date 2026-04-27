@@ -1,6 +1,3 @@
-/**
- * AuthController - Stabilized version
- */
 package com.nyle.nylepay.controllers;
 
 import com.nyle.nylepay.dto.ApiResponse;
@@ -234,12 +231,6 @@ public class AuthController {
         }
     }
 
-    // 2FA / OTP Endpoints
-
-    /**
-     * POST /api/auth/otp/request
-     * Request a 6-digit OTP for a specific purpose.
-     */
     @PostMapping("/otp/request")
     public ResponseEntity<ApiResponse<Map<String, Object>>> requestOtp(
             @RequestParam Long userId,
@@ -261,10 +252,6 @@ public class AuthController {
         }
     }
 
-    /**
-     * POST /api/auth/otp/verify
-     * Verify a 6-digit OTP.
-     */
     @PostMapping("/otp/verify")
     public ResponseEntity<ApiResponse<Map<String, Object>>> verifyOtp(
             @RequestParam Long userId,
@@ -294,10 +281,6 @@ public class AuthController {
         }
     }
 
-    /**
-     * POST /api/auth/otp/enable
-     * Enable 2FA for a user account.
-     */
     @PostMapping("/otp/enable")
     public ResponseEntity<ApiResponse<String>> enableOtp(@RequestParam Long userId) {
         try {
@@ -311,11 +294,6 @@ public class AuthController {
         }
     }
 
-    /**
-     * POST /api/auth/otp/disable
-     * Disable 2FA (requires OTP verification first via /otp/verify with
-     * purpose=DISABLE_2FA).
-     */
     @PostMapping("/otp/disable")
     public ResponseEntity<ApiResponse<String>> disableTwoFactorAuth(@RequestParam Long userId) {
         try {
