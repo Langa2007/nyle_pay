@@ -35,3 +35,8 @@ build/
 # Removed application.properties so it syncs with Render
 
 business-requirements.md
+
+# Secrets
+.env
+*.env
+application-docker.properties
