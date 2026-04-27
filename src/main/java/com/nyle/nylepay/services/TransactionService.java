@@ -1150,7 +1150,7 @@ public class TransactionService {
         return null;
     }
 
-    @SuppressWarnings("unchecked")
+
     private String extractBankReference(Map<String, Object> payload, String fallback) {
         if (payload == null) {
             return fallback;
@@ -1175,7 +1175,7 @@ public class TransactionService {
         return fallback;
     }
 
-    @SuppressWarnings("unchecked")
+
     private String extractBankTransferId(Map<String, Object> payload) {
         if (payload == null) {
             return null;
@@ -1193,7 +1193,7 @@ public class TransactionService {
         return null;
     }
 
-    @SuppressWarnings("unchecked")
+
     private String extractBankStatus(Map<String, Object> payload) {
         if (payload == null) {
             return null;

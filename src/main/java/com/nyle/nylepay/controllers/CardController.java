@@ -4,7 +4,6 @@ import com.nyle.nylepay.services.card.CardPaymentService;
 import com.nyle.nylepay.services.card.PaystackCardService;
 import com.nyle.nylepay.services.card.StripeCardService;
 import com.nyle.nylepay.services.kyc.AmlScreeningService;
-import com.nyle.nylepay.services.kyc.KycService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stripe.exception.SignatureVerificationException;

@@ -38,6 +38,10 @@ public class User {
     private boolean otpEnabled = false;
     private String otpSecret;  // TOTP secret or null if SMS-only OTP
 
+    // Brute-force protection
+    private int failedLoginAttempts = 0;
+    private LocalDateTime lockoutUntil;
+
     // Audit
     @Column(name = "created_at")
     private LocalDateTime createdAt;
@@ -80,4 +84,8 @@ public class User {
     public void setOtpEnabled(boolean otpEnabled)              { this.otpEnabled = otpEnabled; }
     public String getOtpSecret()                               { return otpSecret; }
     public void setOtpSecret(String otpSecret)                 { this.otpSecret = otpSecret; }
+    public int getFailedLoginAttempts()                        { return failedLoginAttempts; }
+    public void setFailedLoginAttempts(int attempts)           { this.failedLoginAttempts = attempts; }
+    public LocalDateTime getLockoutUntil()                     { return lockoutUntil; }
+    public void setLockoutUntil(LocalDateTime lockoutUntil)    { this.lockoutUntil = lockoutUntil; }
 }

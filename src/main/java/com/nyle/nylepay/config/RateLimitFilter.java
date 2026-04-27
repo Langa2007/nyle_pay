@@ -1,6 +1,5 @@
 package com.nyle.nylepay.config;
 
-import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -87,7 +86,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private Bucket createBucket(int tokensPerMinute) {
         return Bucket.builder()
-            .addLimit(Bandwidth.simple(tokensPerMinute, Duration.ofMinutes(1)))
+            .addLimit(limit -> limit.capacity(tokensPerMinute).refillGreedy(tokensPerMinute, Duration.ofMinutes(1)))
             .build();
     }
 

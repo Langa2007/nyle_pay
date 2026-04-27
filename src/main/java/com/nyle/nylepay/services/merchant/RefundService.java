@@ -3,7 +3,6 @@ package com.nyle.nylepay.services.merchant;
 import com.nyle.nylepay.models.Merchant;
 import com.nyle.nylepay.models.Refund;
 import com.nyle.nylepay.models.Transaction;
-import com.nyle.nylepay.repositories.CheckoutSessionRepository;
 import com.nyle.nylepay.repositories.MerchantRepository;
 import com.nyle.nylepay.repositories.RefundRepository;
 import com.nyle.nylepay.repositories.TransactionRepository;

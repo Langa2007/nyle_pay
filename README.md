@@ -462,10 +462,16 @@ All sensitive values are injected from environment variables. Set these in your 
 
 ## Roadmap
 
-- [x] **Phase 1** — Kenya Launch (Till/Paybill/Pochi, Account Numbers, KYC Limits, Rate Limiting, 2FA)
-- [ ] **Phase 2** — Security Hardening (Anti-fraud velocity checks, IP whitelisting, Account lockout, Audit logs)
+- [x] **Phase 1** — Local Payment Rails (Till, Paybill, Pochi, Send Money, ACID Settlement, KYC)
+- [x] **Phase 2** — Security Hardening (2FA/OTP, Anti-fraud velocity checks, Audit logs, Account lockout)
 - [ ] **Phase 3** — CEX & Cross-Border (Complete CEX→M-Pesa flow, Visa Direct, Live mode activation)
 - [ ] **Phase 4** — Offline & USSD (Africa's Talking USSD gateway, SMS notifications, Offline queue)
+
+---
+
+## 🔐 Security & Compliance
+
+For detailed information on our identity management, data protection, and account lifecycle policies, see [ACCOUNT_POLICY.md](ACCOUNT_POLICY.md).
 
 ---
 

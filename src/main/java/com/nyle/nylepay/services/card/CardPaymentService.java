@@ -1,6 +1,5 @@
 package com.nyle.nylepay.services.card;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nyle.nylepay.models.CheckoutSession;
 import com.nyle.nylepay.models.Merchant;
 import com.nyle.nylepay.models.Transaction;

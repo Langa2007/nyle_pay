@@ -6,6 +6,11 @@ import com.nyle.nylepay.services.MpesaService;
 import com.nyle.nylepay.services.TransactionService;
 import com.nyle.nylepay.services.WalletService;
 import com.nyle.nylepay.services.kyc.KycService;
+import com.nyle.nylepay.services.AntiFraudService;
+import com.nyle.nylepay.services.AuditLogService;
+import com.nyle.nylepay.services.UserService;
+import com.nyle.nylepay.models.User;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,9 +25,11 @@ import java.util.Map;
  *
  * Flow for each payment type:
  *   1. Validate KYC status and monthly limits
- *   2. Debit user's KSH wallet balance
- *   3. Dispatch to Safaricom (B2B for Till/Paybill/Pochi, B2C for Send Money)
- *   4. Record PENDING transaction (finalized on callback)
+ *   2. Run Anti-Fraud velocity and amount checks
+ *   3. Debit user's KSH wallet balance
+ *   4. Dispatch to Safaricom (B2B for Till/Paybill/Pochi, B2C for Send Money)
+ *   5. Record PENDING transaction (finalized on callback)
+ *   6. Log security audit event
  */
 @RestController
 @RequestMapping("/api/payments/local")
@@ -34,15 +41,24 @@ public class LocalPaymentController {
     private final TransactionService transactionService;
     private final WalletService walletService;
     private final KycService kycService;
+    private final AntiFraudService antiFraudService;
+    private final AuditLogService auditLogService;
+    private final UserService userService;
 
     public LocalPaymentController(MpesaService mpesaService,
                                   TransactionService transactionService,
                                   WalletService walletService,
-                                  KycService kycService) {
+                                  KycService kycService,
+                                  AntiFraudService antiFraudService,
+                                  AuditLogService auditLogService,
+                                  UserService userService) {
         this.mpesaService = mpesaService;
         this.transactionService = transactionService;
         this.walletService = walletService;
         this.kycService = kycService;
+        this.antiFraudService = antiFraudService;
+        this.auditLogService = auditLogService;
+        this.userService = userService;
     }
 
     /**
@@ -51,9 +67,10 @@ public class LocalPaymentController {
      */
     @PostMapping("/till")
     public ResponseEntity<ApiResponse<Map<String, Object>>> payToTill(
-            @Valid @RequestBody LocalPaymentRequest request) {
+            @Valid @RequestBody LocalPaymentRequest request,
+            HttpServletRequest httpServletRequest) {
         try {
-            validateLocalPayment(request.getUserId(), request.getAmount(), "TILL");
+            validateLocalPayment(request.getUserId(), request.getAmount(), "TILL", httpServletRequest);
 
             if (request.getTillNumber() == null || request.getTillNumber().isBlank()) {
                 return ResponseEntity.badRequest()
@@ -80,6 +97,11 @@ public class LocalPaymentController {
                 mpesaResponse
             );
 
+            // Audit Log
+            auditLogService.logPaymentEvent(request.getUserId(), "PAYMENT_INITIATED",
+                "Till payment to " + request.getTillNumber(), "SUCCESS",
+                Map.of("transactionId", transaction.getId(), "tillNumber", request.getTillNumber(), "amount", request.getAmount()));
+
             return ResponseEntity.ok(ApiResponse.success(
                 "Till payment initiated",
                 Map.of(
@@ -91,6 +113,9 @@ public class LocalPaymentController {
                 )
             ));
         } catch (Exception e) {
+            auditLogService.logPaymentEvent(request.getUserId(), "PAYMENT_FAILED",
+                "Till payment failed: " + e.getMessage(), "FAILED",
+                Map.of("tillNumber", request.getTillNumber(), "amount", request.getAmount()));
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
     }
@@ -101,9 +126,10 @@ public class LocalPaymentController {
      */
     @PostMapping("/paybill")
     public ResponseEntity<ApiResponse<Map<String, Object>>> payToPaybill(
-            @Valid @RequestBody LocalPaymentRequest request) {
+            @Valid @RequestBody LocalPaymentRequest request,
+            HttpServletRequest httpServletRequest) {
         try {
-            validateLocalPayment(request.getUserId(), request.getAmount(), "PAYBILL");
+            validateLocalPayment(request.getUserId(), request.getAmount(), "PAYBILL", httpServletRequest);
 
             if (request.getPaybillNumber() == null || request.getPaybillNumber().isBlank()) {
                 return ResponseEntity.badRequest()
@@ -131,6 +157,11 @@ public class LocalPaymentController {
                 mpesaResponse
             );
 
+            // Audit Log
+            auditLogService.logPaymentEvent(request.getUserId(), "PAYMENT_INITIATED",
+                "Paybill payment to " + request.getPaybillNumber() + " (Acc: " + request.getAccountNumber() + ")", "SUCCESS",
+                Map.of("transactionId", transaction.getId(), "paybillNumber", request.getPaybillNumber(), "amount", request.getAmount()));
+
             return ResponseEntity.ok(ApiResponse.success(
                 "Paybill payment initiated",
                 Map.of(
@@ -143,6 +174,9 @@ public class LocalPaymentController {
                 )
             ));
         } catch (Exception e) {
+            auditLogService.logPaymentEvent(request.getUserId(), "PAYMENT_FAILED",
+                "Paybill payment failed: " + e.getMessage(), "FAILED",
+                Map.of("paybillNumber", request.getPaybillNumber(), "amount", request.getAmount()));
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
     }
@@ -153,9 +187,10 @@ public class LocalPaymentController {
      */
     @PostMapping("/pochi")
     public ResponseEntity<ApiResponse<Map<String, Object>>> payToPochi(
-            @Valid @RequestBody LocalPaymentRequest request) {
+            @Valid @RequestBody LocalPaymentRequest request,
+            HttpServletRequest httpServletRequest) {
         try {
-            validateLocalPayment(request.getUserId(), request.getAmount(), "POCHI");
+            validateLocalPayment(request.getUserId(), request.getAmount(), "POCHI", httpServletRequest);
 
             if (request.getRecipientPhone() == null || request.getRecipientPhone().isBlank()) {
                 return ResponseEntity.badRequest()
@@ -182,6 +217,11 @@ public class LocalPaymentController {
                 mpesaResponse
             );
 
+            // Audit Log
+            auditLogService.logPaymentEvent(request.getUserId(), "PAYMENT_INITIATED",
+                "Pochi payment to " + request.getRecipientPhone(), "SUCCESS",
+                Map.of("transactionId", transaction.getId(), "recipientPhone", request.getRecipientPhone(), "amount", request.getAmount()));
+
             return ResponseEntity.ok(ApiResponse.success(
                 "Pochi la Biashara payment initiated",
                 Map.of(
@@ -193,6 +233,9 @@ public class LocalPaymentController {
                 )
             ));
         } catch (Exception e) {
+            auditLogService.logPaymentEvent(request.getUserId(), "PAYMENT_FAILED",
+                "Pochi payment failed: " + e.getMessage(), "FAILED",
+                Map.of("recipientPhone", request.getRecipientPhone(), "amount", request.getAmount()));
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
     }
@@ -203,9 +246,10 @@ public class LocalPaymentController {
      */
     @PostMapping("/send")
     public ResponseEntity<ApiResponse<Map<String, Object>>> sendMoney(
-            @Valid @RequestBody LocalPaymentRequest request) {
+            @Valid @RequestBody LocalPaymentRequest request,
+            HttpServletRequest httpServletRequest) {
         try {
-            validateLocalPayment(request.getUserId(), request.getAmount(), "SEND");
+            validateLocalPayment(request.getUserId(), request.getAmount(), "SEND", httpServletRequest);
 
             if (request.getRecipientPhone() == null || request.getRecipientPhone().isBlank()) {
                 return ResponseEntity.badRequest()
@@ -234,6 +278,11 @@ public class LocalPaymentController {
                 mpesaResponse
             );
 
+            // Audit Log
+            auditLogService.logPaymentEvent(request.getUserId(), "WITHDRAWAL_INITIATED",
+                "Send Money to " + normalizedPhone, "SUCCESS",
+                Map.of("transactionId", transaction.getId(), "recipientPhone", normalizedPhone, "amount", request.getAmount()));
+
             return ResponseEntity.ok(ApiResponse.success(
                 "Send Money initiated",
                 Map.of(
@@ -245,6 +294,9 @@ public class LocalPaymentController {
                 )
             ));
         } catch (Exception e) {
+            auditLogService.logPaymentEvent(request.getUserId(), "WITHDRAWAL_FAILED",
+                "Send Money failed: " + e.getMessage(), "FAILED",
+                Map.of("recipientPhone", request.getRecipientPhone(), "amount", request.getAmount()));
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
     }
@@ -253,7 +305,17 @@ public class LocalPaymentController {
     // Validation helpers
     // ─────────────────────────────────────────────────────────────────────────
 
-    private void validateLocalPayment(Long userId, BigDecimal amount, String paymentType) {
+    private void validateLocalPayment(Long userId, BigDecimal amount, String paymentType, HttpServletRequest request) {
+        User user = userService.getUserById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // Anti-Fraud check
+        AntiFraudService.FraudCheckResult fraudResult = antiFraudService.checkTransaction(
+                userId, amount, paymentType, user.getCreatedAt(), request);
+
+        if (fraudResult.isBlocked()) {
+            throw new RuntimeException("Transaction blocked: " + fraudResult.getReason());
+        }
         // KYC check
         if (!kycService.canTransact(userId, amount)) {
             throw new RuntimeException(

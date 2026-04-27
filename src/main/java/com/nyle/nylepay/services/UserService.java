@@ -111,6 +111,47 @@ public class UserService {
         return userRepository.findByEmail(email);
     }
 
+    /**
+     * Checks if a user's account is currently locked due to failed login attempts.
+     */
+    public boolean isLocked(User user) {
+        if (user.getLockoutUntil() == null) {
+            return false;
+        }
+        boolean locked = user.getLockoutUntil().isAfter(java.time.LocalDateTime.now());
+        if (!locked) {
+            // Lockout expired — clear it but don't reset counter yet (that happens on success)
+            user.setLockoutUntil(null);
+            userRepository.save(user);
+        }
+        return locked;
+    }
+
+    /**
+     * Increments failed login attempts and locks the account if threshold is reached.
+     */
+    @Transactional
+    public void incrementFailedAttempts(User user) {
+        int newAttempts = user.getFailedLoginAttempts() + 1;
+        user.setFailedLoginAttempts(newAttempts);
+
+        if (newAttempts >= 5) {
+            // Lock for 30 minutes
+            user.setLockoutUntil(java.time.LocalDateTime.now().plusMinutes(30));
+        }
+        userRepository.save(user);
+    }
+
+    /**
+     * Resets failed login attempts to zero.
+     */
+    @Transactional
+    public void resetFailedAttempts(User user) {
+        user.setFailedLoginAttempts(0);
+        user.setLockoutUntil(null);
+        userRepository.save(user);
+    }
+
     @Transactional
     public User updateUserMpesaNumber(Long userId, String mpesaNumber) {
         User user = userRepository.findById(userId)
