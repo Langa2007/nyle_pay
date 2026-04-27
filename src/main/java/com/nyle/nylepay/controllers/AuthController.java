@@ -3,6 +3,7 @@ package com.nyle.nylepay.controllers;
 import com.nyle.nylepay.dto.ApiResponse;
 import com.nyle.nylepay.dto.LoginRequest;
 import com.nyle.nylepay.dto.RegisterRequest;
+import com.nyle.nylepay.services.OtpService;
 import com.nyle.nylepay.services.UserService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -18,15 +19,18 @@ public class AuthController {
     private final org.springframework.security.authentication.AuthenticationManager authenticationManager;
     private final com.nyle.nylepay.services.JwtService jwtService;
     private final org.springframework.security.core.userdetails.UserDetailsService userDetailsService;
+    private final OtpService otpService;
     
     public AuthController(UserService userService, 
                           org.springframework.security.authentication.AuthenticationManager authenticationManager,
                           com.nyle.nylepay.services.JwtService jwtService,
-                          org.springframework.security.core.userdetails.UserDetailsService userDetailsService) {
+                          org.springframework.security.core.userdetails.UserDetailsService userDetailsService,
+                          OtpService otpService) {
         this.userService = userService;
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
         this.userDetailsService = userDetailsService;
+        this.otpService = otpService;
     }
     
     @PostMapping("/register")
@@ -75,7 +79,9 @@ public class AuthController {
                 "userId", user.getId(),
                 "email", user.getEmail(),
                 "fullName", user.getFullName(),
-                "token", jwtToken
+                "token", jwtToken,
+                "accountNumber", user.getAccountNumber() != null ? user.getAccountNumber() : "",
+                "otpEnabled", user.isOtpEnabled()
             );
             
             return ResponseEntity.ok(ApiResponse.success("Login successful", response));
@@ -136,8 +142,6 @@ public class AuthController {
     
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<String>> logout() {
-        // For stateless JWT, client-side is responsible for token disposal.
-        // Server-side could implement a token blacklist here if needed.
         return ResponseEntity.ok(ApiResponse.success("Logged out successfully"));
     }
     
@@ -179,6 +183,78 @@ public class AuthController {
         } catch (Exception e) {
             return ResponseEntity.badRequest()
                 .body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // 2FA / OTP Endpoints
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * POST /api/auth/otp/request
+     * Request a 6-digit OTP for a specific purpose.
+     */
+    @PostMapping("/otp/request")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> requestOtp(
+            @RequestParam Long userId,
+            @RequestParam String purpose) {
+        try {
+            Map<String, Object> result = otpService.requestOtp(userId, purpose);
+            return ResponseEntity.ok(ApiResponse.success("OTP sent successfully", result));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    /**
+     * POST /api/auth/otp/verify
+     * Verify a 6-digit OTP.
+     */
+    @PostMapping("/otp/verify")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> verifyOtp(
+            @RequestParam Long userId,
+            @RequestParam String purpose,
+            @RequestParam String otp) {
+        try {
+            boolean valid = otpService.verifyOtp(userId, purpose, otp);
+            if (valid) {
+                return ResponseEntity.ok(ApiResponse.success(
+                    "OTP verified successfully",
+                    Map.of("verified", true, "purpose", purpose)
+                ));
+            } else {
+                return ResponseEntity.badRequest().body(ApiResponse.error("Invalid or expired OTP"));
+            }
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    /**
+     * POST /api/auth/otp/enable
+     * Enable 2FA for a user account.
+     */
+    @PostMapping("/otp/enable")
+    public ResponseEntity<ApiResponse<String>> enableOtp(@RequestParam Long userId) {
+        try {
+            otpService.enableOtp(userId);
+            return ResponseEntity.ok(ApiResponse.success("2FA has been enabled for your account"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    /**
+     * POST /api/auth/otp/disable
+     * Disable 2FA (requires OTP verification first via /otp/verify with purpose=DISABLE_2FA).
+     */
+    @PostMapping("/otp/disable")
+    public ResponseEntity<ApiResponse<String>> disableOtp(@RequestParam Long userId) {
+        try {
+            otpService.disableOtp(userId);
+            return ResponseEntity.ok(ApiResponse.success("2FA has been disabled for your account"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
     }
 }

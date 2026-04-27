@@ -143,6 +143,15 @@ public class WalletService {
         walletRepository.save(wallet);
     }
 
+    /**
+     * Alias for {@link #subtractBalance} — used by local payment controller
+     * for naming consistency with "debit" semantics.
+     */
+    @Transactional
+    public void deductBalance(Long userId, String currency, BigDecimal amount) {
+        subtractBalance(userId, currency, amount);
+    }
+
     // ------------------------------------------------------------------------
     // GET ALL BALANCES
     // ------------------------------------------------------------------------

@@ -18,6 +18,10 @@ public class User {
     @Column(nullable = false)
     private String role = "USER"; // "USER" or "ADMIN"
 
+    // NylePay Account Identity — generated on KYC verification (e.g. NPY-A7X92K)
+    @Column(unique = true)
+    private String accountNumber;
+
     // Financial Rails
     private String mpesaNumber;
     private String bankAccountNumber;
@@ -29,6 +33,10 @@ public class User {
     private String kycProvider;     // "SMILE_IDENTITY" | "MANUAL"
     private String kycReference;    // Provider job ID
     private java.time.LocalDateTime kycVerifiedAt;
+
+    // 2FA / OTP
+    private boolean otpEnabled = false;
+    private String otpSecret;  // TOTP secret or null if SMS-only OTP
 
     // Audit
     @Column(name = "created_at")
@@ -66,4 +74,10 @@ public class User {
     public void setKycReference(String kycReference)           { this.kycReference = kycReference; }
     public java.time.LocalDateTime getKycVerifiedAt()                        { return kycVerifiedAt; }
     public void setKycVerifiedAt(java.time.LocalDateTime kycVerifiedAt)      { this.kycVerifiedAt = kycVerifiedAt; }
+    public String getAccountNumber()                           { return accountNumber; }
+    public void setAccountNumber(String accountNumber)         { this.accountNumber = accountNumber; }
+    public boolean isOtpEnabled()                              { return otpEnabled; }
+    public void setOtpEnabled(boolean otpEnabled)              { this.otpEnabled = otpEnabled; }
+    public String getOtpSecret()                               { return otpSecret; }
+    public void setOtpSecret(String otpSecret)                 { this.otpSecret = otpSecret; }
 }

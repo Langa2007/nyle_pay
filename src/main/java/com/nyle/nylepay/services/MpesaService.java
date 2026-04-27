@@ -281,6 +281,120 @@ public class MpesaService {
         }
     }
     
+    /**
+     * Pay to a Till number (Buy Goods) using Safaricom B2B API.
+     * CommandID: BusinessBuyGoods
+     *
+     * @param tillNumber the merchant till number
+     * @param amount     amount in KES
+     * @param remarks    transaction description
+     */
+    public Map<String, Object> payToTill(String tillNumber, BigDecimal amount, String remarks) {
+        try {
+            String accessToken = getAccessToken();
+
+            ObjectNode requestBody = objectMapper.createObjectNode();
+            requestBody.put("Initiator", initiatorName);
+            requestBody.put("SecurityCredential", securityCredential);
+            requestBody.put("CommandID", "BusinessBuyGoods");
+            requestBody.put("SenderIdentifierType", "4");
+            requestBody.put("RecieverIdentifierType", "2");
+            requestBody.put("Amount", amount.intValue());
+            requestBody.put("PartyA", shortCode);
+            requestBody.put("PartyB", tillNumber);
+            requestBody.put("Remarks", remarks != null ? remarks : "NylePay Till Payment");
+            requestBody.put("QueueTimeOutURL", timeoutUrl);
+            requestBody.put("ResultURL", resultUrl);
+            requestBody.put("AccountReference", "NPY_TILL_" + System.currentTimeMillis());
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setBearerAuth(accessToken);
+
+            HttpEntity<String> request = new HttpEntity<>(requestBody.toString(), headers);
+            String url = getBaseUrl() + "/mpesa/b2b/v1/paymentrequest";
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                url, HttpMethod.POST, request,
+                new ParameterizedTypeReference<Map<String, Object>>() {}
+            );
+
+            Map<String, Object> result = response.getBody();
+            if (result == null) result = new HashMap<>();
+            result.put("transactionType", "B2B_TILL");
+            result.put("tillNumber", tillNumber);
+            return result;
+        } catch (Exception e) {
+            throw new RuntimeException("Till payment failed: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Pay to a Paybill number using Safaricom B2B API.
+     * CommandID: BusinessPayBill
+     *
+     * @param paybillNumber the business shortcode
+     * @param accountNumber account reference for the paybill
+     * @param amount        amount in KES
+     * @param remarks       transaction description
+     */
+    public Map<String, Object> payToPaybill(String paybillNumber, String accountNumber,
+                                             BigDecimal amount, String remarks) {
+        try {
+            String accessToken = getAccessToken();
+
+            ObjectNode requestBody = objectMapper.createObjectNode();
+            requestBody.put("Initiator", initiatorName);
+            requestBody.put("SecurityCredential", securityCredential);
+            requestBody.put("CommandID", "BusinessPayBill");
+            requestBody.put("SenderIdentifierType", "4");
+            requestBody.put("RecieverIdentifierType", "4");
+            requestBody.put("Amount", amount.intValue());
+            requestBody.put("PartyA", shortCode);
+            requestBody.put("PartyB", paybillNumber);
+            requestBody.put("Remarks", remarks != null ? remarks : "NylePay Paybill Payment");
+            requestBody.put("QueueTimeOutURL", timeoutUrl);
+            requestBody.put("ResultURL", resultUrl);
+            requestBody.put("AccountReference", accountNumber != null ? accountNumber : "NPY_PBL_" + System.currentTimeMillis());
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setBearerAuth(accessToken);
+
+            HttpEntity<String> request = new HttpEntity<>(requestBody.toString(), headers);
+            String url = getBaseUrl() + "/mpesa/b2b/v1/paymentrequest";
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                url, HttpMethod.POST, request,
+                new ParameterizedTypeReference<Map<String, Object>>() {}
+            );
+
+            Map<String, Object> result = response.getBody();
+            if (result == null) result = new HashMap<>();
+            result.put("transactionType", "B2B_PAYBILL");
+            result.put("paybillNumber", paybillNumber);
+            result.put("accountReference", accountNumber);
+            return result;
+        } catch (Exception e) {
+            throw new RuntimeException("Paybill payment failed: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Pay to Pochi la Biashara (mini business wallet).
+     * Uses the same B2B API with BusinessPayBill command.
+     * Pochi recipients use the standard Safaricom Pochi shortcode (440000)
+     * with the recipient phone as the account reference.
+     *
+     * @param recipientPhone recipient's M-Pesa phone number
+     * @param amount         amount in KES
+     * @param remarks        transaction description
+     */
+    public Map<String, Object> payToPochi(String recipientPhone, BigDecimal amount, String remarks) {
+        String normalizedPhone = normalizePhoneNumber(recipientPhone);
+        // Pochi la Biashara uses Safaricom's Pochi shortcode
+        return payToPaybill("440000", normalizedPhone, amount,
+                remarks != null ? remarks : "NylePay Pochi Payment");
+    }
+
     private String getAccessToken() {
         try {
             String auth = Base64.getEncoder().encodeToString((consumerKey + ":" + consumerSecret).getBytes());

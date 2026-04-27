@@ -416,6 +416,19 @@ public class PaymentController {
             return ResponseEntity.badRequest().body("Error processing timeout callback");
         }
     }
+
+    /**
+     * Safaricom B2B result callback for Till, Paybill, and Pochi payments.
+     */
+    @PostMapping("/webhook/mpesa/b2b")
+    public ResponseEntity<String> mpesaB2BWebhook(@RequestBody Map<String, Object> payload) {
+        try {
+            transactionService.processB2BCallback(payload);
+            return ResponseEntity.ok("B2B callback processed successfully");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error processing B2B callback");
+        }
+    }
     
     @PostMapping("/webhook/bank")
     public ResponseEntity<String> bankWebhook(

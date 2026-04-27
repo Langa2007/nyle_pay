@@ -1229,4 +1229,114 @@ public class TransactionService {
     private String generateBankReference(Long userId, String flow) {
         return "BNK_" + flow + "_" + userId + "_" + System.currentTimeMillis();
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Local Kenyan Payments (Till, Paybill, Pochi, Send Money)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Creates a local payment transaction (B2B or B2C).
+     *
+     * @param userId        the paying user
+     * @param paymentType   TILL, PAYBILL, POCHI, or SEND_MONEY
+     * @param amount        amount in KES
+     * @param destination   till number, paybill shortcode, or phone number
+     * @param accountRef    account reference (for paybill/pochi) or null
+     * @param mpesaResponse raw response from Safaricom API
+     */
+    @Transactional
+    public Transaction createLocalPayment(Long userId, String paymentType,
+                                           BigDecimal amount, String destination,
+                                           String accountRef,
+                                           Map<String, Object> mpesaResponse) {
+
+        String externalId = null;
+        if (mpesaResponse != null) {
+            externalId = asString(mpesaResponse.get("ConversationID"));
+            if (externalId == null) {
+                externalId = asString(mpesaResponse.get("OriginatorConversationID"));
+            }
+        }
+        if (externalId == null) {
+            externalId = "LOCAL_" + paymentType + "_" + userId + "_" + System.currentTimeMillis();
+        }
+
+        // Build metadata
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("paymentType", paymentType);
+        metadata.put("destination", destination);
+        if (accountRef != null) metadata.put("accountReference", accountRef);
+        if (mpesaResponse != null) metadata.put("mpesaResponse", mpesaResponse);
+
+        Transaction transaction = new Transaction();
+        transaction.setUserId(userId);
+        transaction.setType("LOCAL_PAYMENT");
+        transaction.setProvider("MPESA_" + paymentType);
+        transaction.setAmount(amount);
+        transaction.setCurrency("KSH");
+        transaction.setStatus("PENDING");
+        transaction.setTimestamp(LocalDateTime.now());
+        transaction.setExternalId(externalId);
+        transaction.setMetadata(writeMetadata(metadata));
+
+        Transaction saved = transactionRepository.save(transaction);
+        logger.info("Local payment created: userId={} type={} amount={} destination={} txId={}",
+                userId, paymentType, amount, destination, saved.getId());
+
+        // Email notification
+        notifyUser(saved);
+
+        return saved;
+    }
+
+    /**
+     * Processes Safaricom B2B callback for Till/Paybill/Pochi payments.
+     * Called by the B2B result webhook endpoint.
+     */
+    @Transactional
+    public void processB2BCallback(Map<String, Object> payload) {
+        logger.info("Processing B2B callback: {}", payload);
+
+        String conversationId = asString(payload.get("ConversationID"));
+        String originatorId = asString(payload.get("OriginatorConversationID"));
+        Object resultCodeObj = payload.get("ResultCode");
+        int resultCode = resultCodeObj != null ? Integer.parseInt(String.valueOf(resultCodeObj)) : -1;
+
+        String lookupId = conversationId != null ? conversationId : originatorId;
+        if (lookupId == null) {
+            logger.warn("B2B callback missing ConversationID and OriginatorConversationID");
+            return;
+        }
+
+        Optional<Transaction> txOpt = transactionRepository.findByExternalId(lookupId);
+        if (txOpt.isEmpty() && originatorId != null) {
+            txOpt = transactionRepository.findByExternalId(originatorId);
+        }
+
+        if (txOpt.isEmpty()) {
+            logger.warn("B2B callback: no matching transaction for conversationId={}", lookupId);
+            return;
+        }
+
+        Transaction transaction = txOpt.get();
+        if (isFinalStatus(transaction.getStatus())) {
+            logger.info("B2B callback: transaction {} already in final status {}", transaction.getId(), transaction.getStatus());
+            return;
+        }
+
+        if (resultCode == 0) {
+            transaction.setStatus("COMPLETED");
+            logger.info("B2B payment COMPLETED: txId={} type={}", transaction.getId(), transaction.getProvider());
+        } else {
+            transaction.setStatus("FAILED");
+            // Refund the wallet since B2B payment failed
+            walletService.addBalance(transaction.getUserId(), "KSH", transaction.getAmount());
+            logger.warn("B2B payment FAILED: txId={} resultCode={}", transaction.getId(), resultCode);
+        }
+
+        mergeMetadata(transaction, Map.of("b2bResultCode", resultCode, "b2bCallback", payload));
+        transactionRepository.save(transaction);
+        notifyUser(transaction);
+    }
 }
+

@@ -61,4 +61,15 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     long countByUserId(Long userId);
 
     List<Transaction> findByTimestampBetween(LocalDateTime start, LocalDateTime end);
+
+    /**
+     * Sums the absolute value of all COMPLETED transactions for a user within
+     * a date range. Used by KycService to enforce CBK monthly limits.
+     */
+    @Query("SELECT COALESCE(SUM(ABS(t.amount)), 0) FROM Transaction t " +
+           "WHERE t.userId = :userId AND t.status = 'COMPLETED' " +
+           "AND t.timestamp >= :startDate AND t.timestamp <= :endDate")
+    BigDecimal getMonthlyTransactionTotal(@Param("userId") Long userId,
+                                          @Param("startDate") LocalDateTime startDate,
+                                          @Param("endDate") LocalDateTime endDate);
 }

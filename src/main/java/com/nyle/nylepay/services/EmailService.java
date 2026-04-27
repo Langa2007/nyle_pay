@@ -134,6 +134,24 @@ public class EmailService {
     }
 
     // ────────────────────────────────────────────────────────────────
+    // GENERIC EMAIL (used by OtpService and others)
+    // ────────────────────────────────────────────────────────────────
+    public void sendGenericEmail(String to, String subject, String textBody) {
+        String html = """
+            <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;background:#0f172a;border-radius:16px;overflow:hidden">
+              <div style="background:linear-gradient(135deg,#2563eb,#06b6d4);padding:32px;text-align:center">
+                <h1 style="color:#fff;margin:0;font-size:24px">NylePay</h1>
+              </div>
+              <div style="padding:32px;color:#e2e8f0">
+                <pre style="font-family:'Segoe UI',Arial,sans-serif;white-space:pre-wrap;line-height:1.7;margin:0">%s</pre>
+              </div>
+            </div>
+            """.formatted(textBody.replace("<", "&lt;").replace(">", "&gt;"));
+
+        send(to, subject, html);
+    }
+
+    // ────────────────────────────────────────────────────────────────
     // CORE SENDER (Resend REST API)
     // ────────────────────────────────────────────────────────────────
     private void send(String to, String subject, String htmlBody) {
