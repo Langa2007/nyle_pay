@@ -37,10 +37,12 @@ public class User {
     private java.time.LocalDateTime kycVerifiedAt;
 
     // 2FA / OTP
+    @Column(columnDefinition = "boolean default false")
     private boolean otpEnabled = false;
     private String otpSecret;  // TOTP secret or null if SMS-only OTP
 
     // Brute-force protection
+    @Column(columnDefinition = "integer default 0")
     private int failedLoginAttempts = 0;
     private LocalDateTime lockoutUntil;
 
