@@ -7,13 +7,13 @@ This document outlines how NylePay manages user account identifiers, security, a
 ### The NylePay Account Number
 Each user is assigned a unique **NylePay Account Number** upon successful registration and KYC verification.
 
-- **Format**: Alphanumeric
-- **Structure**: `NPY-` followed by 6-9 random alphanumeric characters (e.g., `NPY-A7B9X2`).
-- **Generation**: The suffix is generated using a cryptographically secure random generator to ensure unpredictability.
+- **Format**: Alphanumeric (exactly 11 characters)
+- **Structure**: `NPY` followed by exactly 8 random alphanumeric characters (e.g., `NPYAZJ78923`).
+- **Generation**: The 8-character suffix is generated using a cryptographically secure random generator to ensure unpredictability.
 - **Purpose**: This number acts as the primary identifier for P2P transfers within the NylePay ecosystem, similar to a bank account number.
 
 ### Privacy of Identifiers
-- **Masking**: In the UI and public receipts, the account number is partially masked (e.g., `NPY-A7****`).
+- **Masking**: In the UI and public receipts, the account number is partially masked (e.g., `NPYAZJ*****`).
 - **Internal Only**: The full account number is never shared with third parties (merchants, aggregators) unless explicitly authorized by the user for a specific settlement.
 - **Phone Number Privacy**: Per Kenyan regulations, we do not expose a user's M-Pesa or mobile number to other users. Internal P2P transfers are conducted via the `NylePay Account Number` or a verified `Alias/Username`.
 

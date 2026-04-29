@@ -18,7 +18,7 @@ public class User {
     @Column(nullable = false)
     private String role = "USER"; // "USER" or "ADMIN"
 
-    // NylePay Account Identity — generated on KYC verification (e.g. NPY-A7X92K)
+    // NylePay Account Identity — generated on KYC verification (e.g. NPYAZJ78923)
     @Column(unique = true)
     private String accountNumber;
 

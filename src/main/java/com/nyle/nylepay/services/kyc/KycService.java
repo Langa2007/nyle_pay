@@ -237,7 +237,7 @@ public class KycService {
     // ─────────────────────────────────────────────────────────────────────
 
     /**
-     * Generates a unique NylePay account number in format NPY-XXXXXX
+     * Generates a unique NylePay account number in format NPYXXXXXXXX (11 alphanumeric characters)
      * where X is alphanumeric (uppercase). Only called once on KYC verification.
      *
      * Uses SecureRandom for cryptographic randomness. Retries on collision
@@ -252,8 +252,8 @@ public class KycService {
         int maxAttempts = 10;
 
         for (int attempt = 0; attempt < maxAttempts; attempt++) {
-            StringBuilder sb = new StringBuilder("NPY-");
-            for (int i = 0; i < 6; i++) {
+            StringBuilder sb = new StringBuilder("NPY");
+            for (int i = 0; i < 8; i++) {
                 sb.append(chars.charAt(SECURE_RANDOM.nextInt(chars.length())));
             }
             String candidate = sb.toString();

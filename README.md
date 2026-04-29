@@ -137,7 +137,7 @@ NylePay is a **payment orchestration platform** that lets users:
 
 ### 🆔 KYC & Compliance
 - Smile Identity integration (National ID, Passport, Driver's License, Biometric)
-- **NylePay Account Numbers** — `NPY-XXXXXX` format, generated on KYC verification
+- **NylePay Account Numbers** — `NPYXXXXXXXX` format (11 characters), generated on KYC verification
 - CBK-mandated KES 70,000 monthly limit for unverified users
 - Real-time monthly transaction sum enforcement
 - AML screening with threshold and structuring detection
