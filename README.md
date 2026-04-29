@@ -224,7 +224,7 @@ POST /api/merchant/payment-link
 **Response** — share this URL with your customer:
 ```json
 {
-  "paymentUrl": "https://nylepay-api.onrender.com/checkout/NPY-LNK-ABC123XYZ",
+  "paymentUrl": "https://api.yourdomain.com/checkout/NPY-LNK-ABC123XYZ",
   "reference":  "NPY-LNK-ABC123XYZ",
   "expiresAt":  "2026-04-29T23:00:00"
 }
