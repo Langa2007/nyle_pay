@@ -8,9 +8,7 @@ import com.nyle.nylepay.repositories.CheckoutSessionRepository;
 import com.nyle.nylepay.repositories.MerchantRepository;
 import com.nyle.nylepay.services.MpesaService;
 import com.nyle.nylepay.services.WalletService;
-import com.nyle.nylepay.services.merchant.MerchantService;
 import com.nyle.nylepay.services.merchant.WebhookDeliveryService;
-import com.nyle.nylepay.services.card.PaystackCardService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -39,26 +37,20 @@ public class CheckoutController {
     private final CheckoutSessionRepository checkoutSessionRepository;
     private final MerchantRepository merchantRepository;
     private final MpesaService mpesaService;
-    private final PaystackCardService paystackCardService;
     private final WalletService walletService;
     private final WebhookDeliveryService webhookDeliveryService;
-    private final MerchantService merchantService;
 
     public CheckoutController(
             CheckoutSessionRepository checkoutSessionRepository,
             MerchantRepository merchantRepository,
             MpesaService mpesaService,
-            PaystackCardService paystackCardService,
             WalletService walletService,
-            WebhookDeliveryService webhookDeliveryService,
-            MerchantService merchantService) {
+            WebhookDeliveryService webhookDeliveryService) {
         this.checkoutSessionRepository = checkoutSessionRepository;
         this.merchantRepository        = merchantRepository;
         this.mpesaService              = mpesaService;
-        this.paystackCardService       = paystackCardService;
         this.walletService             = walletService;
         this.webhookDeliveryService    = webhookDeliveryService;
-        this.merchantService           = merchantService;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
