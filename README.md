@@ -256,8 +256,13 @@ if (sig !== expected) return res.sendStatus(401); // Reject tampered events
 // Mark order as paid ✅
 ```
 
-### Settlement
-NylePay automatically sweeps your pending balance to your registered M-Pesa or bank account **every day at 22:00 EAT**. Your balance after NylePay's 1.5% fee is transferred in full.
+### Settlement & Headless API
+NylePay features **real-time instant settlement**. Upon successful payment, your balance (after NylePay's 1.5% fee) is immediately swept to your registered M-Pesa or bank account. If the destination network is down, funds are parked in your `pendingSettlement` balance, which is automatically retried every day at **22:00 EAT**.
+
+You can also route payments programmatically from your own backend using NylePay's **Headless APIs** (authenticated via `Authorization: Bearer npy_sec_...`):
+- `POST /api/v1/merchant/charges` — Initiate STK Push or Wallet charges directly.
+- `POST /api/v1/merchant/transfers` — Execute instant payouts to external accounts.
+- `GET /api/v1/merchant/balance` — Check your real-time settlement balance.
 
 ---
 
