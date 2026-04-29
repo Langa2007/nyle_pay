@@ -56,8 +56,8 @@ public class MerchantService {
             throw new RuntimeException("User already has a merchant account");
         }
 
-        String publicKey    = "np_pub_" + UUID.randomUUID().toString().replace("-", "");
-        String rawSecretKey = "np_sec_" + UUID.randomUUID().toString().replace("-", "");
+        String publicKey    = "npy_pub_" + UUID.randomUUID().toString().replace("-", "");
+        String rawSecretKey = "npy_sec_" + UUID.randomUUID().toString().replace("-", "");
         String webhookSecret = UUID.randomUUID().toString().replace("-", "");
 
         String encryptedSecretKey;

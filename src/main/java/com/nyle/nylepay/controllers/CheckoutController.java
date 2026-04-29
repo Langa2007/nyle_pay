@@ -8,6 +8,7 @@ import com.nyle.nylepay.repositories.CheckoutSessionRepository;
 import com.nyle.nylepay.repositories.MerchantRepository;
 import com.nyle.nylepay.services.MpesaService;
 import com.nyle.nylepay.services.WalletService;
+import com.nyle.nylepay.services.merchant.SettlementService;
 import com.nyle.nylepay.services.merchant.WebhookDeliveryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,18 +40,21 @@ public class CheckoutController {
     private final MpesaService mpesaService;
     private final WalletService walletService;
     private final WebhookDeliveryService webhookDeliveryService;
+    private final SettlementService settlementService;
 
     public CheckoutController(
             CheckoutSessionRepository checkoutSessionRepository,
             MerchantRepository merchantRepository,
             MpesaService mpesaService,
             WalletService walletService,
-            WebhookDeliveryService webhookDeliveryService) {
+            WebhookDeliveryService webhookDeliveryService,
+            SettlementService settlementService) {
         this.checkoutSessionRepository = checkoutSessionRepository;
         this.merchantRepository        = merchantRepository;
         this.mpesaService              = mpesaService;
         this.walletService             = walletService;
         this.webhookDeliveryService    = webhookDeliveryService;
+        this.settlementService         = settlementService;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -299,12 +303,21 @@ public class CheckoutController {
             BigDecimal fee = amount.multiply(merchant.getFeePercent())
                     .divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP);
             BigDecimal netAmount = amount.subtract(fee);
-            BigDecimal current = merchant.getPendingSettlement() != null
-                    ? merchant.getPendingSettlement() : BigDecimal.ZERO;
-            merchant.setPendingSettlement(current.add(netAmount));
-            merchantRepository.save(merchant);
-            log.info("Merchant {} credited: gross={} fee={} net={} pending={}",
-                    merchant.getId(), amount, fee, netAmount, merchant.getPendingSettlement());
+            
+            try {
+                // Real-time immediate settlement
+                settlementService.settle(merchant, netAmount);
+                log.info("Merchant {} real-time settlement succeeded: gross={} fee={} net={}",
+                        merchant.getId(), amount, fee, netAmount);
+            } catch (Exception e) {
+                // Fallback: if instant transfer fails (e.g., M-Pesa is down), keep in pending
+                BigDecimal current = merchant.getPendingSettlement() != null
+                        ? merchant.getPendingSettlement() : BigDecimal.ZERO;
+                merchant.setPendingSettlement(current.add(netAmount));
+                merchantRepository.save(merchant);
+                log.warn("Merchant {} real-time settlement failed: {}. Added net={} to pending.",
+                        merchant.getId(), e.getMessage(), netAmount);
+            }
         });
     }
 }

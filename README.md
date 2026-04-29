@@ -119,7 +119,7 @@ NylePay is a **payment orchestration platform** that lets users:
 - Support for ETH, USDT, USDC, DAI across 4 chains
 
 ### 🛒 Merchant Gateway
-- Merchant registration with encrypted API keys (`np_pub_*` / `np_sec_*`, shown once)
+- Merchant registration with encrypted API keys (`npy_pub_*` / `npy_sec_*`, shown once)
 - Payment link creation with configurable expiry → generates hosted checkout URL
 - **Hosted Checkout Page** — premium dark-mode UI served by NylePay at `/checkout/{ref}`
 - Customer pays via **M-Pesa**, **Card (Paystack)**, or **NylePay Wallet** on a single page
@@ -194,8 +194,8 @@ Authorization: Bearer {your_nylepay_jwt}
 **Response** (save the `secretKey` — shown only once):
 ```json
 {
-  "publicKey":    "np_pub_abc123...",
-  "secretKey":    "np_sec_xyz789...",
+  "publicKey":    "npy_pub_abc123...",
+  "secretKey":    "npy_sec_xyz789...",
   "webhookSecret": "hmac-secret-for-verifying-webhooks",
   "status":       "PENDING"
 }

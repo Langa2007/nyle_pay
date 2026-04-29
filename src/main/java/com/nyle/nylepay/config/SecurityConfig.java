@@ -27,11 +27,14 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
     private final UserDetailsService userDetailsService;
+    private final MerchantAuthFilter merchantAuthFilter;
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthFilter,
-            UserDetailsService userDetailsService) {
+            UserDetailsService userDetailsService,
+            MerchantAuthFilter merchantAuthFilter) {
         this.jwtAuthFilter = jwtAuthFilter;
         this.userDetailsService = userDetailsService;
+        this.merchantAuthFilter = merchantAuthFilter;
     }
 
     @Bean
@@ -46,6 +49,7 @@ public class SecurityConfig {
                                 "/api/card/webhook/**",   // Paystack + Stripe card webhooks (HMAC-verified)
                                 "/api/kyc/webhook",       // Smile Identity KYC result callbacks
                                 "/api/merchant/pay/**",   // Public checkout API (no auth — customer-facing)
+                                "/api/v1/merchant/**",    // Headless API (auth handled by MerchantAuthFilter)
                                 "/checkout/**",           // Hosted checkout HTML page
                                 "/swagger-ui/**", "/api-docs/**",
                                 "/v3/api-docs/**", "/admin/**", "/css/**", "/js/**", "/*.html", "/images/**")
@@ -55,6 +59,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider())
+                .addFilterBefore(merchantAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
