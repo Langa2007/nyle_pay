@@ -7,6 +7,7 @@ import com.nyle.nylepay.repositories.MerchantRepository;
 import com.nyle.nylepay.utils.EncryptionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +29,9 @@ import java.util.UUID;
 public class MerchantService {
 
     private static final Logger log = LoggerFactory.getLogger(MerchantService.class);
+
+    @Value("${nylepay.checkout.domain:http://localhost:8080}")
+    private String checkoutDomain;
 
     private final MerchantRepository merchantRepository;
     private final CheckoutSessionRepository checkoutSessionRepository;
@@ -122,7 +126,7 @@ public class MerchantService {
         session.setExpiresAt(LocalDateTime.now().plusMinutes(expiryMinutes));
         checkoutSessionRepository.save(session);
 
-        String paymentUrl = "https://pay.nylepay.com/checkout/" + ref;
+        String paymentUrl = checkoutDomain + "/checkout/" + ref;
         log.info("Payment link created: merchantId={} ref={} amount={} {}", merchantId, ref, amount, currency);
 
         return Map.of(
@@ -147,6 +151,11 @@ public class MerchantService {
 
     public List<CheckoutSession> getMerchantSessions(Long merchantId) {
         return checkoutSessionRepository.findByMerchantIdOrderByCreatedAtDesc(merchantId);
+    }
+
+    @Transactional
+    public Merchant saveMerchant(Merchant merchant) {
+        return merchantRepository.save(merchant);
     }
 
     @Transactional

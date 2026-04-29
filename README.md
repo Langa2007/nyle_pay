@@ -119,11 +119,14 @@ NylePay is a **payment orchestration platform** that lets users:
 - Support for ETH, USDT, USDC, DAI across 4 chains
 
 ### 🛒 Merchant Gateway
-- Merchant registration with encrypted API keys (shown once at registration)
-- Payment link creation with configurable expiry
-- Checkout session management
-- Webhook delivery to merchant endpoints
-- Configurable fee percentage and T+1 settlement
+- Merchant registration with encrypted API keys (`np_pub_*` / `np_sec_*`, shown once)
+- Payment link creation with configurable expiry → generates hosted checkout URL
+- **Hosted Checkout Page** — premium dark-mode UI served by NylePay at `/checkout/{ref}`
+- Customer pays via **M-Pesa**, **Card (Paystack)**, or **NylePay Wallet** on a single page
+- Webhook delivery with **HMAC-SHA256 signatures** and 3-retry exponential backoff
+- **Automatic Daily Settlement** — pending balances pushed to merchant M-Pesa or bank at 22:00 EAT
+- Full and partial **refund** support (ACID-safe)
+- Configurable fee percentage (default 1.5%) per merchant
 
 ### 🇰🇪 Local Payments
 - **Till** — Pay to Buy Goods via Safaricom B2B API
@@ -168,6 +171,93 @@ NylePay is a **payment orchestration platform** that lets users:
 | Email | Resend REST API |
 | Build | Maven + Maven Wrapper |
 | Containerization | Docker + Docker Compose |
+| Checkout UI | Vanilla HTML/CSS/JS (Spring Boot static) |
+
+---
+
+## Merchant Gateway Integration
+
+NylePay can be used as a **payment gateway** for any store or application. Merchants integrate once and accept payments via M-Pesa, card, and crypto without building their own payment infrastructure.
+
+### Step 1 — Register as a Merchant
+```bash
+POST /api/merchant/register
+Authorization: Bearer {your_nylepay_jwt}
+
+{
+  "businessName": "Acme Store",
+  "businessEmail": "payments@acme.com",
+  "webhookUrl": "https://acme.com/nylepay-webhook"
+}
+```
+
+**Response** (save the `secretKey` — shown only once):
+```json
+{
+  "publicKey":    "np_pub_abc123...",
+  "secretKey":    "np_sec_xyz789...",
+  "webhookSecret": "hmac-secret-for-verifying-webhooks",
+  "status":       "PENDING"
+}
+```
+
+### Step 2 — Set Your Settlement Account
+```bash
+POST /api/merchant/settlement-account
+
+{ "type": "MPESA", "phone": "254712345678" }
+```
+
+### Step 3 — Create a Payment Link (per order)
+```bash
+POST /api/merchant/payment-link
+
+{
+  "amount": 2500,
+  "currency": "KES",
+  "description": "Order #1042",
+  "redirectUrl": "https://acme.com/thank-you",
+  "expiryMinutes": 60
+}
+```
+
+**Response** — share this URL with your customer:
+```json
+{
+  "paymentUrl": "https://nylepay-api.onrender.com/checkout/NPY-LNK-ABC123XYZ",
+  "reference":  "NPY-LNK-ABC123XYZ",
+  "expiresAt":  "2026-04-29T23:00:00"
+}
+```
+
+### Step 4 — Receive Webhook on Payment Completion
+NylePay sends a signed POST to your `webhookUrl`:
+```json
+{
+  "event":   "payment.succeeded",
+  "eventId": "evt_1714396800000",
+  "data": {
+    "reference": "NPY-LNK-ABC123XYZ",
+    "amount":    2500,
+    "currency":  "KES",
+    "status":    "COMPLETED"
+  }
+}
+```
+
+Verify the signature before trusting the event:
+```javascript
+// Node.js example
+const crypto = require('crypto');
+const sig = req.headers['x-nylepay-signature'];
+const expected = crypto.createHmac('sha256', WEBHOOK_SECRET)
+                       .update(rawBody).digest('hex');
+if (sig !== expected) return res.sendStatus(401); // Reject tampered events
+// Mark order as paid ✅
+```
+
+### Settlement
+NylePay automatically sweeps your pending balance to your registered M-Pesa or bank account **every day at 22:00 EAT**. Your balance after NylePay's 1.5% fee is transferred in full.
 
 ---
 

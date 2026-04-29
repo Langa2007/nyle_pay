@@ -35,8 +35,15 @@ public class CheckoutSession {
     private String currency;
     private String description;
 
-    /** PAYSTACK | STRIPE | FLUTTERWAVE | MPESA | CRYPTO */
+    /** PAYSTACK | STRIPE | FLUTTERWAVE | MPESA | NYLEPAY_WALLET | CRYPTO */
     private String provider;
+
+    /** Payment method chosen by customer on checkout page */
+    private String paymentMethod;
+
+    /** Customer contact details (optional, for merchant receipts) */
+    private String customerEmail;
+    private String customerPhone;
 
     /** Provider's payment intent / charge ID */
     private String providerIntentId;
@@ -88,6 +95,12 @@ public class CheckoutSession {
     public void setReference(String ref)      { this.reference = ref; }
     public String getStatus()                 { return status; }
     public void setStatus(String status)      { this.status = status; }
+    public String getPaymentMethod()               { return paymentMethod; }
+    public void setPaymentMethod(String pm)        { this.paymentMethod = pm; }
+    public String getCustomerEmail()               { return customerEmail; }
+    public void setCustomerEmail(String email)     { this.customerEmail = email; }
+    public String getCustomerPhone()               { return customerPhone; }
+    public void setCustomerPhone(String phone)     { this.customerPhone = phone; }
     public String getRedirectUrl()                { return redirectUrl; }
     public void setRedirectUrl(String url)        { this.redirectUrl = url; }
     public String getCallbackUrl()                { return callbackUrl; }

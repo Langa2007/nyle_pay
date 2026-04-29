@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NylePay Checkout</title>
+  <meta name="description" content="Secure payment powered by NylePay — pay with M-Pesa, card, or NylePay wallet." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/checkout/checkout.css" />
+  <script src="https://js.paystack.co/v2/inline.js"></script>
+</head>
+<body>
+
+  <!-- Loading state -->
+  <div id="page-loader" class="page-loader">
+    <div class="loader-spinner"></div>
+    <p>Loading payment details…</p>
+  </div>
+
+  <!-- Error state -->
+  <div id="page-error" class="page-error hidden">
+    <div class="error-icon">✕</div>
+    <h2>Payment Link Unavailable</h2>
+    <p id="page-error-message">This payment link is invalid or has expired.</p>
+    <p class="error-hint">Please contact the merchant for a new payment link.</p>
+  </div>
+
+  <!-- Checkout page -->
+  <main id="checkout-main" class="checkout-wrapper hidden">
+
+    <!-- Left panel: branding + order summary -->
+    <aside class="checkout-sidebar">
+      <div class="nylepay-brand">
+        <span class="brand-dot"></span>
+        <span class="brand-name">NylePay</span>
+      </div>
+
+      <div class="merchant-block">
+        <div class="merchant-avatar" id="merchant-avatar">N</div>
+        <p class="merchant-label">Paying</p>
+        <h2 class="merchant-name" id="merchant-name">—</h2>
+      </div>
+
+      <div class="order-summary">
+        <div class="summary-row">
+          <span>Description</span>
+          <span id="summary-desc">—</span>
+        </div>
+        <div class="summary-row">
+          <span>Amount</span>
+          <span id="summary-amount" class="summary-amount">—</span>
+        </div>
+        <div class="summary-divider"></div>
+        <div class="summary-row total-row">
+          <span>Total</span>
+          <span id="summary-total" class="summary-total">—</span>
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <span class="lock-icon">🔒</span>
+        <span>Secured by NylePay</span>
+      </div>
+    </aside>
+
+    <!-- Right panel: payment form -->
+    <section class="checkout-panel">
+
+      <!-- Method tabs -->
+      <div class="method-tabs" role="tablist">
+        <button class="tab-btn active" id="tab-mpesa" role="tab" onclick="switchTab('mpesa')">
+          <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10' fill='%2300A651'/%3E%3Ctext x='12' y='16' text-anchor='middle' fill='white' font-size='9' font-weight='bold'%3EM%3C/text%3E%3C/svg%3E" alt="" class="tab-icon" />
+          M-Pesa
+        </button>
+        <button class="tab-btn" id="tab-card" role="tab" onclick="switchTab('card')">
+          <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+          Card
+        </button>
+        <button class="tab-btn" id="tab-wallet" role="tab" onclick="switchTab('wallet')">
+          <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7H4a2 2 0 00-2 2v9a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+          NylePay
+        </button>
+      </div>
+
+      <!-- ── M-Pesa Tab ── -->
+      <div class="tab-content" id="content-mpesa">
+        <h3 class="section-title">Pay with M-Pesa</h3>
+        <p class="section-hint">An STK Push will be sent to your Safaricom number. Enter your M-Pesa PIN when prompted.</p>
+
+        <div class="form-group">
+          <label for="mpesa-phone">Safaricom Number</label>
+          <div class="input-wrap">
+            <span class="input-prefix">+254</span>
+            <input type="tel" id="mpesa-phone" placeholder="712 345 678" maxlength="9" inputmode="numeric" />
+          </div>
+          <span class="field-hint">e.g. 0712345678 → enter 712345678</span>
+        </div>
+
+        <div class="form-group">
+          <label for="mpesa-email">Email (optional — for receipt)</label>
+          <input type="email" id="mpesa-email" placeholder="you@email.com" />
+        </div>
+
+        <button class="pay-btn" id="mpesa-pay-btn" onclick="payMpesa()">
+          <span class="btn-text">Send M-Pesa Request</span>
+          <span class="btn-spinner hidden"></span>
+        </button>
+
+        <!-- Polling state -->
+        <div id="mpesa-pending" class="status-card pending hidden">
+          <div class="status-icon spinning">⏳</div>
+          <h4>Waiting for M-Pesa confirmation…</h4>
+          <p>Enter your M-Pesa PIN on your phone. This will confirm automatically.</p>
+          <div class="polling-dots"><span></span><span></span><span></span></div>
+          <button class="link-btn" onclick="cancelMpesaPoll()">Cancel</button>
+        </div>
+      </div>
+
+      <!-- ── Card Tab ── -->
+      <div class="tab-content hidden" id="content-card">
+        <h3 class="section-title">Pay with Card</h3>
+        <p class="section-hint">Visa, Mastercard, and Verve accepted. Your card details are handled securely by Paystack — NylePay never stores them.</p>
+
+        <div class="form-group">
+          <label for="card-email">Email Address</label>
+          <input type="email" id="card-email" placeholder="you@email.com" />
+          <span class="field-hint">Required for your payment receipt</span>
+        </div>
+
+        <button class="pay-btn" id="card-pay-btn" onclick="payCard()">
+          <span class="btn-text">Pay with Card</span>
+          <span class="btn-spinner hidden"></span>
+        </button>
+
+        <div class="card-badges">
+          <span class="badge-pill">🔒 SSL Secured</span>
+          <span class="badge-pill">PCI DSS Compliant</span>
+        </div>
+      </div>
+
+      <!-- ── NylePay Wallet Tab ── -->
+      <div class="tab-content hidden" id="content-wallet">
+        <h3 class="section-title">Pay with NylePay Wallet</h3>
+        <p class="section-hint">Login to your NylePay account and pay directly from your wallet balance.</p>
+
+        <div id="wallet-login-form">
+          <div class="form-group">
+            <label for="wallet-email">NylePay Email</label>
+            <input type="email" id="wallet-email" placeholder="you@nylepay.com" />
+          </div>
+          <div class="form-group">
+            <label for="wallet-password">Password</label>
+            <input type="password" id="wallet-password" placeholder="••••••••" />
+          </div>
+          <button class="pay-btn secondary-btn" onclick="walletLogin()">Login & Pay</button>
+        </div>
+
+        <div id="wallet-pay-form" class="hidden">
+          <div class="wallet-info-card">
+            <p class="wi-label">Logged in as</p>
+            <p class="wi-value" id="wallet-user-email">—</p>
+            <p class="wi-label">Wallet Balance</p>
+            <p class="wi-value" id="wallet-balance">—</p>
+          </div>
+          <button class="pay-btn" id="wallet-pay-btn" onclick="payWallet()">
+            <span class="btn-text">Pay Now</span>
+            <span class="btn-spinner hidden"></span>
+          </button>
+          <button class="link-btn" onclick="walletLogout()">Use a different account</button>
+        </div>
+      </div>
+
+      <!-- Transaction reference -->
+      <p class="tx-ref">Reference: <code id="tx-ref-code">—</code></p>
+
+    </section>
+  </main>
+
+  <!-- ── Success Screen ── -->
+  <div id="success-screen" class="result-screen hidden">
+    <div class="result-icon success-icon">✓</div>
+    <h2>Payment Successful!</h2>
+    <p>Your payment has been confirmed.</p>
+    <div class="tx-code-block">
+      <span class="tx-label">Transaction Code</span>
+      <span class="tx-code" id="success-tx-code">—</span>
+    </div>
+    <p class="redirect-note" id="redirect-note">Redirecting you back to the merchant…</p>
+    <button class="pay-btn" onclick="doRedirect()">Continue →</button>
+  </div>
+
+  <!-- ── Failed Screen ── -->
+  <div id="failed-screen" class="result-screen hidden">
+    <div class="result-icon failed-icon">✕</div>
+    <h2>Payment Failed</h2>
+    <p id="fail-reason">Something went wrong. Please try a different payment method.</p>
+    <button class="pay-btn" onclick="retryPayment()">Try Again</button>
+  </div>
+
+  <script src="/checkout/checkout.js"></script>
+</body>
+</html>

@@ -71,16 +71,19 @@ public class MerchantController {
     public ResponseEntity<Map<String, Object>> profile(Authentication auth) {
         Long userId = resolveUserId(auth);
         Merchant merchant = merchantService.getMerchantByUserId(userId);
-        return ResponseEntity.ok(Map.of(
-            "merchantId",    merchant.getId(),
-            "businessName",  merchant.getBusinessName(),
-            "businessEmail", merchant.getBusinessEmail(),
-            "publicKey",     merchant.getPublicKey(),
-            "status",        merchant.getStatus(),
-            "kycStatus",     merchant.getKycStatus(),
-            "feePercent",    merchant.getFeePercent(),
-            "webhookUrl",    merchant.getWebhookUrl() != null ? merchant.getWebhookUrl() : ""
-        ));
+        java.util.Map<String, Object> resp = new java.util.LinkedHashMap<>();
+        resp.put("merchantId",         merchant.getId());
+        resp.put("businessName",       merchant.getBusinessName());
+        resp.put("businessEmail",      merchant.getBusinessEmail());
+        resp.put("publicKey",          merchant.getPublicKey());
+        resp.put("status",             merchant.getStatus());
+        resp.put("kycStatus",          merchant.getKycStatus());
+        resp.put("feePercent",         merchant.getFeePercent());
+        resp.put("pendingSettlement",  merchant.getPendingSettlement() != null ? merchant.getPendingSettlement() : java.math.BigDecimal.ZERO);
+        resp.put("settlementCurrency", merchant.getSettlementCurrency());
+        resp.put("settlementPhone",    merchant.getSettlementPhone() != null ? merchant.getSettlementPhone() : "");
+        resp.put("webhookUrl",         merchant.getWebhookUrl() != null ? merchant.getWebhookUrl() : "");
+        return ResponseEntity.ok(resp);
     }
 
     /**
@@ -165,6 +168,58 @@ public class MerchantController {
             "amount",     refund.getAmount(),
             "currency",   refund.getCurrency(),
             "refundRef",  refund.getProviderRefundId()
+        ));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Settlement Account Setup
+    // ─────────────────────────────────────────────────────────────────────
+
+    /**
+     * POST /api/merchant/settlement-account
+     * Links a M-Pesa number or bank account as the merchant's payout destination.
+     *
+     * Body (M-Pesa): { "type": "MPESA", "phone": "254712345678" }
+     * Body (Bank):   { "type": "BANK",  "bankName": "KCB", "accountNumber": "1234567890", "currency": "KES" }
+     */
+    @PostMapping("/settlement-account")
+    public ResponseEntity<Map<String, Object>> updateSettlementAccount(
+            @RequestBody Map<String, Object> body,
+            Authentication auth) {
+
+        Long userId = resolveUserId(auth);
+        com.nyle.nylepay.models.Merchant merchant = merchantService.getMerchantByUserId(userId);
+
+        String type = (String) body.getOrDefault("type", "MPESA");
+
+        if ("MPESA".equalsIgnoreCase(type)) {
+            String phone = (String) body.get("phone");
+            if (phone == null || !phone.matches("^2547[0-9]{8}$")) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "Invalid M-Pesa number. Use format: 2547XXXXXXXX"));
+            }
+            merchant.setSettlementPhone(phone);
+            merchant.setSettlementCurrency("KES");
+        } else if ("BANK".equalsIgnoreCase(type)) {
+            String bankName   = (String) body.get("bankName");
+            String accountNo  = (String) body.get("accountNumber");
+            String currency   = (String) body.getOrDefault("currency", "KES");
+            if (bankName == null || accountNo == null) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "bankName and accountNumber are required"));
+            }
+            merchant.setSettlementBankName(bankName);
+            merchant.setSettlementBankAccount(accountNo);
+            merchant.setSettlementCurrency(currency);
+        } else {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "type must be MPESA or BANK"));
+        }
+
+        merchantService.saveMerchant(merchant);
+        return ResponseEntity.ok(Map.of(
+                "message", "Settlement account updated successfully.",
+                "type",    type
         ));
     }
 

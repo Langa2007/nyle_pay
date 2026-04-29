@@ -45,7 +45,8 @@ public class SecurityConfig {
                                 "/api/payments/webhook/**",
                                 "/api/card/webhook/**",   // Paystack + Stripe card webhooks (HMAC-verified)
                                 "/api/kyc/webhook",       // Smile Identity KYC result callbacks
-                                "/api/merchant/pay/**",   // Public payment link checkout pages
+                                "/api/merchant/pay/**",   // Public checkout API (no auth — customer-facing)
+                                "/checkout/**",           // Hosted checkout HTML page
                                 "/swagger-ui/**", "/api-docs/**",
                                 "/v3/api-docs/**", "/admin/**", "/css/**", "/js/**", "/*.html", "/images/**")
                         .permitAll()

@@ -62,6 +62,15 @@ public class Merchant {
     /** NylePay fee percentage charged on each transaction */
     private java.math.BigDecimal feePercent = new java.math.BigDecimal("1.5");
 
+    /** Accumulated balance awaiting daily settlement payout to merchant's bank/M-Pesa */
+    @Column(columnDefinition = "numeric(19,4) default 0")
+    private java.math.BigDecimal pendingSettlement = java.math.BigDecimal.ZERO;
+
+    /** M-Pesa number or bank account reference for payout */
+    private String settlementPhone;
+    private String settlementBankAccount;
+    private String settlementBankName;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -92,6 +101,14 @@ public class Merchant {
     public void setSettlementCurrency(String settlementCurrency)       { this.settlementCurrency = settlementCurrency; }
     public java.math.BigDecimal getFeePercent()                        { return feePercent; }
     public void setFeePercent(java.math.BigDecimal feePercent)         { this.feePercent = feePercent; }
+    public java.math.BigDecimal getPendingSettlement()                              { return pendingSettlement; }
+    public void setPendingSettlement(java.math.BigDecimal pendingSettlement)        { this.pendingSettlement = pendingSettlement; }
+    public String getSettlementPhone()                                 { return settlementPhone; }
+    public void setSettlementPhone(String settlementPhone)             { this.settlementPhone = settlementPhone; }
+    public String getSettlementBankAccount()                                   { return settlementBankAccount; }
+    public void setSettlementBankAccount(String settlementBankAccount)         { this.settlementBankAccount = settlementBankAccount; }
+    public String getSettlementBankName()                              { return settlementBankName; }
+    public void setSettlementBankName(String settlementBankName)       { this.settlementBankName = settlementBankName; }
     public LocalDateTime getCreatedAt()                      { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt)        { this.createdAt = createdAt; }
 }
