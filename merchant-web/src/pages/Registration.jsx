@@ -17,7 +17,6 @@ export default function Registration() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
-    // In production: POST /api/merchant/register then POST /api/merchant/settlement-account
     await new Promise(r => setTimeout(r, 1000));
 
     const generated = {
@@ -29,17 +28,16 @@ export default function Registration() {
     updateMerchantInfo({
       merchantId: Math.floor(Math.random() * 9000 + 1000),
       businessName: formData.businessName,
+      apiKeys: generated,
     });
     setSubmitting(false);
   };
 
-  // ── Key reveal screen ──
   if (keys) {
     return (
       <div className="reg-container">
         <div className="card" style={{ maxWidth: '580px', width: '100%' }}>
           <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '.5rem' }}>🎉</div>
             <h2 style={{ color: 'var(--brand-green)' }}>You're All Set!</h2>
             <p style={{ color: 'var(--text-secondary)', marginTop: '.5rem' }}>
               Copy and save these keys now. The <strong>Secret Key</strong> will never be shown again.
@@ -85,7 +83,6 @@ export default function Registration() {
     );
   }
 
-  // ── Registration form ──
   return (
     <div className="reg-container">
       <div className="card" style={{ maxWidth: '480px', width: '100%' }}>

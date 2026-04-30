@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import ThemeToggle from '../components/ThemeToggle';
 
 export default function Dashboard() {
   const { user, logout } = useAuth();
@@ -20,18 +21,19 @@ export default function Dashboard() {
     <div className="dashboard-layout">
       {/* ── Sidebar ── */}
       <aside className="sidebar">
-        <div style={{ marginBottom: '2rem' }}>
+        <div style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h2 style={{ color: 'var(--brand-blue)', display: 'flex', alignItems: 'center', gap: '.5rem', fontSize: '1.25rem' }}>
-            <span>⚡</span> NylePay Business
+            NylePay Business
           </h2>
+          <ThemeToggle />
         </div>
 
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '.25rem', flex: 1 }}>
           {[
-            { id: 'overview', label: '📊  Overview' },
-            { id: 'payments', label: '💳  Payments' },
-            { id: 'api',      label: '🔑  API Keys' },
-            { id: 'settings', label: '⚙️  Settings' },
+            { id: 'overview', label: 'Overview' },
+            { id: 'payments', label: 'Payments' },
+            { id: 'api',      label: 'API Keys' },
+            { id: 'settings', label: 'Settings' },
           ].map((item) => (
             <button
               key={item.id}
@@ -81,7 +83,7 @@ export default function Dashboard() {
       <main className="main-content">
         {activeTab === 'overview' && <OverviewTab businessName={businessName} />}
         {activeTab === 'payments' && <PaymentsTab />}
-        {activeTab === 'api' && <ApiTab />}
+        {activeTab === 'api' && <ApiTab apiKeys={user?.apiKeys} />}
         {activeTab === 'settings' && <SettingsTab />}
       </main>
     </div>
@@ -121,7 +123,6 @@ function OverviewTab({ businessName }) {
       <div className="card">
         <h3 style={{ marginBottom: '1rem', fontSize: '1.125rem' }}>Recent Payments</h3>
         <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)' }}>
-          <p style={{ fontSize: '2rem', marginBottom: '.5rem' }}>📭</p>
           <p>No payments yet. Create a payment link or integrate the API to get started.</p>
         </div>
       </div>
@@ -137,7 +138,6 @@ function PaymentsTab() {
       <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>View all incoming payments and their settlement status.</p>
       <div className="card">
         <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)' }}>
-          <p style={{ fontSize: '2rem', marginBottom: '.5rem' }}>📭</p>
           <p>No payment history yet. Payments will appear here once customers start paying.</p>
         </div>
       </div>
@@ -146,13 +146,33 @@ function PaymentsTab() {
 }
 
 /* ─────────────── API Keys Tab ─────────────── */
-function ApiTab() {
+function ApiTab({ apiKeys }) {
   return (
     <>
       <h1 style={{ fontSize: '1.75rem', marginBottom: '.5rem' }}>API Keys & Webhooks</h1>
       <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>
         Use these keys to integrate NylePay into your backend. Authenticate with <code style={{ background: 'var(--bg-tertiary)', padding: '.125rem .375rem', borderRadius: 4, fontFamily: 'var(--font-mono)', fontSize: '.8125rem' }}>Authorization: Bearer npy_sec_...</code>
       </p>
+
+      {apiKeys ? (
+        <div className="card" style={{ marginBottom: '1.5rem' }}>
+          <h3 style={{ marginBottom: '1rem' }}>Your Production Keys</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '.8125rem', marginBottom: '.25rem' }}>Public Key</p>
+              <div className="code-block" style={{ padding: '.75rem' }}>{apiKeys.publicKey}</div>
+            </div>
+            <div>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '.8125rem', marginBottom: '.25rem' }}>Webhook Secret</p>
+              <div className="code-block" style={{ padding: '.75rem' }}>{apiKeys.webhookSecret}</div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="card" style={{ marginBottom: '1.5rem', textAlign: 'center', padding: '2rem' }}>
+          <p style={{ color: 'var(--text-muted)' }}>API Keys are not generated yet. Complete business registration to get your keys.</p>
+        </div>
+      )}
 
       <div className="card" style={{ marginBottom: '1.5rem' }}>
         <h3 style={{ marginBottom: '1rem' }}>Quick Start</h3>

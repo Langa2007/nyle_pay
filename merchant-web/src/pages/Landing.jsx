@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import ThemeToggle from '../components/ThemeToggle';
 
 export default function Landing() {
-  const [mode, setMode] = useState('signin'); // 'signin' | 'signup'
+  const [mode, setMode] = useState('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -32,20 +33,19 @@ export default function Landing() {
 
   return (
     <div className="landing-page">
-      {/* ── Background Glow Blobs ── */}
       <div className="landing-blob landing-blob-1" />
       <div className="landing-blob landing-blob-2" />
 
-      {/* ── Navbar ── */}
       <nav className="landing-nav">
         <div className="landing-nav-logo">
-          <span className="text-gradient" style={{ fontWeight: 800, fontSize: '1.375rem' }}>⚡ NylePay</span>
+          <span className="text-gradient" style={{ fontWeight: 800, fontSize: '1.375rem' }}>NylePay</span>
           <span style={{ color: 'var(--text-muted)', fontWeight: 500, marginLeft: '.5rem', fontSize: '.875rem' }}>for Business</span>
         </div>
-        <div className="landing-nav-links">
+        <div className="landing-nav-links" style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
           <a href="#features">Features</a>
           <a href="#pricing">Pricing</a>
           <a href="#docs">Docs</a>
+          <ThemeToggle />
         </div>
       </nav>
 
@@ -54,7 +54,7 @@ export default function Landing() {
         {/* Left: Value Proposition */}
         <section className="landing-left animate-fade-up">
           <div className="landing-badge">
-            🚀 Real-Time Settlement — No More T+1
+            Real-Time Settlement — No More T+1
           </div>
           <h1 className="landing-title">
             Accept Payments.<br />
@@ -67,28 +67,28 @@ export default function Landing() {
           {/* Feature Pills */}
           <div className="landing-features">
             <div className="feature-pill">
-              <span className="feature-icon">💳</span>
+              <span className="feature-icon"></span>
               <div>
                 <strong>M-Pesa, Cards & Crypto</strong>
                 <p>One integration, every payment method.</p>
               </div>
             </div>
             <div className="feature-pill">
-              <span className="feature-icon">⚡</span>
+              <span className="feature-icon"></span>
               <div>
                 <strong>Instant Payouts</strong>
                 <p>Real-time settlement to your M-Pesa or Bank.</p>
               </div>
             </div>
             <div className="feature-pill">
-              <span className="feature-icon">🔒</span>
+              <span className="feature-icon"></span>
               <div>
                 <strong>Bank-Grade Security</strong>
                 <p>AES-256 encryption. HMAC webhook signatures.</p>
               </div>
             </div>
             <div className="feature-pill">
-              <span className="feature-icon">📊</span>
+              <span className="feature-icon"></span>
               <div>
                 <strong>1.5% Flat Fee</strong>
                 <p>No hidden charges. No setup costs.</p>
@@ -97,10 +97,8 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* Right: Auth Form */}
         <section className="landing-right animate-fade-up delay-2">
           <div className="auth-card glass-panel">
-            {/* Tab Switcher */}
             <div className="auth-tabs">
               <button
                 className={`auth-tab ${mode === 'signin' ? 'auth-tab-active' : ''}`}
@@ -127,7 +125,7 @@ export default function Landing() {
                     required
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    placeholder="John Doe"
+                    placeholder="your name"
                     autoComplete="name"
                   />
                 </div>
@@ -189,7 +187,6 @@ export default function Landing() {
         </section>
       </main>
 
-      {/* ── Landing Page CSS (scoped via class names) ── */}
       <style>{`
         .landing-page {
           min-height: 100vh;

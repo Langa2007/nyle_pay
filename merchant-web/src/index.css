@@ -28,6 +28,10 @@
   --glass-bg: rgba(13, 21, 38, 0.75);
   --glass-border: rgba(255, 255, 255, 0.06);
 
+  --code-bg: #000;
+  --code-color: var(--brand-green);
+  --code-border: var(--border-color);
+
   --radius-xs: 0.25rem;
   --radius-sm: 0.5rem;
   --radius-md: 0.75rem;
@@ -45,6 +49,30 @@
   --shadow-glow: 0 0 40px var(--brand-glow);
 }
 
+[data-theme='light'] {
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f1f5f9;
+  --bg-elevated: #e2e8f0;
+
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+
+  --border-color: #e2e8f0;
+  --glass-bg: rgba(255, 255, 255, 0.85);
+  --glass-border: rgba(0, 0, 0, 0.05);
+
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.05);
+  --shadow-md: 0 4px 16px rgba(0,0,0,.08);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,.12);
+  --shadow-glow: 0 0 40px rgba(59, 130, 246, 0.15);
+
+  --code-bg: #f1f5f9;
+  --code-color: #059669;
+  --code-border: #cbd5e1;
+}
+
 /* ── Reset ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -58,6 +86,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -264,14 +293,14 @@ img { max-width: 100%; display: block; }
 
 /* ── Code Block ── */
 .code-block {
-  background: #000;
+  background: var(--code-bg);
   padding: 1.25rem;
   border-radius: var(--radius-sm);
   font-family: var(--font-mono);
   font-size: .8125rem;
-  color: var(--brand-green);
+  color: var(--code-color);
   overflow-x: auto;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--code-border);
   word-break: break-all;
 }
 

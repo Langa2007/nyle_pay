@@ -18,7 +18,6 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = (email, password) => {
-    // In production: POST /api/auth/login
     return new Promise((resolve, reject) => {
       setTimeout(() => {
         if (!email || !password) {
@@ -28,8 +27,9 @@ export function AuthProvider({ children }) {
         const session = {
           email,
           token: 'jwt_mock_' + Date.now(),
-          merchantId: null,       // null until merchant registration
+          merchantId: null,
           businessName: null,
+          apiKeys: null,
         };
         localStorage.setItem('npy_merchant_session', JSON.stringify(session));
         setUser(session);
@@ -39,7 +39,6 @@ export function AuthProvider({ children }) {
   };
 
   const signup = (email, password, fullName) => {
-    // In production: POST /api/auth/register
     return new Promise((resolve, reject) => {
       setTimeout(() => {
         if (!email || !password || !fullName) {
@@ -52,6 +51,7 @@ export function AuthProvider({ children }) {
           token: 'jwt_mock_' + Date.now(),
           merchantId: null,
           businessName: null,
+          apiKeys: null,
         };
         localStorage.setItem('npy_merchant_session', JSON.stringify(session));
         setUser(session);
