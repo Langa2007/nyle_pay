@@ -1,138 +1,174 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
-const Registration = () => {
+export default function Registration() {
   const navigate = useNavigate();
+  const { updateMerchantInfo } = useAuth();
   const [formData, setFormData] = useState({
     businessName: '',
     businessEmail: '',
     webhookUrl: '',
     settlementPhone: ''
   });
-
   const [keys, setKeys] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // In a real app, this would be a fetch() call to POST /api/merchant/register
-    // and POST /api/merchant/settlement-account
-    
-    // Mock response for UI demonstration
-    setKeys({
-      publicKey: 'npy_pub_8a92fbc147...',
-      secretKey: 'npy_sec_38cd910ea2...',
-      webhookSecret: 'whsec_908123afdb...'
+    setSubmitting(true);
+    // In production: POST /api/merchant/register then POST /api/merchant/settlement-account
+    await new Promise(r => setTimeout(r, 1000));
+
+    const generated = {
+      publicKey: 'npy_pub_' + crypto.randomUUID().replace(/-/g, '').slice(0, 24),
+      secretKey: 'npy_sec_' + crypto.randomUUID().replace(/-/g, '').slice(0, 24),
+      webhookSecret: 'whsec_' + crypto.randomUUID().replace(/-/g, '').slice(0, 20),
+    };
+    setKeys(generated);
+    updateMerchantInfo({
+      merchantId: Math.floor(Math.random() * 9000 + 1000),
+      businessName: formData.businessName,
     });
+    setSubmitting(false);
   };
 
+  // ── Key reveal screen ──
   if (keys) {
     return (
-      <div style={styles.container}>
-        <div className="card" style={{ maxWidth: '600px', width: '100%' }}>
-          <h2 style={{ color: 'var(--brand-success)', marginBottom: '1rem' }}>Registration Successful!</h2>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>
-            Please save these API keys now. The Secret Key will never be shown again.
-          </p>
-          
+      <div className="reg-container">
+        <div className="card" style={{ maxWidth: '580px', width: '100%' }}>
+          <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+            <div style={{ fontSize: '2.5rem', marginBottom: '.5rem' }}>🎉</div>
+            <h2 style={{ color: 'var(--brand-green)' }}>You're All Set!</h2>
+            <p style={{ color: 'var(--text-secondary)', marginTop: '.5rem' }}>
+              Copy and save these keys now. The <strong>Secret Key</strong> will never be shown again.
+            </p>
+          </div>
+
+          <hr className="divider" />
+
           <div className="form-group">
-            <label>Public Key (Publishable)</label>
+            <label className="form-label">Public Key (safe for frontend)</label>
             <div className="code-block">{keys.publicKey}</div>
           </div>
-          
+
           <div className="form-group">
-            <label>Secret Key (Keep Server-Side)</label>
-            <div className="code-block" style={{ color: 'var(--brand-danger)' }}>{keys.secretKey}</div>
+            <label className="form-label">Secret Key (keep server-side only)</label>
+            <div className="code-block" style={{ color: 'var(--danger)' }}>{keys.secretKey}</div>
           </div>
-          
+
           <div className="form-group">
-            <label>Webhook Secret</label>
+            <label className="form-label">Webhook Signing Secret</label>
             <div className="code-block">{keys.webhookSecret}</div>
           </div>
-          
-          <button 
-            className="btn-primary" 
+
+          <button
+            className="btn-primary"
             style={{ width: '100%', marginTop: '1rem' }}
             onClick={() => navigate('/dashboard')}
           >
-            Go to Dashboard
+            Go to Dashboard →
           </button>
         </div>
+
+        <style>{`
+          .reg-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+          }
+        `}</style>
       </div>
     );
   }
 
+  // ── Registration form ──
   return (
-    <div style={styles.container}>
-      <div className="card" style={{ maxWidth: '500px', width: '100%' }}>
-        <h2 style={{ marginBottom: '0.5rem', textAlign: 'center' }}>NylePay for Business</h2>
-        <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', textAlign: 'center' }}>
-          Create your merchant account to get API keys.
-        </p>
-        
+    <div className="reg-container">
+      <div className="card" style={{ maxWidth: '480px', width: '100%' }}>
+        <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+          <h2>Register Your Business</h2>
+          <p style={{ color: 'var(--text-secondary)', marginTop: '.25rem', fontSize: '.9375rem' }}>
+            Set up your merchant profile and get API keys.
+          </p>
+        </div>
+
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>Business Name</label>
-            <input 
-              type="text" 
+            <label className="form-label" htmlFor="biz-name">Business Name</label>
+            <input
+              id="biz-name"
+              className="form-input"
+              type="text"
               required
               value={formData.businessName}
               onChange={e => setFormData({...formData, businessName: e.target.value})}
-              placeholder="e.g. Acme Store Ltd" 
+              placeholder="e.g. Acme Store Ltd"
             />
           </div>
-          
+
           <div className="form-group">
-            <label>Business Email</label>
-            <input 
-              type="email" 
+            <label className="form-label" htmlFor="biz-email">Business Email</label>
+            <input
+              id="biz-email"
+              className="form-input"
+              type="email"
               required
               value={formData.businessEmail}
               onChange={e => setFormData({...formData, businessEmail: e.target.value})}
-              placeholder="payments@acme.com" 
+              placeholder="payments@acme.com"
             />
           </div>
-          
+
           <div className="form-group">
-            <label>M-Pesa Settlement Number</label>
-            <input 
-              type="text" 
+            <label className="form-label" htmlFor="settle-phone">M-Pesa Settlement Number</label>
+            <input
+              id="settle-phone"
+              className="form-input"
+              type="text"
               required
               value={formData.settlementPhone}
               onChange={e => setFormData({...formData, settlementPhone: e.target.value})}
-              placeholder="2547XXXXXXXX" 
+              placeholder="2547XXXXXXXX"
             />
-            <small style={{ color: 'var(--text-secondary)', display: 'block', marginTop: '0.25rem' }}>
-              Where we will send your real-time payouts.
-            </small>
+            <p className="form-hint">Where NylePay will send your real-time payouts.</p>
           </div>
-          
+
           <div className="form-group">
-            <label>Webhook URL (Optional)</label>
-            <input 
-              type="url" 
+            <label className="form-label" htmlFor="webhook-url">Webhook URL <span style={{color: 'var(--text-muted)'}}>(optional)</span></label>
+            <input
+              id="webhook-url"
+              className="form-input"
+              type="url"
               value={formData.webhookUrl}
               onChange={e => setFormData({...formData, webhookUrl: e.target.value})}
-              placeholder="https://acme.com/api/webhook" 
+              placeholder="https://yoursite.com/api/webhook"
             />
           </div>
-          
-          <button type="submit" className="btn-primary" style={{ width: '100%', marginTop: '1rem' }}>
-            Register & Get API Keys
+
+          <button
+            type="submit"
+            className="btn-primary"
+            disabled={submitting}
+            style={{ width: '100%', marginTop: '.5rem' }}
+          >
+            {submitting ? 'Generating Keys…' : 'Register & Get API Keys'}
           </button>
         </form>
       </div>
+
+      <style>{`
+        .reg-container {
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 2rem;
+        }
+      `}</style>
     </div>
   );
-};
-
-const styles = {
-  container: {
-    minHeight: '100vh',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '2rem',
-  }
-};
-
-export default Registration;
+}
