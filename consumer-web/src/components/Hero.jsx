@@ -6,18 +6,18 @@ const Hero = () => {
     <section style={styles.hero} className="animate-fade-in">
       <div style={styles.content}>
         <div style={styles.badge} className="glass-panel text-gradient">
-          ✨ The Future of Payments in Africa
+          Your Unified Financial Identity
         </div>
         <h1 style={styles.title}>
           Money Without <br/>
           <span className="text-gradient">Borders</span>
         </h1>
         <p style={styles.subtitle}>
-          NylePay is your ultimate financial hub. Pay merchants, send money to friends, and manage your crypto—all from a single, beautifully designed app.
+          Unlock your unique NPY account. Instantly fund your wallet, pay verified NylePay merchants, and transfer funds seamlessly with zero hidden fees.
         </p>
         <div style={styles.ctaGroup}>
-          <Link to="/register" className="btn-primary">Open an Account</Link>
-          <a href="http://localhost:5174" className="btn-secondary">I'm a Business</a>
+          <Link to="/register" className="btn-primary">Create NPY Account</Link>
+          <a href="http://localhost:5174" className="btn-secondary">Merchant Portal</a>
         </div>
         
         <div style={styles.statsRow}>
@@ -44,11 +44,14 @@ const Hero = () => {
             <div style={styles.dot} />
           </div>
           <div style={styles.mockupBody}>
-            <h4 style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Total Balance</h4>
-            <h2 style={{ fontSize: '3rem', fontFamily: 'var(--font-heading)', color: 'var(--text-primary)' }}>KES 45,200</h2>
+            <h4 style={{ color: 'var(--text-secondary)', marginBottom: '0.25rem', fontSize: '0.875rem' }}>Account Number</h4>
+            <h4 style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', fontFamily: 'var(--font-mono)' }}>NPYAZJ7890X</h4>
+            
+            <h4 style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Available Balance</h4>
+            <h2 style={{ fontSize: '2.5rem', fontFamily: 'var(--font-heading)', color: 'var(--text-primary)' }}>KES 45,200</h2>
             <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem' }}>
-               <div style={{...styles.actionBtn, background: 'rgba(16, 185, 129, 0.1)', color: 'var(--brand-green)'}}>↓ Receive</div>
-               <div style={{...styles.actionBtn, background: 'rgba(59, 130, 246, 0.1)', color: 'var(--brand-blue)'}}>↑ Send</div>
+               <div style={{...styles.actionBtn, background: 'rgba(16, 185, 129, 0.1)', color: 'var(--brand-green)'}}>Fund Wallet</div>
+               <div style={{...styles.actionBtn, background: 'rgba(59, 130, 246, 0.1)', color: 'var(--brand-blue)'}}>Transfer</div>
             </div>
           </div>
         </div>

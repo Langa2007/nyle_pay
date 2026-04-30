@@ -7,23 +7,23 @@ const Home = () => {
       <Hero />
       
       {/* How it Works Section */}
-      <section id="how-it-works" style={styles.section}>
-        <h2 style={styles.sectionTitle}>How NylePay Works</h2>
+      <section id="ecosystem" style={styles.section}>
+        <h2 style={styles.sectionTitle}>The NylePay Ecosystem</h2>
         <div style={styles.grid}>
           <div className="glass-panel" style={styles.card}>
-            <div style={styles.iconBox}>1</div>
-            <h3>Create Account</h3>
-            <p style={{color: 'var(--text-secondary)', marginTop: '0.5rem'}}>Sign up in seconds and complete your fast KYC verification to get your unique NPY account number.</p>
+            <div style={styles.stepIndicator}>01</div>
+            <h3>Identity Verification</h3>
+            <p style={{color: 'var(--text-secondary)', marginTop: '0.75rem', lineHeight: 1.6}}>Complete a fast, automated KYC process to unlock your secure NylePay wallet and unique 11-digit NPY account number.</p>
           </div>
           <div className="glass-panel" style={styles.card}>
-            <div style={styles.iconBox}>2</div>
-            <h3>Fund Your Wallet</h3>
-            <p style={{color: 'var(--text-secondary)', marginTop: '0.5rem'}}>Instantly top up via M-Pesa, Bank Transfer, or supported Crypto networks.</p>
+            <div style={styles.stepIndicator}>02</div>
+            <h3>Unified Funding</h3>
+            <p style={{color: 'var(--text-secondary)', marginTop: '0.75rem', lineHeight: 1.6}}>Instantly top up your balance from multiple sources, including M-Pesa, standard Bank Transfers, or supported blockchain networks.</p>
           </div>
           <div className="glass-panel" style={styles.card}>
-            <div style={styles.iconBox}>3</div>
-            <h3>Pay & Transfer</h3>
-            <p style={{color: 'var(--text-secondary)', marginTop: '0.5rem'}}>Pay merchants at checkout or send money to friends instantly with zero hidden fees.</p>
+            <div style={styles.stepIndicator}>03</div>
+            <h3>Instant Settlement</h3>
+            <p style={{color: 'var(--text-secondary)', marginTop: '0.75rem', lineHeight: 1.6}}>Execute real-time transfers to peers or pay verified merchants seamlessly without any hidden transaction fees.</p>
           </div>
         </div>
       </section>
@@ -53,19 +53,13 @@ const styles = {
     transition: 'transform 0.3s ease',
     cursor: 'pointer',
   },
-  iconBox: {
-    width: '60px',
-    height: '60px',
-    borderRadius: '50%',
-    background: 'var(--brand-gradient)',
-    color: 'white',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '1.5rem',
-    fontWeight: 'bold',
-    margin: '0 auto 1.5rem',
-    fontFamily: 'var(--font-heading)',
+  stepIndicator: {
+    color: 'var(--brand-blue)',
+    fontSize: '0.875rem',
+    fontWeight: 700,
+    letterSpacing: '0.1em',
+    marginBottom: '1rem',
+    textTransform: 'uppercase',
   }
 };
 

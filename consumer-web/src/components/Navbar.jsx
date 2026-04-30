@@ -3,20 +3,20 @@ import { Link } from 'react-router-dom';
 
 const Navbar = () => {
   return (
-    <nav style={styles.navbar} className="glass-panel">
+    <nav style={styles.navbar}>
       <div style={styles.logo}>
         <span className="text-gradient" style={{ fontWeight: 800, fontSize: '1.5rem', fontFamily: 'var(--font-heading)' }}>
           NylePay
         </span>
       </div>
       <div style={styles.links}>
-        <a href="#how-it-works" style={styles.link}>How it Works</a>
-        <a href="#features" style={styles.link}>Features</a>
+        <a href="#ecosystem" style={styles.link}>Ecosystem</a>
+        <a href="#identity" style={styles.link}>Identity</a>
         <a href="#security" style={styles.link}>Security</a>
       </div>
       <div style={styles.actions}>
-        <Link to="/login" className="btn-secondary" style={{ padding: '0.5rem 1.5rem', fontSize: '1rem' }}>Log In</Link>
-        <Link to="/register" className="btn-primary" style={{ padding: '0.5rem 1.5rem', fontSize: '1rem', marginLeft: '1rem' }}>Get Started</Link>
+        <Link to="/login" className="btn-secondary" style={{ padding: '0.5rem 1.5rem', fontSize: '1rem', border: 'none' }}>Sign In</Link>
+        <Link to="/register" className="btn-primary" style={{ padding: '0.5rem 1.5rem', fontSize: '1rem', marginLeft: '1rem' }}>Create Account</Link>
       </div>
     </nav>
   );
@@ -27,13 +27,16 @@ const styles = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '1rem 2rem',
+    padding: '1.25rem 5%',
     position: 'fixed',
-    top: '1rem',
-    left: '2rem',
-    right: '2rem',
+    top: 0,
+    left: 0,
+    right: 0,
     zIndex: 100,
-    borderRadius: '100px',
+    background: 'rgba(10, 14, 23, 0.85)',
+    backdropFilter: 'blur(12px)',
+    WebkitBackdropFilter: 'blur(12px)',
+    borderBottom: 'none',
   },
   links: {
     display: 'flex',
