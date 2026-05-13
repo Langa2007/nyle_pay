@@ -4,6 +4,7 @@ import com.nyle.nylepay.dto.ApiResponse;
 import com.nyle.nylepay.dto.BankLinkRequest;
 import com.nyle.nylepay.dto.ConversionRequest;
 import com.nyle.nylepay.dto.DepositRequest;
+import com.nyle.nylepay.dto.ReversalRequest;
 import com.nyle.nylepay.dto.TransferRequest;
 import com.nyle.nylepay.dto.WithdrawalRequest;
 import com.nyle.nylepay.models.UserBankDetail;
@@ -305,6 +306,22 @@ public class PaymentController {
             log.error("Internal error during transfer: {}", e.getMessage(), e);
             return ResponseEntity.badRequest()
                     .body(ApiResponse.error("Unable to complete transfer. Please verify recipient details and try again."));
+        }
+    }
+
+    @PostMapping("/transactions/{id}/reversal-requests")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> requestReversal(
+            @PathVariable Long id,
+            @Valid @RequestBody ReversalRequest request) {
+        try {
+            Map<String, Object> response = transactionService.requestTransferReversal(
+                    request.getSenderUserId(),
+                    id,
+                    request.getReason(),
+                    request.getContactPhone());
+            return ResponseEntity.ok(ApiResponse.success("Reversal request submitted", response));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
     }
 

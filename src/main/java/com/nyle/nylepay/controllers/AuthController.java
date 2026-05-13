@@ -84,6 +84,11 @@ public class AuthController {
         Optional<User> userOpt = userService.getUserByEmail(request.getEmail());
         if (userOpt.isPresent()) {
             User user = userOpt.get();
+            if (user.getAccountStatus() != null && !"ACTIVE".equalsIgnoreCase(user.getAccountStatus())) {
+                return ResponseEntity.status(423)
+                        .body(ApiResponse.error("Account is " + user.getAccountStatus()
+                                + ". Please contact NylePay support."));
+            }
             if (userService.isLocked(user)) {
                 return ResponseEntity.status(423) // Locked
                         .body(ApiResponse.error("Account is locked due to too many failed attempts. Try again later."));

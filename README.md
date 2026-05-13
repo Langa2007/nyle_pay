@@ -86,6 +86,7 @@ NylePay is a **payment orchestration platform** that lets users:
 - Multi-currency wallet (KSH, USD, EUR, GBP, ETH, BTC, USDT, USDC, DAI)
 - ACID-compliant balance operations with `SELECT FOR UPDATE` row locking
 - Internal P2P transfers between NylePay users
+- Customer-initiated wrong-recipient reversal requests with NylePay support review
 - Currency conversion with configurable exchange rates and 1% fee
 
 ### 📱 M-Pesa Integration
@@ -151,6 +152,15 @@ NylePay is a **payment orchestration platform** that lets users:
 - `SELECT FOR UPDATE` pessimistic locking prevents double-spend
 - Idempotent webhook processing via unique `externalId` constraints
 - CORS whitelist and role-based access control (USER / ADMIN)
+- Legal account freeze/block controls for documented court and government agency orders
+
+### Supportcare Reversals & Legal Holds
+- Senders can request a reversal for a completed NylePay wallet transfer when they report a wrong recipient.
+- NylePay supportcare must call the recipient and record the outcome through the admin endpoint.
+- If the recipient is unreachable, does not pick, or the phone is off, NylePay checks the recipient wallet balance and reverses the sent amount when funds are still available.
+- If the recipient balance is insufficient, the sender receives an `INSUFFICIENT_RECIPIENT_FUNDS` response for support follow-up.
+- If the recipient says they expected the funds or disputes the complaint, NylePay records `DISPUTED_POLICE_REPORT_REQUIRED`; the sender should be advised to report the matter to police for further reversal action.
+- Admins can freeze or block accounts when NylePay receives a valid court order or authorized request from agencies such as police, KRA, or other competent government authorities. Frozen/blocked accounts cannot initiate outgoing wallet transactions until released.
 
 ---
 
@@ -476,9 +486,21 @@ All sensitive values are injected from environment variables. Set these in your 
 | POST | `/api/payments/deposit/bank` | Bank deposit (instructions) |
 | POST | `/api/payments/withdraw` | Withdraw to M-Pesa/Bank/Crypto |
 | POST | `/api/payments/transfer` | Internal P2P transfer |
+| POST | `/api/payments/transactions/{id}/reversal-requests` | Request wrong-recipient transfer reversal |
 | POST | `/api/payments/convert` | Currency conversion |
 | GET | `/api/payments/transaction/{id}` | Get transaction details |
 | GET | `/api/payments/user/{userId}/transactions` | User transaction history |
+
+### Admin Support & Compliance
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| POST | `/api/admin/transactions/{id}/reversal/resolve` | Record supportcare recipient call outcome and complete/decline reversal |
+| POST | `/api/admin/users/{userId}/legal-hold` | Freeze, block, release, or unblock an account under court/government order |
+
+Supported reversal outcomes: `NO_RESPONSE`, `PHONE_OFF`, `RECIPIENT_UNREACHABLE`, `RECIPIENT_CONSENTS`, `EXPECTED_FUNDS`, `RECIPIENT_DISPUTES`.
+
+Supported legal hold actions: `FREEZE`, `BLOCK`, `UNFREEZE`, `UNBLOCK`, `RELEASE`.
 
 ### Local Payments (Kenya)
 

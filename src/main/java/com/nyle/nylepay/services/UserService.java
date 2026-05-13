@@ -118,6 +118,9 @@ public class UserService {
      * Checks if a user's account is currently locked due to failed login attempts.
      */
     public boolean isLocked(User user) {
+        if (user.getAccountStatus() != null && !"ACTIVE".equalsIgnoreCase(user.getAccountStatus())) {
+            return true;
+        }
         if (user.getLockoutUntil() == null) {
             return false;
         }
@@ -133,6 +136,39 @@ public class UserService {
     /**
      * Increments failed login attempts and locks the account if threshold is reached.
      */
+    @Transactional
+    public User applyLegalHold(Long userId, String action, String authority,
+            String courtOrderReference, String reason, java.time.LocalDateTime holdUntil) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        String normalizedAction = action == null ? "" : action.trim().toUpperCase();
+        switch (normalizedAction) {
+            case "FREEZE":
+            case "BLOCK":
+                user.setAccountStatus(normalizedAction.equals("BLOCK") ? "BLOCKED" : "FROZEN");
+                user.setLegalHoldAuthority(authority);
+                user.setLegalHoldReference(courtOrderReference);
+                user.setLegalHoldReason(reason);
+                user.setLegalHoldUntil(holdUntil);
+                break;
+            case "UNFREEZE":
+            case "UNBLOCK":
+            case "RELEASE":
+                user.setAccountStatus("ACTIVE");
+                user.setLegalHoldAuthority(authority);
+                user.setLegalHoldReference(courtOrderReference);
+                user.setLegalHoldReason(reason);
+                user.setLegalHoldUntil(null);
+                break;
+            default:
+                throw new RuntimeException("Unsupported legal hold action: " + action);
+        }
+
+        user.setLegalHoldUpdatedAt(java.time.LocalDateTime.now());
+        return userRepository.save(user);
+    }
+
     @Transactional
     public void incrementFailedAttempts(User user) {
         int newAttempts = user.getFailedLoginAttempts() + 1;

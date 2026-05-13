@@ -46,6 +46,15 @@ public class User {
     private int failedLoginAttempts = 0;
     private LocalDateTime lockoutUntil;
 
+    // Compliance controls: ACTIVE | FROZEN | BLOCKED
+    @Column(nullable = false, columnDefinition = "varchar(20) default 'ACTIVE'")
+    private String accountStatus = "ACTIVE";
+    private String legalHoldAuthority;
+    private String legalHoldReference;
+    private String legalHoldReason;
+    private LocalDateTime legalHoldUntil;
+    private LocalDateTime legalHoldUpdatedAt;
+
     // Audit
     @Column(name = "created_at")
     private LocalDateTime createdAt;
@@ -96,4 +105,16 @@ public class User {
     public void setFailedLoginAttempts(int attempts)           { this.failedLoginAttempts = attempts; }
     public LocalDateTime getLockoutUntil()                     { return lockoutUntil; }
     public void setLockoutUntil(LocalDateTime lockoutUntil)    { this.lockoutUntil = lockoutUntil; }
+    public String getAccountStatus()                           { return accountStatus; }
+    public void setAccountStatus(String accountStatus)         { this.accountStatus = accountStatus; }
+    public String getLegalHoldAuthority()                      { return legalHoldAuthority; }
+    public void setLegalHoldAuthority(String legalHoldAuthority) { this.legalHoldAuthority = legalHoldAuthority; }
+    public String getLegalHoldReference()                      { return legalHoldReference; }
+    public void setLegalHoldReference(String legalHoldReference) { this.legalHoldReference = legalHoldReference; }
+    public String getLegalHoldReason()                         { return legalHoldReason; }
+    public void setLegalHoldReason(String legalHoldReason)     { this.legalHoldReason = legalHoldReason; }
+    public LocalDateTime getLegalHoldUntil()                   { return legalHoldUntil; }
+    public void setLegalHoldUntil(LocalDateTime legalHoldUntil) { this.legalHoldUntil = legalHoldUntil; }
+    public LocalDateTime getLegalHoldUpdatedAt()               { return legalHoldUpdatedAt; }
+    public void setLegalHoldUpdatedAt(LocalDateTime legalHoldUpdatedAt) { this.legalHoldUpdatedAt = legalHoldUpdatedAt; }
 }

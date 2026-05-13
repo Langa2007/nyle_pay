@@ -1,8 +1,13 @@
 package com.nyle.nylepay.controllers;
 
 import com.nyle.nylepay.dto.ApiResponse;
+import com.nyle.nylepay.dto.LegalHoldRequest;
+import com.nyle.nylepay.dto.ReversalResolutionRequest;
+import com.nyle.nylepay.models.User;
 import com.nyle.nylepay.services.AdminService;
 import com.nyle.nylepay.services.TransactionService;
+import com.nyle.nylepay.services.UserService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,11 +19,14 @@ public class AdminController {
     
     private final AdminService adminService;
     private final TransactionService transactionService;
+    private final UserService userService;
 
     public AdminController(AdminService adminService,
-            TransactionService transactionService) {
+            TransactionService transactionService,
+            UserService userService) {
         this.adminService = adminService;
         this.transactionService = transactionService;
+        this.userService = userService;
     }
 
     // DASHBOARD METRICS
@@ -64,6 +72,22 @@ public class AdminController {
         }
     }
 
+    @PostMapping("/transactions/{id}/reversal/resolve")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> resolveReversal(
+            @PathVariable Long id,
+            @Valid @RequestBody ReversalResolutionRequest request) {
+        try {
+            Map<String, Object> response = transactionService.resolveTransferReversal(
+                    id,
+                    request.getRecipientOutcome(),
+                    request.getSupportAgentUserId(),
+                    request.getNotes());
+            return ResponseEntity.ok(ApiResponse.success("Reversal review recorded", response));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
     // USER MANAGEMENT
     @GetMapping("/users")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getUsers(
@@ -88,6 +112,29 @@ public class AdminController {
         try {
             var detail = adminService.getUserDetail(userId);
             return ResponseEntity.ok(ApiResponse.success("User detail retrieved", detail));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/users/{userId}/legal-hold")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> applyLegalHold(
+            @PathVariable Long userId,
+            @Valid @RequestBody LegalHoldRequest request) {
+        try {
+            User user = userService.applyLegalHold(
+                    userId,
+                    request.getAction(),
+                    request.getAuthority(),
+                    request.getCourtOrderReference(),
+                    request.getReason(),
+                    request.getHoldUntil());
+            return ResponseEntity.ok(ApiResponse.success("Account legal hold updated", Map.of(
+                    "userId", user.getId(),
+                    "accountStatus", user.getAccountStatus(),
+                    "authority", user.getLegalHoldAuthority(),
+                    "courtOrderReference", user.getLegalHoldReference(),
+                    "holdUntil", user.getLegalHoldUntil() != null ? user.getLegalHoldUntil() : "")));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }

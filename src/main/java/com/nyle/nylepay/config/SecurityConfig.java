@@ -45,6 +45,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/auth/**",
+                                "/api/sandbox/**",        // Sandbox health & diagnostics (no auth)
                                 "/api/payments/webhook/**",
                                 "/api/card/webhook/**",   // Paystack + Stripe card webhooks (HMAC-verified)
                                 "/api/kyc/webhook",       // Smile Identity KYC result callbacks
@@ -70,6 +71,8 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(Arrays.asList(
                 "http://localhost:3000",
+                "http://localhost:5173",   // Consumer web (Vite)
+                "http://localhost:5174",   // Merchant web (Vite)
                 "http://localhost:8080",
                 "http://localhost:5500",
                 "http://127.0.0.1:5500",

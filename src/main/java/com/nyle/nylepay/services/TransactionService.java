@@ -305,6 +305,7 @@ public class TransactionService {
         // Perform transfer
         walletService.subtractBalance(fromUserId, currency, totalDeduction);
         walletService.addBalance(recipient.getId(), currency, amount);
+        String transferReference = "TRF_" + System.currentTimeMillis() + "_" + fromUserId + "_" + recipient.getId();
 
         // Create transaction for sender
         Transaction senderTransaction = new Transaction();
@@ -315,9 +316,16 @@ public class TransactionService {
         senderTransaction.setCurrency(currency);
         senderTransaction.setStatus("COMPLETED");
         senderTransaction.setTimestamp(LocalDateTime.now());
-        senderTransaction.setExternalId("TRF_" + System.currentTimeMillis());
+        senderTransaction.setExternalId(transferReference + "_OUT");
         senderTransaction.setTransactionCode(generateTransactionCode("TRANSFER_OUT", "NYLEPAY"));
-        transactionRepository.save(senderTransaction);
+        Map<String, Object> senderMetadata = new HashMap<>();
+        senderMetadata.put("transferReference", transferReference);
+        senderMetadata.put("recipientUserId", recipient.getId());
+        senderMetadata.put("recipientIdentifier", toIdentifier);
+        senderMetadata.put("description", description);
+        senderMetadata.put("reversalStatus", "NONE");
+        senderTransaction.setMetadata(writeMetadata(senderMetadata));
+        Transaction savedSenderTransaction = transactionRepository.save(senderTransaction);
 
         // Create fee transaction if applicable
         if (fee.compareTo(BigDecimal.ZERO) > 0) {
@@ -329,7 +337,7 @@ public class TransactionService {
             feeTransaction.setCurrency(currency);
             feeTransaction.setStatus("COMPLETED");
             feeTransaction.setTimestamp(LocalDateTime.now());
-            feeTransaction.setExternalId("FEE_" + senderTransaction.getExternalId());
+            feeTransaction.setExternalId("FEE_" + savedSenderTransaction.getExternalId());
             transactionRepository.save(feeTransaction);
         }
 
@@ -342,10 +350,138 @@ public class TransactionService {
         recipientTransaction.setCurrency(currency);
         recipientTransaction.setStatus("COMPLETED");
         recipientTransaction.setTimestamp(LocalDateTime.now());
-        recipientTransaction.setExternalId("TRF_" + System.currentTimeMillis());
+        recipientTransaction.setExternalId(transferReference + "_IN");
         recipientTransaction.setTransactionCode(generateTransactionCode("TRANSFER_IN", "NYLEPAY"));
+        Map<String, Object> recipientMetadata = new HashMap<>();
+        recipientMetadata.put("transferReference", transferReference);
+        recipientMetadata.put("senderUserId", fromUserId);
+        recipientMetadata.put("senderTransactionId", savedSenderTransaction.getId());
+        recipientMetadata.put("description", description);
+        recipientTransaction.setMetadata(writeMetadata(recipientMetadata));
 
-        return transactionRepository.save(recipientTransaction);
+        Transaction savedRecipientTransaction = transactionRepository.save(recipientTransaction);
+        mergeMetadata(savedSenderTransaction, Map.of("recipientTransactionId", savedRecipientTransaction.getId()));
+        transactionRepository.save(savedSenderTransaction);
+
+        return savedRecipientTransaction;
+    }
+
+    @Transactional
+    public Map<String, Object> requestTransferReversal(Long senderUserId, Long transactionId,
+            String reason, String contactPhone) {
+        Transaction senderTransaction = resolveSenderTransfer(transactionId);
+        if (!senderTransaction.getUserId().equals(senderUserId)) {
+            throw new RuntimeException("Only the sender can request reversal for this transaction");
+        }
+        if (!"COMPLETED".equalsIgnoreCase(senderTransaction.getStatus())) {
+            throw new RuntimeException("Only completed transfers can be reviewed for reversal");
+        }
+
+        Map<String, Object> metadata = readMetadata(senderTransaction);
+        if (metadata.get("recipientUserId") == null) {
+            throw new RuntimeException("This transfer is missing recipient linkage and cannot be reversed automatically");
+        }
+        String currentStatus = asString(metadata.get("reversalStatus"));
+        if (currentStatus != null && !"NONE".equalsIgnoreCase(currentStatus)) {
+            throw new RuntimeException("A reversal workflow is already recorded for this transfer: " + currentStatus);
+        }
+
+        metadata.put("reversalStatus", "REQUESTED");
+        metadata.put("reversalReason", reason);
+        metadata.put("senderContactPhone", contactPhone);
+        metadata.put("reversalRequestedAt", LocalDateTime.now().toString());
+        senderTransaction.setMetadata(writeMetadata(metadata));
+        transactionRepository.save(senderTransaction);
+
+        return Map.of(
+                "transactionId", senderTransaction.getId(),
+                "status", "REQUESTED",
+                "message", "Reversal request received. NylePay support will call the recipient before actioning the case.");
+    }
+
+    @Transactional
+    public Map<String, Object> resolveTransferReversal(Long transactionId, String recipientOutcome,
+            Long supportAgentUserId, String notes) {
+        Transaction senderTransaction = resolveSenderTransfer(transactionId);
+        Map<String, Object> metadata = readMetadata(senderTransaction);
+        Long recipientUserId = asLong(metadata.get("recipientUserId"));
+        if (recipientUserId == null) {
+            throw new RuntimeException("This transfer is missing recipient linkage");
+        }
+
+        String outcome = recipientOutcome == null ? "" : recipientOutcome.trim().toUpperCase();
+        metadata.put("supportAgentUserId", supportAgentUserId);
+        metadata.put("supportNotes", notes);
+        metadata.put("recipientCallOutcome", outcome);
+        metadata.put("reversalReviewedAt", LocalDateTime.now().toString());
+
+        if (outcome.equals("EXPECTED_FUNDS") || outcome.equals("RECIPIENT_DISPUTES")) {
+            metadata.put("reversalStatus", "DISPUTED_POLICE_REPORT_REQUIRED");
+            senderTransaction.setMetadata(writeMetadata(metadata));
+            transactionRepository.save(senderTransaction);
+            return Map.of(
+                    "transactionId", senderTransaction.getId(),
+                    "status", "DISPUTED_POLICE_REPORT_REQUIRED",
+                    "message", "Recipient says they expected the funds. Advise sender to report the matter to police for further reversal action.");
+        }
+
+        boolean canReverse = outcome.equals("NO_RESPONSE")
+                || outcome.equals("PHONE_OFF")
+                || outcome.equals("RECIPIENT_UNREACHABLE")
+                || outcome.equals("RECIPIENT_CONSENTS");
+        if (!canReverse) {
+            throw new RuntimeException("Unsupported recipient outcome: " + recipientOutcome);
+        }
+
+        BigDecimal amount = senderTransaction.getAmount().abs();
+        BigDecimal recipientBalance = walletService.getBalance(recipientUserId, senderTransaction.getCurrency());
+        if (recipientBalance.compareTo(amount) < 0) {
+            metadata.put("reversalStatus", "INSUFFICIENT_RECIPIENT_FUNDS");
+            metadata.put("recipientBalanceAtReview", recipientBalance);
+            senderTransaction.setMetadata(writeMetadata(metadata));
+            transactionRepository.save(senderTransaction);
+            return Map.of(
+                    "transactionId", senderTransaction.getId(),
+                    "status", "INSUFFICIENT_RECIPIENT_FUNDS",
+                    "message", "Recipient account does not have enough available funds to complete the reversal.");
+        }
+
+        walletService.subtractBalanceForSystem(recipientUserId, senderTransaction.getCurrency(), amount);
+        walletService.addBalance(senderTransaction.getUserId(), senderTransaction.getCurrency(), amount);
+
+        String reversalReference = "REV_" + System.currentTimeMillis() + "_" + senderTransaction.getId();
+        Transaction senderReversal = createReversalLedger(
+                senderTransaction.getUserId(), "REVERSAL_IN", amount, senderTransaction.getCurrency(),
+                reversalReference + "_IN", senderTransaction, outcome, notes);
+        Transaction recipientReversal = createReversalLedger(
+                recipientUserId, "REVERSAL_OUT", amount.negate(), senderTransaction.getCurrency(),
+                reversalReference + "_OUT", senderTransaction, outcome, notes);
+
+        metadata.put("reversalStatus", "COMPLETED");
+        metadata.put("reversedAt", LocalDateTime.now().toString());
+        metadata.put("senderReversalTransactionId", senderReversal.getId());
+        metadata.put("recipientReversalTransactionId", recipientReversal.getId());
+        senderTransaction.setStatus("REVERSED");
+        senderTransaction.setMetadata(writeMetadata(metadata));
+        transactionRepository.save(senderTransaction);
+
+        Long recipientTransactionId = asLong(metadata.get("recipientTransactionId"));
+        if (recipientTransactionId != null) {
+            transactionRepository.findById(recipientTransactionId).ifPresent(tx -> {
+                tx.setStatus("REVERSED");
+                mergeMetadata(tx, Map.of("reversalStatus", "COMPLETED",
+                        "senderReversalTransactionId", senderReversal.getId(),
+                        "recipientReversalTransactionId", recipientReversal.getId()));
+                transactionRepository.save(tx);
+            });
+        }
+
+        return Map.of(
+                "transactionId", senderTransaction.getId(),
+                "status", "COMPLETED",
+                "amount", amount,
+                "currency", senderTransaction.getCurrency(),
+                "message", "Reversal completed from recipient available balance.");
     }
 
     @Transactional
@@ -766,11 +902,52 @@ public class TransactionService {
     }
 
     // Helper methods
+    private Transaction resolveSenderTransfer(Long transactionId) {
+        Transaction transaction = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new RuntimeException("Transaction not found"));
+        if ("TRANSFER_OUT".equalsIgnoreCase(transaction.getType())) {
+            return transaction;
+        }
+        if ("TRANSFER_IN".equalsIgnoreCase(transaction.getType())) {
+            Long senderTransactionId = asLong(readMetadata(transaction).get("senderTransactionId"));
+            if (senderTransactionId != null) {
+                return transactionRepository.findById(senderTransactionId)
+                        .orElseThrow(() -> new RuntimeException("Sender transaction not found"));
+            }
+        }
+        throw new RuntimeException("Only NylePay wallet transfers can be reversed through this workflow");
+    }
+
+    private Transaction createReversalLedger(Long userId, String type, BigDecimal amount, String currency,
+            String externalId, Transaction originalTransaction, String outcome, String notes) {
+        Transaction reversal = new Transaction();
+        reversal.setUserId(userId);
+        reversal.setType(type);
+        reversal.setProvider("NYLEPAY_SUPPORT");
+        reversal.setAmount(amount);
+        reversal.setCurrency(currency);
+        reversal.setStatus("COMPLETED");
+        reversal.setTimestamp(LocalDateTime.now());
+        reversal.setExternalId(externalId);
+        reversal.setTransactionCode(generateTransactionCode(type, "NYLEPAY"));
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("originalTransactionId", originalTransaction.getId());
+        metadata.put("originalTransactionCode", originalTransaction.getTransactionCode());
+        metadata.put("recipientCallOutcome", outcome);
+        metadata.put("supportNotes", notes);
+        reversal.setMetadata(writeMetadata(metadata));
+        return transactionRepository.save(reversal);
+    }
+
     private User findRecipient(String identifier) {
         // Try by email
         Optional<User> byEmail = userRepository.findByEmail(identifier);
         if (byEmail.isPresent())
             return byEmail.get();
+
+        Optional<User> byAccountNumber = userRepository.findByAccountNumber(identifier);
+        if (byAccountNumber.isPresent())
+            return byAccountNumber.get();
 
         // Try by phone (assuming identifier could be phone)
         if (identifier.matches("^2547[0-9]{8}$")) {
@@ -1187,6 +1364,17 @@ public class TransactionService {
         }
         try {
             return new BigDecimal(String.valueOf(value));
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private Long asLong(Object value) {
+        if (value == null) {
+            return null;
+        }
+        try {
+            return Long.valueOf(String.valueOf(value));
         } catch (NumberFormatException e) {
             return null;
         }

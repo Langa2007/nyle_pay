@@ -128,6 +128,23 @@ public class WalletService {
     // ------------------------------------------------------------------------
     @Transactional
     public void subtractBalance(Long userId, String currency, BigDecimal amount) {
+        subtractBalanceInternal(userId, currency, amount, true);
+    }
+
+    @Transactional
+    public void subtractBalanceForSystem(Long userId, String currency, BigDecimal amount) {
+        subtractBalanceInternal(userId, currency, amount, false);
+    }
+
+    private void subtractBalanceInternal(Long userId, String currency, BigDecimal amount, boolean enforceAccountStatus) {
+        if (enforceAccountStatus) {
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+            if (user.getAccountStatus() != null && !"ACTIVE".equalsIgnoreCase(user.getAccountStatus())) {
+                throw new RuntimeException("Account is " + user.getAccountStatus()
+                        + " and cannot initiate outgoing transactions.");
+            }
+        }
 
         // ACID-Isolation: exclusive row lock — serialises concurrent withdrawal
         // attempts
