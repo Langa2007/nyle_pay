@@ -93,7 +93,6 @@ public class KycService {
 
         if (!liveMode) {
             log.warn("[SANDBOX] KYC submission simulated: userId={} idType={}", userId, idType);
-            // In sandbox: auto-approve immediately and generate account number
             String jobRef = "KYC_SANDBOX_" + UUID.randomUUID();
             user.setKycStatus("VERIFIED");
             user.setKycProvider("SANDBOX");
@@ -163,7 +162,6 @@ public class KycService {
                                        payload.getOrDefault("job_id", "")));
         String resultCode = String.valueOf(payload.getOrDefault("ResultCode", ""));
 
-        // ResultCode 1220 = ID verification passed
         boolean passed = "1220".equals(resultCode) || "0810".equals(resultCode)
                       || "true".equalsIgnoreCase(String.valueOf(payload.getOrDefault("Actions", "")));
 
@@ -179,9 +177,6 @@ public class KycService {
         });
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // Guard checks used by CardPaymentService and MerchantService
-    // ─────────────────────────────────────────────────────────────────────
 
     public Map<String, Object> getKycStatus(Long userId) {
         User user = userRepository.findById(userId)
@@ -206,17 +201,14 @@ public class KycService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Verified users have no monthly limit
         if ("VERIFIED".equals(user.getKycStatus())) {
             return true;
         }
 
-        // Calculate start and end of current calendar month
         YearMonth currentMonth = YearMonth.now();
         LocalDateTime monthStart = currentMonth.atDay(1).atStartOfDay();
         LocalDateTime monthEnd = currentMonth.atEndOfMonth().atTime(23, 59, 59);
 
-        // Query actual completed transaction total for this month
         BigDecimal monthlyTotal = transactionRepository.getMonthlyTransactionTotal(
                 userId, monthStart, monthEnd);
 
@@ -232,9 +224,6 @@ public class KycService {
         return true;
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // Account Number Generation
-    // ─────────────────────────────────────────────────────────────────────
 
     /**
      * Generates a unique NylePay account number in format NPYXXXXXXXX (11 alphanumeric characters)

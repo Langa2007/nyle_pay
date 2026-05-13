@@ -27,9 +27,7 @@ public class EmailService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
-    // ────────────────────────────────────────────────────────────────
     // WELCOME EMAIL
-    // ────────────────────────────────────────────────────────────────
     public void sendWelcomeEmail(User user) {
         String subject = "Welcome to NylePay! 🎉";
         String html = """
@@ -59,9 +57,7 @@ public class EmailService {
         send(user.getEmail(), subject, html);
     }
 
-    // ────────────────────────────────────────────────────────────────
     // TRANSACTION NOTIFICATION
-    // ────────────────────────────────────────────────────────────────
     public void sendTransactionNotification(User user, Transaction transaction) {
         String statusColor = "COMPLETED".equals(transaction.getStatus()) ? "#22c55e" : 
                              "FAILED".equals(transaction.getStatus()) ? "#ef4444" : "#eab308";
@@ -101,9 +97,7 @@ public class EmailService {
         send(user.getEmail(), subject, html);
     }
 
-    // ────────────────────────────────────────────────────────────────
     // PASSWORD RESET
-    // ────────────────────────────────────────────────────────────────
     public void sendPasswordResetEmail(User user, String resetToken) {
         String resetUrl = "https://nylepay.com/reset-password?token=" + resetToken;
         String subject = "NylePay — Reset Your Password";
@@ -133,9 +127,7 @@ public class EmailService {
         send(user.getEmail(), subject, html);
     }
 
-    // ────────────────────────────────────────────────────────────────
     // GENERIC EMAIL (used by OtpService and others)
-    // ────────────────────────────────────────────────────────────────
     public void sendGenericEmail(String to, String subject, String textBody) {
         String html = """
             <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;background:#0f172a;border-radius:16px;overflow:hidden">
@@ -151,9 +143,7 @@ public class EmailService {
         send(to, subject, html);
     }
 
-    // ────────────────────────────────────────────────────────────────
     // CORE SENDER (Resend REST API)
-    // ────────────────────────────────────────────────────────────────
     private void send(String to, String subject, String htmlBody) {
         try {
             HttpHeaders headers = new HttpHeaders();

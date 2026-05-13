@@ -1,5 +1,4 @@
 
-// WalletRepository.java
 package com.nyle.nylepay.repositories;
 
 import jakarta.persistence.LockModeType;

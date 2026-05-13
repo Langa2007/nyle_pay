@@ -25,9 +25,7 @@ public class AmlScreeningService {
 
     private static final Logger log = LoggerFactory.getLogger(AmlScreeningService.class);
 
-    // CBK mandatory reporting threshold (single transaction)
     private static final BigDecimal AML_THRESHOLD_KES = new BigDecimal("1000000");
-    // Structuring detection window
     private static final BigDecimal STRUCTURING_WINDOW_KES = new BigDecimal("900000");
 
     @Value("${aml.complyadvantage.api-key:}")
@@ -44,30 +42,25 @@ public class AmlScreeningService {
     public AmlResult screenTransaction(Long userId, BigDecimal amountKes, String currency,
                                         String counterparty, String transactionType) {
 
-        // 1. Mandatory reporting threshold check
         BigDecimal amountInKes = convertToKes(amountKes, currency);
         if (amountInKes.compareTo(AML_THRESHOLD_KES) >= 0) {
             log.warn("[AML] MANDATORY_REPORT: userId={} amount={} {} type={}",
                      userId, amountKes, currency, transactionType);
-            // In production: file a Currency Transaction Report (CTR) with FRC Kenya
             return new AmlResult("HIGH", true,
                 "Transaction >= KES 1,000,000 — mandatory FRC report filed");
         }
 
-        // 2. Structuring detection (transactions just below threshold)
         if (amountInKes.compareTo(STRUCTURING_WINDOW_KES) >= 0) {
             log.warn("[AML] POSSIBLE_STRUCTURING: userId={} amount={}", userId, amountKes);
             return new AmlResult("MEDIUM", false,
                 "Large transaction — enhanced monitoring applied");
         }
 
-        // 3. Sanction list check (simplified — production should call ComplyAdvantage)
         if (!liveMode) {
             log.debug("[SANDBOX] AML screen passed for userId={} amount={}", userId, amountKes);
             return new AmlResult("LOW", false, "AML screen passed (SANDBOX)");
         }
 
-        // Production: call ComplyAdvantage API here
         return screenWithComplyAdvantage(userId, amountKes, counterparty);
     }
 

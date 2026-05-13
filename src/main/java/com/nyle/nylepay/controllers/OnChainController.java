@@ -41,9 +41,7 @@ public class OnChainController {
         this.withdrawalService = withdrawalService;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
     //  Deposit webhook — called by Moralis / Alchemy address-activity stream
-    // ─────────────────────────────────────────────────────────────────────────
 
     /**
      * Receives an on-chain deposit event.
@@ -114,9 +112,7 @@ public class OnChainController {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
     //  Withdrawal — two-phase commit
-    // ─────────────────────────────────────────────────────────────────────────
 
     /**
      * Stage 1: Validate, lock balance, and create a PENDING_APPROVAL withdrawal.

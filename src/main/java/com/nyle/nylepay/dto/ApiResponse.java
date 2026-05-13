@@ -1,4 +1,3 @@
-// ApiResponse.java
 package com.nyle.nylepay.dto;
 
 
@@ -8,7 +7,6 @@ public class ApiResponse<T> {
     private String message;
     private T data;
 
-    // Getters and Setters
     public boolean isSuccess() { return success; }
     public void setSuccess(boolean success) { this.success = success; }
     public String getMessage() { return message; }

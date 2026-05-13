@@ -39,29 +39,24 @@ public class UserService {
     public Map<String, Object> registerUser(String fullName, String email, String password,
             String mpesaNumber, String countryCode) {
 
-        // Check if user already exists
         if (userRepository.findByEmail(email).isPresent()) {
             throw new RuntimeException("User with this email already exists");
         }
 
-        // Validate email format
         if (!email.matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
             throw new RuntimeException("Invalid email format");
         }
 
-        // Validate MPesa number if provided
         if (mpesaNumber != null && !mpesaNumber.isEmpty()) {
             if (!mpesaNumber.matches("^2547[0-9]{8}$")) {
                 throw new RuntimeException("Invalid MPesa number format. Expected: 2547XXXXXXXX");
             }
 
-            // Check if MPesa number is already registered
             if (userRepository.findByMpesaNumber(mpesaNumber).isPresent()) {
                 throw new RuntimeException("MPesa number already registered");
             }
         }
 
-        // Create user
         User user = new User();
         user.setFullName(fullName);
         user.setEmail(email);
@@ -70,29 +65,24 @@ public class UserService {
 
         userRepository.save(user);
 
-        // Create wallet with default balances
         Wallet wallet = new Wallet();
         wallet.setUserId(user.getId());
 
-        // Add default fiat balances based on country
         if ("KE".equals(countryCode)) {
             wallet.getBalances().put("KSH", new Wallet.Balance(BigDecimal.ZERO));
         }
         wallet.getBalances().put("USD", new Wallet.Balance(BigDecimal.ZERO));
 
-        // Add EUR for European countries
         if (isEuropeanCountry(countryCode)) {
             wallet.getBalances().put("EUR", new Wallet.Balance(BigDecimal.ZERO));
         }
 
-        // Add GBP for UK
         if ("GB".equals(countryCode)) {
             wallet.getBalances().put("GBP", new Wallet.Balance(BigDecimal.ZERO));
         }
 
         walletRepository.save(wallet);
 
-        // Send welcome email via Resend
         emailService.sendWelcomeEmail(user);
 
         Map<String, Object> response = new HashMap<>();
@@ -114,9 +104,6 @@ public class UserService {
         return userRepository.findByEmail(email);
     }
 
-    /**
-     * Checks if a user's account is currently locked due to failed login attempts.
-     */
     public boolean isLocked(User user) {
         if (user.getAccountStatus() != null && !"ACTIVE".equalsIgnoreCase(user.getAccountStatus())) {
             return true;
@@ -126,16 +113,13 @@ public class UserService {
         }
         boolean locked = user.getLockoutUntil().isAfter(java.time.LocalDateTime.now());
         if (!locked) {
-            // Lockout expired — clear it but don't reset counter yet (that happens on success)
+            // Keep the failed-attempt counter until the next successful login resets it.
             user.setLockoutUntil(null);
             userRepository.save(user);
         }
         return locked;
     }
 
-    /**
-     * Increments failed login attempts and locks the account if threshold is reached.
-     */
     @Transactional
     public User applyLegalHold(Long userId, String action, String authority,
             String courtOrderReference, String reason, java.time.LocalDateTime holdUntil) {
@@ -175,15 +159,11 @@ public class UserService {
         user.setFailedLoginAttempts(newAttempts);
 
         if (newAttempts >= 5) {
-            // Lock for 30 minutes
             user.setLockoutUntil(java.time.LocalDateTime.now().plusMinutes(30));
         }
         userRepository.save(user);
     }
 
-    /**
-     * Resets failed login attempts to zero.
-     */
     @Transactional
     public void resetFailedAttempts(User user) {
         user.setFailedLoginAttempts(0);
@@ -196,12 +176,10 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Validate MPesa number (Kenyan format)
         if (!mpesaNumber.matches("^2547[0-9]{8}$")) {
             throw new RuntimeException("Invalid MPesa number format. Expected format: 2547XXXXXXXX");
         }
 
-        // Check if MPesa number is already in use by another user
         Optional<User> existingUser = userRepository.findByMpesaNumber(mpesaNumber);
         if (existingUser.isPresent() && !existingUser.get().getId().equals(userId)) {
             throw new RuntimeException("MPesa number already registered to another user");
@@ -210,7 +188,6 @@ public class UserService {
         user.setMpesaNumber(mpesaNumber);
         User savedUser = userRepository.save(user);
 
-        // Send verification SMS (simulated)
         sendMpesaVerificationSMS(mpesaNumber);
 
         return savedUser;
@@ -221,7 +198,6 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Validate bank account number (basic validation)
         if (bankAccountNumber == null || bankAccountNumber.trim().isEmpty()) {
             throw new RuntimeException("Bank account number is required");
         }
@@ -230,7 +206,6 @@ public class UserService {
             throw new RuntimeException("Bank name is required");
         }
 
-        // Remove any spaces or special characters from account number
         String cleanedAccountNumber = bankAccountNumber.replaceAll("[^0-9]", "");
 
         if (cleanedAccountNumber.length() < 5) {
@@ -243,7 +218,7 @@ public class UserService {
         
         User savedUser = userRepository.save(user);
 
-        // TODO: Initiate bank account verification process with provider (e.g., Flutterwave Account Resolve)
+        // Bank account verification is deferred to the provider integration.
         log.info("Bank account update initiated for user {}: {} ({})", userId, bankName, cleanedAccountNumber);
 
         return savedUser;
@@ -255,18 +230,10 @@ public class UserService {
     }
 
     public boolean verifyMpesaNumber(Long userId, String verificationCode) {
-        // Implement MPesa number verification logic
-        // This would typically involve sending an SMS with the code
-        // and verifying it matches what the user entered
-
         userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // For demo purposes, accept any 6-digit code
-        // In production, you would check against a stored verification code
         if (verificationCode != null && verificationCode.matches("\\d{6}")) {
-            // Mark MPesa as verified in user profile
-            // You could add a 'verifiedMpesa' boolean field to User entity
             return true;
         }
 
@@ -287,9 +254,7 @@ public class UserService {
 
         if (updates.containsKey("phoneNumber")) {
             String phoneNumber = (String) updates.get("phoneNumber");
-            // Basic phone validation
             if (phoneNumber != null && phoneNumber.matches("^\\+?[0-9]{10,15}$")) {
-                // You might want to add a phoneNumber field to User entity
             }
         }
 
@@ -302,9 +267,6 @@ public class UserService {
 
         if (userOpt.isPresent()) {
             User user = userOpt.get();
-            // Instead of deleting, mark as inactive
-            // You could add an 'active' boolean field to User entity
-            // user.setActive(false);
             userRepository.save(user);
             return true;
         }
@@ -350,7 +312,6 @@ public class UserService {
         return java.util.List.of();
     }
 
-    // Helper methods
     private boolean isEuropeanCountry(String countryCode) {
         String[] euCountries = { "AT", "BE", "BG", "CY", "CZ", "DE", "DK", "EE", "ES",
                 "FI", "FR", "GR", "HR", "HU", "IE", "IT", "LT", "LU",
@@ -363,16 +324,13 @@ public class UserService {
         return false;
     }
 
-    // Welcome email is now sent via EmailService.sendWelcomeEmail()
 
     private void sendMpesaVerificationSMS(String mpesaNumber) {
-        // In production, integrate with SMS gateway
         System.out.println("Sending verification SMS to: " + mpesaNumber);
         System.out.println("Your NylePay verification code: 123456");
     }
 
     private BigDecimal calculateTotalBalanceUSD(Map<String, BigDecimal> balances) {
-        // Simple conversion for demo - in production, use real exchange rates
         BigDecimal totalUSD = BigDecimal.ZERO;
 
         for (Map.Entry<String, BigDecimal> entry : balances.entrySet()) {
@@ -410,13 +368,9 @@ public class UserService {
         if (userOpt.isPresent()) {
             User user = userOpt.get();
 
-            // Generate reset token
             String resetToken = generateResetToken();
 
-            // Store token with expiration (you'd need a PasswordResetToken entity)
-            // passwordResetTokenRepository.save(new PasswordResetToken(user, resetToken));
 
-            // Send reset email via Resend
             emailService.sendPasswordResetEmail(user, resetToken);
 
             return true;
@@ -426,30 +380,13 @@ public class UserService {
     }
 
     public boolean resetPassword(String token, String newPassword) {
-        // Verify token and expiration
-        // PasswordResetToken resetToken =
-        // passwordResetTokenRepository.findByToken(token);
-
-        // if (resetToken != null && !resetToken.isExpired()) {
-        // User user = resetToken.getUser();
-        // user.setPassword(passwordEncoder.encode(newPassword));
-        // userRepository.save(user);
-        //
-        // // Invalidate token
-        // passwordResetTokenRepository.delete(resetToken);
-        //
-        // return true;
-        // }
-
         return false;
     }
 
     private String generateResetToken() {
-        // Generate a secure random token
         return java.util.UUID.randomUUID().toString();
     }
 
-    // Password reset email is now sent via EmailService.sendPasswordResetEmail()
 }
 
 

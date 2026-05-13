@@ -1,4 +1,3 @@
-// TransactionRequest.java
 package com.nyle.nylepay.dto;
 
 import jakarta.validation.constraints.DecimalMin;
@@ -28,7 +27,6 @@ public class TransactionRequest {
     private String description;
     private String toCurrency; // For conversions
 
-    // Getters and Setters
     public Long getUserId() { return userId; }
     public void setUserId(Long userId) { this.userId = userId; }
     public String getType() { return type; }

@@ -37,9 +37,8 @@ const Navbar = () => {
 
       <div style={{ ...styles.links, display: menuOpen ? 'flex' : undefined }}>
         <a href="#ecosystem" style={styles.link} onClick={() => setMenuOpen(false)}>Ecosystem</a>
-        <a href="#for-merchants" style={styles.link} onClick={() => setMenuOpen(false)}>For Merchants</a>
-        <a href="#sandbox" style={styles.link} onClick={() => setMenuOpen(false)}>Sandbox</a>
         <a href="#security" style={styles.link} onClick={() => setMenuOpen(false)}>Security</a>
+        <a href="http://localhost:5174" style={styles.link} onClick={() => setMenuOpen(false)}>For Merchants</a>
       </div>
 
       <div style={styles.actions}>
@@ -94,7 +93,6 @@ const styles = {
     display: 'flex',
     gap: '2.25rem',
     alignItems: 'center',
-    '@media(max-width:768px)': { display: 'none' },
   },
   link: {
     color: 'var(--text-secondary)',

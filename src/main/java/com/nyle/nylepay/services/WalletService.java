@@ -60,14 +60,12 @@ public class WalletService {
         String privateKeyHex = keyPair.getPrivateKey().toString(16);
         String address = "0x" + Keys.getAddress(keyPair);
         String encryptedKey = encryptionUtils.encrypt(privateKeyHex);
-        // Overwrite plaintext — best-effort; JVM GC handles final cleanup
         privateKeyHex = null;
 
-        // Store one CryptoWallet per chain (same address, different chain metadata)
         for (String chain : SUPPORTED_CHAINS) {
             cryptoWalletRepository.findByUserIdAndChain(userId, chain).ifPresentOrElse(
                     existing -> {
-                        /* already exists for this chain — skip */ },
+                    },
                     () -> {
                         CryptoWallet cw = new CryptoWallet();
                         cw.setUserId(userId);
@@ -78,7 +76,6 @@ public class WalletService {
                     });
         }
 
-        // Create NylePay internal balance ledger
         Wallet wallet = walletRepository.findByUserId(userId).orElseGet(Wallet::new);
         wallet.setUserId(userId);
         wallet.getBalances().putIfAbsent("ETH", new Wallet.Balance(BigDecimal.ZERO));
@@ -98,17 +95,13 @@ public class WalletService {
         response.put("supportedTokens", List.of("ETH", "USDT", "USDC", "DAI"));
         response.put("message",
                 "Custody wallet created on Ethereum, Polygon, Arbitrum, and Base. Deposit to the address above on any of these chains.");
-        // ⚠ Private key is NOT returned — it is stored encrypted in the DB only.
         return response;
     }
 
-    // ------------------------------------------------------------------------
-    // ADD BALANCE
-    // ------------------------------------------------------------------------
     @Transactional
     public void addBalance(Long userId, String currency, BigDecimal amount) {
 
-        // ACID-Isolation: exclusive row lock prevents concurrent double-credit
+        // Exclusive row lock keeps concurrent balance updates serialized.
         Wallet wallet = walletRepository.findByUserIdForUpdate(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Wallet not found"));
 
@@ -123,9 +116,6 @@ public class WalletService {
         walletRepository.save(wallet);
     }
 
-    // ------------------------------------------------------------------------
-    // SUBTRACT BALANCE
-    // ------------------------------------------------------------------------
     @Transactional
     public void subtractBalance(Long userId, String currency, BigDecimal amount) {
         subtractBalanceInternal(userId, currency, amount, true);
@@ -146,9 +136,7 @@ public class WalletService {
             }
         }
 
-        // ACID-Isolation: exclusive row lock — serialises concurrent withdrawal
-        // attempts
-        // so that both cannot pass the balance check with stale reads.
+        // Exclusive row lock prevents concurrent withdrawals from spending the same balance.
         Wallet wallet = walletRepository.findByUserIdForUpdate(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Wallet not found"));
 
@@ -163,18 +151,11 @@ public class WalletService {
         walletRepository.save(wallet);
     }
 
-    /**
-     * Alias for {@link #subtractBalance} — used by local payment controller
-     * for naming consistency with "debit" semantics.
-     */
     @Transactional
     public void deductBalance(Long userId, String currency, BigDecimal amount) {
         subtractBalance(userId, currency, amount);
     }
 
-    // ------------------------------------------------------------------------
-    // GET ALL BALANCES
-    // ------------------------------------------------------------------------
     public Map<String, BigDecimal> getBalances(Long userId) {
 
         Wallet wallet = walletRepository.findByUserId(userId)
@@ -187,9 +168,6 @@ public class WalletService {
         return result;
     }
 
-    // ------------------------------------------------------------------------
-    // GET SINGLE BALANCE
-    // ------------------------------------------------------------------------
     public BigDecimal getBalance(Long userId, String currency) {
 
         Wallet wallet = walletRepository.findByUserId(userId)
@@ -199,9 +177,6 @@ public class WalletService {
         return balance == null ? BigDecimal.ZERO : balance.getAmount();
     }
 
-    // ------------------------------------------------------------------------
-    // TRANSFER BETWEEN USERS
-    // ------------------------------------------------------------------------
     @Transactional
     public Map<String, Object> transferBetweenUsers(
             Long fromUserId,
@@ -226,9 +201,6 @@ public class WalletService {
         return response;
     }
 
-    // ------------------------------------------------------------------------
-    // CONVERT CURRENCY
-    // ------------------------------------------------------------------------
     @Transactional
     public Map<String, Object> convertCurrency(
             Long userId,

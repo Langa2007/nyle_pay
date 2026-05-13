@@ -38,13 +38,6 @@ public class AuditLogService {
         this.auditLogRepository = auditLogRepository;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Core logging methods
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Logs a security event asynchronously (non-blocking).
-     */
     @Async
     public void logEvent(Long userId, String eventType, String description,
                          String outcome, HttpServletRequest request,
@@ -67,7 +60,7 @@ public class AuditLogService {
 
             auditLogRepository.save(entry);
         } catch (Exception e) {
-            // Audit logging must NEVER crash the main flow
+            // Audit failures must not block the business operation being recorded.
             log.error("Failed to write audit log: eventType={} userId={} error={}",
                       eventType, userId, e.getMessage());
         }
@@ -102,10 +95,6 @@ public class AuditLogService {
                       eventType, userId, e.getMessage());
         }
     }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Convenience methods for common events
-    // ─────────────────────────────────────────────────────────────────────────
 
     public void logLoginSuccess(Long userId, HttpServletRequest request) {
         logEvent(userId, "AUTH_LOGIN_SUCCESS", "User logged in successfully",
@@ -154,42 +143,30 @@ public class AuditLogService {
         logEvent(adminUserId, "ADMIN_ACTION", description, "SUCCESS", request, metadata);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Query methods (for admin dashboard and compliance)
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /** Get paginated audit logs for a specific user */
     public Page<AuditLog> getUserAuditLog(Long userId, int page, int size) {
         return auditLogRepository.findByUserId(userId,
                 PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "timestamp")));
     }
 
-    /** Get recent fraud alerts */
     public List<AuditLog> getRecentFraudAlerts(int limit) {
         return auditLogRepository.findRecentFraudAlerts(PageRequest.of(0, limit));
     }
 
-    /** Count failed logins for lockout logic */
     public long countRecentFailedLogins(Long userId, int windowMinutes) {
         LocalDateTime since = LocalDateTime.now().minusMinutes(windowMinutes);
         return auditLogRepository.countFailedLoginsSince(userId, since);
     }
 
-    /** Count events from a specific IP (for IP-based rate analysis) */
     public long countIpEvents(String ip, String eventType, int windowMinutes) {
         LocalDateTime since = LocalDateTime.now().minusMinutes(windowMinutes);
         return auditLogRepository.countByIpAndEventTypeSince(ip, eventType, since);
     }
 
-    /** Export user audit trail for compliance (date range) */
     public List<AuditLog> exportUserAuditTrail(Long userId,
                                                 LocalDateTime start, LocalDateTime end) {
         return auditLogRepository.findByUserIdAndTimestampBetween(userId, start, end);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Helpers
-    // ─────────────────────────────────────────────────────────────────────────
 
     private String extractIp(HttpServletRequest request) {
         String xff = request.getHeader("X-Forwarded-For");

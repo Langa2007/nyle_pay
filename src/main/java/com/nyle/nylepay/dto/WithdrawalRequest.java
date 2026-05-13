@@ -1,4 +1,3 @@
-// WithdrawalRequest.java
 package com.nyle.nylepay.dto;
 
 import jakarta.validation.constraints.DecimalMin;
@@ -35,7 +34,6 @@ public class WithdrawalRequest {
     private String swiftCode;
     private String cryptoAddress;
 
-    // Getters and Setters
     public Long getUserId() { return userId; }
     public void setUserId(Long userId) { this.userId = userId; }
     public BigDecimal getAmount() { return amount; }

@@ -392,4 +392,8 @@ body::before {
 @media (max-width: 768px) {
   .btn-primary, .btn-secondary { padding: 0.75rem 1.5rem; font-size: 0.95rem; }
   .section-title { font-size: 1.75rem; }
+
+  /* Navbar: hide desktop links, show hamburger */
+  nav .nav-links-desktop { display: none !important; }
+  nav .nav-hamburger     { display: flex !important; }
 }

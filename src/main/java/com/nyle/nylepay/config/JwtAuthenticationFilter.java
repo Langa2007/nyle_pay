@@ -1,4 +1,3 @@
-// JwtAuthenticationFilter.java
 package com.nyle.nylepay.config;
 
 import com.nyle.nylepay.services.JwtService;

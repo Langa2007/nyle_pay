@@ -1,4 +1,3 @@
-// NylepayApplication.java
 package com.nyle.nylepay;
 
 import org.springframework.boot.SpringApplication;

@@ -50,7 +50,6 @@ public class SavedCard {
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 
-    // ── Getters & Setters ──────────────────────────────────────────────────
     public Long getId()                { return id; }
     public void setId(Long id)         { this.id = id; }
     public Long getUserId()            { return userId; }

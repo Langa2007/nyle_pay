@@ -26,17 +26,12 @@ public class AdminService {
         this.transactionRepository = transactionRepository;
     }
 
-    // ────────────────────────────────────────────────────────────────
-    // DASHBOARD METRICS
-    // ────────────────────────────────────────────────────────────────
     public Map<String, Object> getDashboardMetrics() {
         Map<String, Object> metrics = new LinkedHashMap<>();
 
-        // User counts
         long totalUsers = userRepository.count();
         metrics.put("totalUsers", totalUsers);
 
-        // Transaction counts
         long totalTransactions = transactionRepository.count();
         List<Transaction> allTransactions = transactionRepository.findAll();
 
@@ -49,13 +44,11 @@ public class AdminService {
         metrics.put("pendingTransactions", pending);
         metrics.put("failedTransactions", failed);
 
-        // Success rate
         double successRate = totalTransactions > 0
                 ? (double) completed / totalTransactions * 100
                 : 0;
         metrics.put("successRate", BigDecimal.valueOf(successRate).setScale(1, RoundingMode.HALF_UP));
 
-        // Volume by currency
         Map<String, BigDecimal> volumeByCurrency = new LinkedHashMap<>();
         for (Transaction t : allTransactions) {
             if ("COMPLETED".equals(t.getStatus()) && t.getAmount() != null) {
@@ -68,14 +61,12 @@ public class AdminService {
         }
         metrics.put("volumeByCurrency", volumeByCurrency);
 
-        // Transaction types breakdown
         Map<String, Long> typeBreakdown = new LinkedHashMap<>();
         for (Transaction t : allTransactions) {
             typeBreakdown.merge(t.getType() != null ? t.getType() : "UNKNOWN", 1L, (a, b) -> a + b);
         }
         metrics.put("transactionTypes", typeBreakdown);
 
-        // Last 7 days daily volume
         List<Map<String, Object>> dailyVolume = new ArrayList<>();
         for (int i = 6; i >= 0; i--) {
             LocalDateTime dayStart = LocalDateTime.now().minusDays(i).toLocalDate().atStartOfDay();
@@ -100,9 +91,6 @@ public class AdminService {
         return metrics;
     }
 
-    // ────────────────────────────────────────────────────────────────
-    // TRANSACTION MANAGEMENT
-    // ────────────────────────────────────────────────────────────────
     public Page<Transaction> getAllTransactions(int page, int size, String status) {
         PageRequest pageRequest = PageRequest.of(page, size, Sort.by("timestamp").descending());
         if (status != null && !status.isEmpty()) {
@@ -111,9 +99,6 @@ public class AdminService {
         return transactionRepository.findAll(pageRequest);
     }
 
-    // ────────────────────────────────────────────────────────────────
-    // USER MANAGEMENT
-    // ────────────────────────────────────────────────────────────────
     public Page<User> getAllUsers(int page, int size) {
         return userRepository.findAll(PageRequest.of(page, size, Sort.by("id").descending()));
     }

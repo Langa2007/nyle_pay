@@ -69,21 +69,16 @@ public class OtpService {
             );
         }
 
-        // Generate 6-digit OTP
         String otp = String.format("%06d", SECURE_RANDOM.nextInt(1000000));
 
-        // Store in Redis with 5-minute TTL
         String otpKey = OTP_PREFIX + userId + ":" + purpose;
         redisTemplate.opsForValue().set(otpKey, otp, OTP_TTL);
 
-        // Set rate limit (1 request per 60 seconds)
         redisTemplate.opsForValue().set(rateKey, "1", RATE_LIMIT_TTL);
 
-        // Reset attempt counter
         String attemptKey = otpKey + ":attempts";
         redisTemplate.delete(attemptKey);
 
-        // Send OTP via email
         sendOtpNotification(user, otp, purpose);
 
         log.info("OTP generated: userId={} purpose={}", userId, purpose);
@@ -112,10 +107,8 @@ public class OtpService {
         String otpKey = OTP_PREFIX + userId + ":" + purpose;
         String attemptKey = otpKey + ":attempts";
 
-        // Check attempt count
         String attemptCount = redisTemplate.opsForValue().get(attemptKey);
         if (attemptCount != null && Integer.parseInt(attemptCount) >= MAX_VERIFY_ATTEMPTS) {
-            // Delete the OTP — too many failed attempts
             redisTemplate.delete(otpKey);
             redisTemplate.delete(attemptKey);
             throw new RuntimeException(
@@ -135,12 +128,10 @@ public class OtpService {
         );
 
         if (valid) {
-            // Delete OTP after successful verification (single-use)
             redisTemplate.delete(otpKey);
             redisTemplate.delete(attemptKey);
             log.info("OTP verified: userId={} purpose={}", userId, purpose);
         } else {
-            // Increment attempt counter
             redisTemplate.opsForValue().increment(attemptKey);
             if (attemptCount == null) {
                 redisTemplate.expire(attemptKey, OTP_TTL);
@@ -158,10 +149,8 @@ public class OtpService {
         User user = userRepository.findById(userId).orElse(null);
         if (user == null) return false;
 
-        // If user has OTP enabled globally, always require it
         if (user.isOtpEnabled()) return true;
 
-        // Even without OTP enabled, require it for withdrawals above KES 10,000
         return "WITHDRAWAL".equals(purpose);
     }
 
@@ -187,9 +176,6 @@ public class OtpService {
         log.info("2FA disabled: userId={}", userId);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Notification helpers
-    // ─────────────────────────────────────────────────────────────────────────
 
     private void sendOtpNotification(User user, String otp, String purpose) {
         String subject = "NylePay Security Code";
@@ -208,7 +194,6 @@ public class OtpService {
             // Don't fail the OTP generation — user can still use SMS if available
         }
 
-        // SMS delivery (if M-Pesa number is available)
         if (user.getMpesaNumber() != null && !user.getMpesaNumber().isBlank()) {
             log.info("[SMS] OTP for userId={} phone={}: {} (purpose={})",
                     user.getId(), user.getMpesaNumber(), otp, purpose);

@@ -97,7 +97,6 @@ public class KycController {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────
 
     private Long resolveUserId(Authentication auth) {
         if (auth == null) throw new RuntimeException("Not authenticated");

@@ -36,9 +36,7 @@ public class BybitApiClient {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
-    // ─────────────────────────────────────────────────────────────────────────
     //  Account
-    // ─────────────────────────────────────────────────────────────────────────
 
     /**
      * Fetches unified account wallet balance.
@@ -50,9 +48,7 @@ public class BybitApiClient {
         return signedGet(path, params, apiKey, apiSecret);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
     //  Trading
-    // ─────────────────────────────────────────────────────────────────────────
 
     /**
      * Places a market order.
@@ -67,9 +63,7 @@ public class BybitApiClient {
         return signedPost("/v5/order/create", body, apiKey, apiSecret);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
     //  Asset / Withdrawal
-    // ─────────────────────────────────────────────────────────────────────────
 
     /**
      * Initiates an on-chain withdrawal.
@@ -92,9 +86,7 @@ public class BybitApiClient {
         return signedGet("/v5/user/query-api", "", apiKey, apiSecret);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
     //  HTTP helpers
-    // ─────────────────────────────────────────────────────────────────────────
 
     private Map<String, Object> signedGet(String path, String queryString, String apiKey, String apiSecret) {
         long timestamp = System.currentTimeMillis();

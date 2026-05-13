@@ -1,5 +1,4 @@
 
-// SwaggerConfig.java
 package com.nyle.nylepay.config;
 
 import io.swagger.v3.oas.models.OpenAPI;

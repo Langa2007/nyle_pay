@@ -34,7 +34,6 @@ public class Transaction {
     @Column(name = "transaction_code", unique = true, length = 32)
     private String transactionCode;   // Unique human-readable reference (e.g. NP2MP-ABC123)
 
-    // Getters and Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public Long getUserId() { return userId; }

@@ -58,9 +58,7 @@ public class CardPaymentService {
         this.merchantRepository      = merchantRepository;
     }
 
-    // ─────────────────────────────────────────────────────────────────────
     // Paystack — initiate
-    // ─────────────────────────────────────────────────────────────────────
 
     /**
      * Creates a Paystack transaction for a direct user deposit (card → NylePay wallet).
@@ -99,9 +97,7 @@ public class CardPaymentService {
         );
     }
 
-    // ─────────────────────────────────────────────────────────────────────
     // Stripe — initiate
-    // ─────────────────────────────────────────────────────────────────────
 
     /**
      * Creates a Stripe PaymentIntent for a direct user deposit (card → NylePay wallet).
@@ -141,9 +137,7 @@ public class CardPaymentService {
         );
     }
 
-    // ─────────────────────────────────────────────────────────────────────
     // Webhook handlers — ACID-safe
-    // ─────────────────────────────────────────────────────────────────────
 
     /**
      * Processes a verified Paystack webhook for a successful charge.
@@ -199,9 +193,6 @@ public class CardPaymentService {
         transactionRepository.save(tx);
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // Helpers
-    // ─────────────────────────────────────────────────────────────────────
 
     private boolean isFinalStatus(String status) {
         return "COMPLETED".equals(status) || "FAILED".equals(status) || "REFUNDED".equals(status);

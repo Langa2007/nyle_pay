@@ -57,9 +57,6 @@ public class CheckoutController {
         this.settlementService         = settlementService;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // 1. Load checkout session details (GET)
-    // ─────────────────────────────────────────────────────────────────────────
 
     /**
      * GET /api/merchant/pay/{reference}
@@ -81,7 +78,6 @@ public class CheckoutController {
 
             if ("EXPIRED".equals(session.getStatus()) ||
                     (session.getExpiresAt() != null && session.getExpiresAt().isBefore(LocalDateTime.now()))) {
-                // Auto-expire
                 if (!"EXPIRED".equals(session.getStatus())) {
                     session.setStatus("EXPIRED");
                     checkoutSessionRepository.save(session);
@@ -112,9 +108,6 @@ public class CheckoutController {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // 2. Initiate payment (POST)
-    // ─────────────────────────────────────────────────────────────────────────
 
     /**
      * POST /api/merchant/pay/{reference}/initiate
@@ -179,9 +172,6 @@ public class CheckoutController {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // 3. Status check / M-Pesa confirmation polling
-    // ─────────────────────────────────────────────────────────────────────────
 
     /**
      * GET /api/merchant/pay/{reference}/status
@@ -205,9 +195,6 @@ public class CheckoutController {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Internal helpers
-    // ─────────────────────────────────────────────────────────────────────────
 
     private ResponseEntity<ApiResponse<Map<String, Object>>> initiateMpesa(
             CheckoutSession session, String phone) throws Exception {
@@ -263,7 +250,6 @@ public class CheckoutController {
     private ResponseEntity<ApiResponse<Map<String, Object>>> initiateWallet(
             CheckoutSession session, Long userId) {
 
-        // Deduct from NylePay user wallet and credit merchant immediately
         BigDecimal amount = session.getAmount();
         String currency = session.getCurrency();
 
@@ -273,7 +259,6 @@ public class CheckoutController {
             throw new NylePayException("Insufficient NylePay wallet balance.");
         }
 
-        // Credit merchant's pending settlement (minus fee)
         creditMerchant(session, amount);
 
         session.setStatus("COMPLETED");
@@ -305,12 +290,10 @@ public class CheckoutController {
             BigDecimal netAmount = amount.subtract(fee);
             
             try {
-                // Real-time immediate settlement
                 settlementService.settle(merchant, netAmount);
                 log.info("Merchant {} real-time settlement succeeded: gross={} fee={} net={}",
                         merchant.getId(), amount, fee, netAmount);
             } catch (Exception e) {
-                // Fallback: if instant transfer fails (e.g., M-Pesa is down), keep in pending
                 BigDecimal current = merchant.getPendingSettlement() != null
                         ? merchant.getPendingSettlement() : BigDecimal.ZERO;
                 merchant.setPendingSettlement(current.add(netAmount));

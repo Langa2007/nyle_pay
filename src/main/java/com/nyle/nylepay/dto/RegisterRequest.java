@@ -1,4 +1,3 @@
-// RegisterRequest.java
 package com.nyle.nylepay.dto;
 
 import jakarta.validation.constraints.Email;
@@ -30,7 +29,6 @@ public class RegisterRequest {
     
     private String phoneNumber;
 
-    // Getters and Setters
     public String getFullName() { return fullName; }
     public void setFullName(String fullName) { this.fullName = fullName; }
     public String getEmail() { return email; }

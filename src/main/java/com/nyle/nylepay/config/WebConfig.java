@@ -1,4 +1,3 @@
-// WebConfig.java
 package com.nyle.nylepay.config;
 
 import org.springframework.beans.factory.annotation.Value;

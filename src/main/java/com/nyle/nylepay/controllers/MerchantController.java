@@ -171,9 +171,7 @@ public class MerchantController {
         ));
     }
 
-    // ─────────────────────────────────────────────────────────────────────
     // Settlement Account Setup
-    // ─────────────────────────────────────────────────────────────────────
 
     /**
      * POST /api/merchant/settlement-account
@@ -223,9 +221,7 @@ public class MerchantController {
         ));
     }
 
-    // ─────────────────────────────────────────────────────────────────────
     // Admin — activate merchant after KYC (admin-only)
-    // ─────────────────────────────────────────────────────────────────────
 
     /**
      * POST /api/merchant/activate/{merchantId}
@@ -242,7 +238,6 @@ public class MerchantController {
         ));
     }
 
-    // ─────────────────────────────────────────────────────────────────────
 
     private Long resolveUserId(Authentication auth) {
         // JWT subject should be userId in production; using email-based lookup as fallback

@@ -46,9 +46,7 @@ public class BinanceProviderImpl implements ICexProvider {
         return "BINANCE";
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
     //  Connection verification
-    // ─────────────────────────────────────────────────────────────────────────
 
     @Override
     public boolean verifyConnection(String apiKey, String apiSecret) {
@@ -71,9 +69,7 @@ public class BinanceProviderImpl implements ICexProvider {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
     //  Balance fetch — GET /api/v3/account (signed)
-    // ─────────────────────────────────────────────────────────────────────────
 
     @Override
     @SuppressWarnings("unchecked")
@@ -112,9 +108,7 @@ public class BinanceProviderImpl implements ICexProvider {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
     //  Sell to fiat — MARKET SELL on {ASSET}USDT, then Convert endpoint
-    // ─────────────────────────────────────────────────────────────────────────
 
     @Override
     public Map<String, Object> sellToFiat(String asset, BigDecimal amount, String targetFiat,
@@ -139,9 +133,7 @@ public class BinanceProviderImpl implements ICexProvider {
         return result;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
     //  On-chain withdrawal — POST /sapi/v1/capital/withdraw/apply (signed)
-    // ─────────────────────────────────────────────────────────────────────────
 
     @Override
     public Map<String, Object> withdrawOnChain(String asset, BigDecimal amount, String toAddress,
@@ -174,9 +166,7 @@ public class BinanceProviderImpl implements ICexProvider {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
     //  Legacy — kept for backward compatibility; delegates to withdrawOnChain
-    // ─────────────────────────────────────────────────────────────────────────
 
     @Override
     public Map<String, Object> externalWithdraw(String asset, BigDecimal amount, String destAddress,
@@ -184,9 +174,6 @@ public class BinanceProviderImpl implements ICexProvider {
         return withdrawOnChain(asset, amount, destAddress, "ETH", apiKey, apiSecret);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Helpers
-    // ─────────────────────────────────────────────────────────────────────────
 
     @SuppressWarnings("unchecked")
     private BigDecimal extractExecutedValue(Map<String, Object> orderResult) {

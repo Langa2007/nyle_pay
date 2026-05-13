@@ -68,7 +68,6 @@ public class OnChainWithdrawalService {
 
     // ERC-20 transfer gas limit (conservative upper bound for complex tokens like USDT)
     private static final BigInteger ERC20_GAS_LIMIT = BigInteger.valueOf(100_000L);
-    // Native ETH transfer gas limit (exact)
     private static final BigInteger ETH_GAS_LIMIT   = BigInteger.valueOf(21_000L);
 
     @Value("${cex.live-mode:false}")
@@ -98,9 +97,6 @@ public class OnChainWithdrawalService {
         this.bankTransferService    = bankTransferService;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  STEP 1 — Initiate (locks balance, creates PENDING_APPROVAL transaction)
-    // ─────────────────────────────────────────────────────────────────────────
 
     /**
      * Stage 1 of the two-phase withdrawal.
@@ -122,7 +118,6 @@ public class OnChainWithdrawalService {
         final String assetUpper   = asset.toUpperCase();
         final String destTypeUpper = destinationType.toUpperCase();
 
-        // ── Validations ──────────────────────────────────────────────────────
         if (!ChainConfig.SUPPORTED_CHAINS.contains(chainUpper)) {
             throw new IllegalArgumentException("Unsupported chain: " + chainUpper + ". Supported: " + ChainConfig.SUPPORTED_CHAINS);
         }
@@ -136,15 +131,11 @@ public class OnChainWithdrawalService {
             throw new IllegalArgumentException("Invalid Ethereum address format: " + destination);
         }
 
-        // Verify the user has a NylePay custody wallet on this chain
         cryptoWalletRepository.findByUserIdAndChain(userId, chainUpper)
             .orElseThrow(() -> new RuntimeException("No NylePay wallet found for user " + userId + " on " + chainUpper + ". Please generate one first."));
 
-        // ── ACID-Isolation: lock wallet row before balance check ──────────────
-        // WalletService.subtractBalance already uses findByUserIdForUpdate
         walletService.subtractBalance(userId, assetUpper, amount);
 
-        // ── Create PENDING_APPROVAL transaction ───────────────────────────────
         Transaction tx = new Transaction();
         tx.setUserId(userId);
         tx.setType("WITHDRAW");
@@ -161,9 +152,6 @@ public class OnChainWithdrawalService {
         return saved;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  STEP 2 — Confirm & Dispatch (signs and broadcasts the raw transaction)
-    // ─────────────────────────────────────────────────────────────────────────
 
     /**
      * Stage 2: loads the PENDING_APPROVAL transaction, signs the raw EVM transaction
@@ -204,9 +192,6 @@ public class OnChainWithdrawalService {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Dispatch routing
-    // ─────────────────────────────────────────────────────────────────────────
 
     private String dispatchByDestination(Transaction tx, String chain, String asset,
                                           BigDecimal amount, String destination, String destType) throws Exception {
@@ -218,18 +203,15 @@ public class OnChainWithdrawalService {
         };
     }
 
-    // ── WALLET: sign and broadcast a raw EVM transaction ─────────────────────
 
     private String broadcastOnChain(Long userId, String chain, String asset,
                                      BigDecimal amount, String toAddress) throws Exception {
 
-        // Retrieve and decrypt private key (lives in memory only for this method's stack frame)
         CryptoWallet custodyWallet = cryptoWalletRepository.findByUserIdAndChain(userId, chain)
             .orElseThrow(() -> new RuntimeException("Custody wallet not found for user " + userId + " on " + chain));
 
         String privateKeyHex = encryptionUtils.decrypt(custodyWallet.getEncryptedPrivateKey());
         Credentials credentials = Credentials.create(privateKeyHex);
-        // Immediately overwrite — best-effort zeroing; JVM GC handles final cleanup
         privateKeyHex = null;
 
         if (!liveMode) {
@@ -250,11 +232,9 @@ public class OnChainWithdrawalService {
             RawTransaction rawTx;
 
             if (contractAddress == null) {
-                // Native ETH / MATIC transfer
                 BigInteger weiAmount = amount.multiply(BigDecimal.TEN.pow(18)).toBigInteger();
                 rawTx = RawTransaction.createEtherTransaction(nonce, gasPrice, ETH_GAS_LIMIT, toAddress, weiAmount);
             } else {
-                // ERC-20 token transfer via encoded function call
                 rawTx = buildErc20Transfer(nonce, gasPrice, contractAddress, toAddress, amount, asset);
             }
 
@@ -275,7 +255,6 @@ public class OnChainWithdrawalService {
     private RawTransaction buildErc20Transfer(BigInteger nonce, BigInteger gasPrice,
                                                String contractAddress, String toAddress,
                                                BigDecimal amount, String asset) {
-        // Determine token decimals (USDT=6, USDC=6, DAI=18, default=18)
         int decimals = switch (asset.toUpperCase()) {
             case "USDT", "USDC" -> 6;
             default -> 18;
@@ -294,10 +273,8 @@ public class OnChainWithdrawalService {
         );
     }
 
-    // ── MPESA: sell crypto to KES and dispatch B2C ────────────────────────────
 
     private String routeToMpesa(Long userId, String asset, BigDecimal amount, String mpesaPhone) {
-        // In sandbox mode use a mocked KES rate; in live mode this goes via CexRoutingService
         BigDecimal kesRate  = estimateKesRate(asset);
         BigDecimal kesAmount = amount.multiply(kesRate);
         String normalizedPhone = mpesaService.normalizePhoneNumber(mpesaPhone);
@@ -307,7 +284,6 @@ public class OnChainWithdrawalService {
         return conversationId;
     }
 
-    // ── BANK: placeholder — ties into ExchangeRoutingService in future ────────
 
     private String routeToBank(Long userId, String asset, BigDecimal amount, String bankDetails) {
         log.info("Crypto→Bank routing queued for user {} — {} {} → {}", userId, amount, asset, bankDetails);
@@ -331,9 +307,6 @@ public class OnChainWithdrawalService {
         return reference;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Helpers
-    // ─────────────────────────────────────────────────────────────────────────
 
     private BigDecimal estimateKesRate(String asset) {
         return switch (asset.toUpperCase()) {

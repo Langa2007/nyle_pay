@@ -1,4 +1,3 @@
-// UserRepository.java
 package com.nyle.nylepay.repositories;
 
 import org.springframework.data.jpa.repository.JpaRepository;

@@ -2,62 +2,66 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext(null);
 
+const API = 'http://localhost:8080';
+
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+  const [user, setUser]     = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check localStorage for existing session on mount
     const stored = localStorage.getItem('npy_merchant_session');
     if (stored) {
-      try {
-        setUser(JSON.parse(stored));
-      } catch { /* corrupt data, ignore */ }
+      try { setUser(JSON.parse(stored)); } catch { /* corrupt */ }
     }
     setLoading(false);
   }, []);
 
-  const login = (email, password) => {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        if (!email || !password) {
-          reject(new Error('Email and password are required'));
-          return;
-        }
-        const session = {
-          email,
-          token: 'jwt_mock_' + Date.now(),
-          merchantId: null,
-          businessName: null,
-          apiKeys: null,
-        };
-        localStorage.setItem('npy_merchant_session', JSON.stringify(session));
-        setUser(session);
-        resolve(session);
-      }, 800);
+  /**
+   * Sign in with email + password against the real NylePay backend.
+   * On success stores the JWT and user profile in localStorage.
+   */
+  const login = async (email, password) => {
+    const res = await fetch(`${API}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
     });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json.message || 'Invalid credentials');
+    }
+    const { token, userId, email: userEmail, fullName, accountNumber } = json.data;
+    const session = {
+      token,
+      userId,
+      email: userEmail,
+      fullName,
+      accountNumber,
+      merchantId: null,
+      businessName: null,
+      apiKeys: null,
+    };
+    localStorage.setItem('npy_merchant_session', JSON.stringify(session));
+    setUser(session);
+    return session;
   };
 
-  const signup = (email, password, fullName) => {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        if (!email || !password || !fullName) {
-          reject(new Error('All fields are required'));
-          return;
-        }
-        const session = {
-          email,
-          fullName,
-          token: 'jwt_mock_' + Date.now(),
-          merchantId: null,
-          businessName: null,
-          apiKeys: null,
-        };
-        localStorage.setItem('npy_merchant_session', JSON.stringify(session));
-        setUser(session);
-        resolve(session);
-      }, 800);
+  /**
+   * Create a new NylePay consumer account (required before merchant registration).
+   * mpesaNumber and countryCode are required by the backend.
+   */
+  const signup = async (email, password, fullName, mpesaNumber = '', countryCode = 'KE') => {
+    const res = await fetch(`${API}/api/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, fullName, mpesaNumber, countryCode }),
     });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json.message || 'Registration failed');
+    }
+    // Auto-login after successful registration
+    return login(email, password);
   };
 
   const updateMerchantInfo = (info) => {

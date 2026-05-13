@@ -23,7 +23,6 @@ public class TransferRequest {
     
     private String description;
 
-    // Getters and Setters
     public Long getFromUserId() { return fromUserId; }
     public void setFromUserId(Long fromUserId) { this.fromUserId = fromUserId; }
     public String getToIdentifier() { return toIdentifier; }

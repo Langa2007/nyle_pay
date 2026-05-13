@@ -90,7 +90,6 @@ public class AntiFraudService {
             return FraudCheckResult.pass();
         }
 
-        // 1. Velocity check — max transactions per hour
         FraudCheckResult velocityResult = checkVelocity(userId);
         if (velocityResult.isBlocked()) {
             auditLogService.logFraudBlocked(userId, velocityResult.getReason(),
@@ -98,7 +97,6 @@ public class AntiFraudService {
             return velocityResult;
         }
 
-        // 2. Daily amount limit
         FraudCheckResult dailyResult = checkDailyAmount(userId, amount, accountAge);
         if (dailyResult.isBlocked()) {
             auditLogService.logFraudBlocked(userId, dailyResult.getReason(),
@@ -106,16 +104,13 @@ public class AntiFraudService {
             return dailyResult;
         }
 
-        // 3. Large transaction flag
         if (amount.compareTo(BigDecimal.valueOf(largeTxnThresholdKes)) > 0) {
             auditLogService.logFraudAlert(userId,
                     "Large transaction: " + amount + " KES (threshold: " + largeTxnThresholdKes + ")",
                     Map.of("amount", amount, "threshold", largeTxnThresholdKes, "txnType", txnType),
                     request);
-            // Large txns are flagged but NOT blocked (unless other checks fail)
         }
 
-        // 4. Rapid-fire detection
         FraudCheckResult rapidResult = checkRapidFire(userId);
         if (rapidResult.isBlocked()) {
             auditLogService.logFraudBlocked(userId, rapidResult.getReason(),
@@ -123,7 +118,6 @@ public class AntiFraudService {
             return rapidResult;
         }
 
-        // Record this transaction for future velocity checks
         recordTransactionEvent(userId);
 
         return FraudCheckResult.pass();
@@ -137,23 +131,19 @@ public class AntiFraudService {
         if (!fraudEnabled)
             return;
 
-        // Velocity check
         FraudCheckResult velocityResult = checkVelocity(userId);
         if (velocityResult.isBlocked()) {
             throw new RuntimeException("Fraud Check Blocked: " + velocityResult.getReason());
         }
 
-        // Daily amount check (ignoring account age for simple check)
         FraudCheckResult dailyResult = checkDailyAmount(userId, amount, null);
         if (dailyResult.isBlocked()) {
             throw new RuntimeException("Fraud Check Blocked: " + dailyResult.getReason());
         }
 
-        // Record for future velocity
         recordTransactionEvent(userId);
     }
 
-    // Individual checks
 
     private FraudCheckResult checkVelocity(Long userId) {
         String key = "fraud:velocity:" + userId;
@@ -178,7 +168,6 @@ public class AntiFraudService {
         BigDecimal dailyTotal = transactionRepository.getMonthlyTransactionTotal(
                 userId, dayStart, dayEnd);
 
-        // Stricter limits for new accounts (< 7 days old)
         long effectiveLimit = maxDailyAmountKes;
         boolean isNewAccount = accountCreated != null &&
                 accountCreated.isAfter(LocalDateTime.now().minusDays(newAccountDays));
@@ -223,20 +212,15 @@ public class AntiFraudService {
      * Two keys: hourly counter and rapid-fire counter.
      */
     private void recordTransactionEvent(Long userId) {
-        // Hourly velocity counter
         String hourlyKey = "fraud:velocity:" + userId;
         redisTemplate.opsForValue().increment(hourlyKey);
         redisTemplate.expire(hourlyKey, Duration.ofHours(1));
 
-        // Rapid-fire counter (short window)
         String rapidKey = "fraud:rapid:" + userId;
         redisTemplate.opsForValue().increment(rapidKey);
         redisTemplate.expire(rapidKey, Duration.ofSeconds(rapidFireWindowSeconds));
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Result DTO
-    // ─────────────────────────────────────────────────────────────────────────
 
     public static class FraudCheckResult {
         private final boolean blocked;

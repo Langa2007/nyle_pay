@@ -75,9 +75,7 @@ public class WebhookDeliveryService {
         deliver(merchant, event);
     }
 
-    // ─────────────────────────────────────────────────────────────────────
     // Core delivery with exponential backoff retry
-    // ─────────────────────────────────────────────────────────────────────
 
     private void deliver(Merchant merchant, Map<String, Object> event) {
         if (merchant.getWebhookUrl() == null || merchant.getWebhookUrl().isBlank()) {

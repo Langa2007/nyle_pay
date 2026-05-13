@@ -35,9 +35,7 @@ public class BybitProviderImpl implements ICexProvider {
         return "BYBIT";
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
     //  Connection verification — GET /v5/user/query-api
-    // ─────────────────────────────────────────────────────────────────────────
 
     @Override
     public boolean verifyConnection(String apiKey, String apiSecret) {
@@ -53,9 +51,7 @@ public class BybitProviderImpl implements ICexProvider {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
     //  Balance fetch — GET /v5/account/wallet-balance?accountType=UNIFIED
-    // ─────────────────────────────────────────────────────────────────────────
 
     @Override
     @SuppressWarnings("unchecked")
@@ -93,9 +89,7 @@ public class BybitProviderImpl implements ICexProvider {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
     //  Sell to fiat — MARKET SELL spot, then KES conversion
-    // ─────────────────────────────────────────────────────────────────────────
 
     @Override
     @SuppressWarnings("unchecked")
@@ -132,9 +126,7 @@ public class BybitProviderImpl implements ICexProvider {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
     //  On-chain withdrawal — POST /v5/asset/withdraw/create
-    // ─────────────────────────────────────────────────────────────────────────
 
     @Override
     @SuppressWarnings("unchecked")

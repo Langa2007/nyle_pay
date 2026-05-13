@@ -1,4 +1,3 @@
-// DepositRequest.java
 package com.nyle.nylepay.dto;
 
 import jakarta.validation.constraints.DecimalMin;
@@ -32,7 +31,6 @@ public class DepositRequest {
     private String accountName;
     private String country;
 
-    // Getters and Setters
     public Long getUserId() { return userId; }
     public void setUserId(Long userId) { this.userId = userId; }
     public BigDecimal getAmount() { return amount; }

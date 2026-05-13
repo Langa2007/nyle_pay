@@ -20,28 +20,21 @@ const Footer = () => (
             <span className="text-gradient" style={{ fontWeight: 800, fontSize: '1.2rem', fontFamily: 'var(--font-heading)' }}>NylePay</span>
           </div>
           <p style={styles.tagline}>Africa's unified payment identity. One account, every rail.</p>
-          <div style={styles.socials}>
-            {['Twitter', 'GitHub', 'LinkedIn'].map(s => (
-              <a key={s} href="#" style={styles.social}>{s}</a>
-            ))}
-          </div>
         </div>
 
         <div style={styles.links}>
           <div>
-            <div style={styles.linkGroup}>For Consumers</div>
+            <div style={styles.linkGroup}>Account</div>
             <Link to="/register" style={styles.link}>Create Account</Link>
             <Link to="/login" style={styles.link}>Sign In</Link>
             <a href="#ecosystem" style={styles.link}>How It Works</a>
           </div>
           <div>
-            <div style={styles.linkGroup}>For Merchants</div>
+            <div style={styles.linkGroup}>Businesses</div>
             <a href="http://localhost:5174" style={styles.link}>Merchant Portal</a>
-            <a href="#for-merchants" style={styles.link}>Integration Guide</a>
-            <a href="#sandbox" style={styles.link}>Sandbox Testing</a>
           </div>
           <div>
-            <div style={styles.linkGroup}>Company</div>
+            <div style={styles.linkGroup}>Legal</div>
             <a href="#security" style={styles.link}>Security</a>
             <a href="#" style={styles.link}>Privacy Policy</a>
             <a href="#" style={styles.link}>Terms of Service</a>
@@ -81,9 +74,7 @@ const styles = {
     marginBottom: '3rem',
     flexWrap: 'wrap',
   },
-  brand: {
-    flex: '1 1 280px',
-  },
+  brand: { flex: '1 1 280px' },
   logoWrap: {
     display: 'flex',
     alignItems: 'center',
@@ -94,18 +85,7 @@ const styles = {
     color: 'var(--text-secondary)',
     fontSize: '0.875rem',
     lineHeight: 1.6,
-    marginBottom: '1.25rem',
     maxWidth: '260px',
-  },
-  socials: {
-    display: 'flex',
-    gap: '1rem',
-  },
-  social: {
-    fontSize: '0.8rem',
-    color: 'var(--text-muted)',
-    fontWeight: 500,
-    transition: 'color 0.2s',
   },
   links: {
     flex: '1',
@@ -137,10 +117,7 @@ const styles = {
     flexWrap: 'wrap',
     gap: '1rem',
   },
-  badges: {
-    display: 'flex',
-    gap: '0.5rem',
-  },
+  badges: { display: 'flex', gap: '0.5rem' },
   badge: {
     padding: '0.2rem 0.7rem',
     background: 'rgba(255,255,255,0.05)',

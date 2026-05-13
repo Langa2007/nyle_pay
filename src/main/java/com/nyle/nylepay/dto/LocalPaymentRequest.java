@@ -41,7 +41,6 @@ public class LocalPaymentRequest {
     /** Optional description / narration */
     private String description;
 
-    // Getters and Setters
     public Long getUserId() { return userId; }
     public void setUserId(Long userId) { this.userId = userId; }
 

@@ -96,7 +96,6 @@ public class TransactionService {
     public Transaction createDeposit(Long userId, String provider, BigDecimal amount,
             String currency, String externalId, String metadata) {
 
-        // Validate user exists
         if (!userRepository.existsById(userId)) {
             throw new RuntimeException("User not found");
         }
@@ -124,36 +123,29 @@ public class TransactionService {
     public Transaction createWithdrawal(Long userId, String provider, BigDecimal amount,
             String currency, String destination) {
 
-        // Validate user exists
         if (!userRepository.existsById(userId)) {
             throw new RuntimeException("User not found");
         }
 
-        // Check if user has sufficient balance
         BigDecimal currentBalance = walletService.getBalance(userId, currency);
         if (currentBalance.compareTo(amount) < 0) {
             throw new RuntimeException("Insufficient balance");
         }
 
-        // Validate minimum withdrawal amount
         BigDecimal minimumWithdrawal = getMinimumWithdrawal(currency, provider);
         if (amount.compareTo(minimumWithdrawal) < 0) {
             throw new RuntimeException("Minimum withdrawal amount is " + minimumWithdrawal + " " + currency);
         }
 
-        // Calculate fees
         BigDecimal fee = calculateWithdrawalFee(amount, currency, provider);
         BigDecimal totalDeduction = amount.add(fee);
 
-        // Check if user has enough for amount + fee
         if (currentBalance.compareTo(totalDeduction) < 0) {
             throw new RuntimeException("Insufficient balance to cover withdrawal fee");
         }
 
-        // Deduct balance immediately
         walletService.subtractBalance(userId, currency, totalDeduction);
 
-        // Create transaction
         Transaction transaction = new Transaction();
         transaction.setUserId(userId);
         transaction.setType("WITHDRAW");
@@ -165,7 +157,6 @@ public class TransactionService {
         transaction.setExternalId("WDR_" + System.currentTimeMillis() + "_" + userId);
         transaction.setTransactionCode(generateTransactionCode("WITHDRAW", provider));
 
-        // For MPesa withdrawals, initiate immediately
         if ("MPESA".equalsIgnoreCase(provider)) {
             try {
                 Map<String, Object> mpesaResult = mpesaService.initiateB2C(
@@ -281,33 +272,27 @@ public class TransactionService {
     public Transaction createTransfer(Long fromUserId, String toIdentifier,
             BigDecimal amount, String currency, String description) {
 
-        // Find recipient
         User recipient = findRecipient(toIdentifier);
         if (recipient == null) {
             throw new RuntimeException("Recipient not found");
         }
 
-        // Check if sender has sufficient balance
         BigDecimal senderBalance = walletService.getBalance(fromUserId, currency);
         if (senderBalance.compareTo(amount) < 0) {
             throw new RuntimeException("Insufficient balance");
         }
 
-        // Calculate transfer fee
         BigDecimal fee = calculateTransferFee(amount, currency);
         BigDecimal totalDeduction = amount.add(fee);
 
-        // Check if sender has enough for amount + fee
         if (senderBalance.compareTo(totalDeduction) < 0) {
             throw new RuntimeException("Insufficient balance to cover transfer fee");
         }
 
-        // Perform transfer
         walletService.subtractBalance(fromUserId, currency, totalDeduction);
         walletService.addBalance(recipient.getId(), currency, amount);
         String transferReference = "TRF_" + System.currentTimeMillis() + "_" + fromUserId + "_" + recipient.getId();
 
-        // Create transaction for sender
         Transaction senderTransaction = new Transaction();
         senderTransaction.setUserId(fromUserId);
         senderTransaction.setType("TRANSFER_OUT");
@@ -327,7 +312,6 @@ public class TransactionService {
         senderTransaction.setMetadata(writeMetadata(senderMetadata));
         Transaction savedSenderTransaction = transactionRepository.save(senderTransaction);
 
-        // Create fee transaction if applicable
         if (fee.compareTo(BigDecimal.ZERO) > 0) {
             Transaction feeTransaction = new Transaction();
             feeTransaction.setUserId(fromUserId);
@@ -341,7 +325,6 @@ public class TransactionService {
             transactionRepository.save(feeTransaction);
         }
 
-        // Create transaction for recipient
         Transaction recipientTransaction = new Transaction();
         recipientTransaction.setUserId(recipient.getId());
         recipientTransaction.setType("TRANSFER_IN");
@@ -488,25 +471,20 @@ public class TransactionService {
     public Transaction createConversion(Long userId, String fromCurrency,
             String toCurrency, BigDecimal amount) {
 
-        // Check if user has sufficient balance in source currency
         BigDecimal sourceBalance = walletService.getBalance(userId, fromCurrency);
         if (sourceBalance.compareTo(amount) < 0) {
             throw new RuntimeException("Insufficient balance in " + fromCurrency);
         }
 
-        // Get exchange rate (in real implementation, fetch from exchange service)
         BigDecimal exchangeRate = getExchangeRate(fromCurrency, toCurrency);
         BigDecimal convertedAmount = amount.multiply(exchangeRate);
 
-        // Calculate conversion fee
         BigDecimal fee = convertedAmount.multiply(BigDecimal.valueOf(0.01)); // 1% fee
         BigDecimal finalAmount = convertedAmount.subtract(fee);
 
-        // Perform conversion
         walletService.subtractBalance(userId, fromCurrency, amount);
         walletService.addBalance(userId, toCurrency, finalAmount);
 
-        // Create transaction
         Transaction transaction = new Transaction();
         transaction.setUserId(userId);
         transaction.setType("CONVERSION");
@@ -520,7 +498,6 @@ public class TransactionService {
 
         Transaction savedTransaction = transactionRepository.save(transaction);
 
-        // Create fee transaction
         if (fee.compareTo(BigDecimal.ZERO) > 0) {
             Transaction feeTransaction = new Transaction();
             feeTransaction.setUserId(userId);
@@ -551,7 +528,6 @@ public class TransactionService {
             return;
         }
 
-        // Find pending transaction
         Optional<Transaction> pendingTransaction = transactionRepository
                 .findByExternalId(checkoutRequestId);
 
@@ -562,8 +538,7 @@ public class TransactionService {
 
         Transaction transaction = pendingTransaction.get();
         if (isFinalStatus(transaction.getStatus())) {
-            // ACID-Idempotency: Safaricom retries the same webhook — already settled,
-            // discard safely.
+            // Safaricom can retry webhooks after the transaction is already final.
             logger.info("Ignoring duplicate MPesa callback for settled transaction {}", transaction.getId());
             return;
         }
@@ -600,17 +575,14 @@ public class TransactionService {
         try {
             transactionRepository.save(transaction);
         } catch (DataIntegrityViolationException e) {
-            // ACID-Consistency: The @UniqueConstraint on external_id caught a race between
-            // two concurrent webhook deliveries for the same CheckoutRequestID. The first
-            // one committed successfully; this is a harmless duplicate — log and discard.
+            // A concurrent duplicate callback can pass the first lookup before the winning
+            // transaction commits; let the transaction roll back if the unique key catches it.
             logger.warn(
                     "Duplicate MPesa callback rejected by unique constraint for CheckoutRequestID={} — already processed.",
                     checkoutRequestId);
-            throw e; // re-throw so @Transactional rolls back the wallet credit for this duplicate
-                     // thread
+            throw e;
         }
-        // notifyUser runs after save to prevent email-send failure from rolling back a
-        // settled transaction
+        // Send notifications after persistence so email failures do not roll back settlement.
         notifyUser(transaction);
     }
 
@@ -630,7 +602,7 @@ public class TransactionService {
                 .orElseThrow(() -> new RuntimeException("MPesa withdrawal transaction not found for " + reference));
 
         if (isFinalStatus(transaction.getStatus())) {
-            // ACID-Idempotency: already settled, Safaricom retry — discard safely.
+            // Safaricom may retry callbacks for already-settled withdrawals.
             logger.info("Ignoring duplicate MPesa disbursement result for transaction {}", transaction.getId());
             return;
         }
@@ -644,8 +616,7 @@ public class TransactionService {
             refundWithdrawal(transaction);
         }
 
-        // ACID-Atomicity: save and notify are outside try/catch — any failure
-        // propagates to @Transactional and triggers a full rollback (refund + status).
+        // Keep status, refund, fee, and notification changes in the same transaction boundary.
         transactionRepository.save(transaction);
         notifyUser(transaction);
     }
@@ -666,7 +637,7 @@ public class TransactionService {
                 .orElseThrow(() -> new RuntimeException("MPesa withdrawal transaction not found for " + reference));
 
         if (isFinalStatus(transaction.getStatus())) {
-            // ACID-Idempotency: already settled, Safaricom timeout retry — discard safely.
+            // Timeout callbacks can arrive after a final result callback.
             logger.info("Ignoring MPesa timeout for settled transaction {}", transaction.getId());
             return;
         }
@@ -675,8 +646,7 @@ public class TransactionService {
         transaction.setStatus("FAILED");
         refundWithdrawal(transaction);
 
-        // ACID-Atomicity: save and notify are outside try/catch so any failure
-        // propagates to @Transactional and rolls back the refund credit.
+        // Keep status, refund, fee, and notification changes in the same transaction boundary.
         transactionRepository.save(transaction);
         notifyUser(transaction);
     }
@@ -701,7 +671,6 @@ public class TransactionService {
 
         Transaction transaction = transactionOpt.get();
 
-        // ACID-Idempotency: discard Flutterwave retries for already-settled txns
         if (isFinalStatus(transaction.getStatus())) {
             logger.info("Ignoring duplicate bank callback for settled transaction {}", transaction.getId());
             return;
@@ -722,8 +691,6 @@ public class TransactionService {
             return;
         }
 
-        // ACID-Atomicity: propagates to @Transactional — any failure rolls back wallet
-        // credit
         try {
             transactionRepository.save(transaction);
         } catch (DataIntegrityViolationException e) {
@@ -772,13 +739,11 @@ public class TransactionService {
             }
         }
 
-        // Get counts
         long totalTransactions = transactionRepository.countByUserId(userId);
         long successfulCount = transactionRepository.findByUserIdAndStatus(userId, "COMPLETED").size();
         long failedCount = transactionRepository.findByUserIdAndStatus(userId, "FAILED").size();
         long pendingCount = transactionRepository.findByUserIdAndStatus(userId, "PENDING").size();
 
-        // Get first and last transaction dates
         List<Transaction> allUserTransactions = transactionRepository.findByUserId(userId,
                 PageRequest.of(0, 1, Sort.by("timestamp").ascending())).getContent();
         List<Transaction> recentTransactions = transactionRepository.findByUserId(userId,
@@ -815,7 +780,6 @@ public class TransactionService {
             String oldStatus = transaction.getStatus();
             transaction.setStatus(status);
 
-            // If status changed from PENDING to COMPLETED for deposit, update balance
             if ("PENDING".equals(oldStatus) && "COMPLETED".equals(status) &&
                     "DEPOSIT".equals(transaction.getType())) {
                 walletService.addBalance(
@@ -826,7 +790,6 @@ public class TransactionService {
 
             transactionRepository.save(transaction);
 
-            // Send notification to user about status change
             User user = userRepository.findById(transaction.getUserId()).orElse(null);
             if (user != null) {
                 emailService.sendTransactionNotification(user, transaction);
@@ -893,7 +856,6 @@ public class TransactionService {
             transaction.setStatus("FAILED");
             transactionRepository.save(transaction);
 
-            // Send notification to user about failed transaction
             User user = userRepository.findById(transaction.getUserId()).orElse(null);
             if (user != null) {
                 emailService.sendTransactionNotification(user, transaction);
@@ -901,7 +863,6 @@ public class TransactionService {
         }
     }
 
-    // Helper methods
     private Transaction resolveSenderTransfer(Long transactionId) {
         Transaction transaction = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new RuntimeException("Transaction not found"));
@@ -940,7 +901,6 @@ public class TransactionService {
     }
 
     private User findRecipient(String identifier) {
-        // Try by email
         Optional<User> byEmail = userRepository.findByEmail(identifier);
         if (byEmail.isPresent())
             return byEmail.get();
@@ -949,21 +909,18 @@ public class TransactionService {
         if (byAccountNumber.isPresent())
             return byAccountNumber.get();
 
-        // Try by phone (assuming identifier could be phone)
         if (identifier.matches("^2547[0-9]{8}$")) {
             Optional<User> byPhone = userRepository.findByMpesaNumber(identifier);
             if (byPhone.isPresent())
                 return byPhone.get();
         }
 
-        // Try by user ID
         try {
             Long userId = Long.parseLong(identifier);
             Optional<User> byId = userRepository.findById(userId);
             if (byId.isPresent())
                 return byId.get();
         } catch (NumberFormatException e) {
-            // Not a valid user ID
         }
 
         return null;
@@ -988,7 +945,6 @@ public class TransactionService {
         BigDecimal fee = BigDecimal.ZERO;
 
         if ("MPESA".equalsIgnoreCase(provider)) {
-            // MPesa charges based on amount ranges
             if (amount.compareTo(BigDecimal.valueOf(1000)) <= 0) {
                 fee = BigDecimal.valueOf(27);
             } else if (amount.compareTo(BigDecimal.valueOf(2500)) <= 0) {
@@ -1009,22 +965,17 @@ public class TransactionService {
                 fee = BigDecimal.valueOf(195);
             }
         } else if ("BANK".equalsIgnoreCase(provider)) {
-            // Bank transfer fee: 1% of amount with minimum
             fee = amount.multiply(BigDecimal.valueOf(0.01));
             BigDecimal minimumFee = "USD".equals(currency) ? BigDecimal.valueOf(5) : BigDecimal.valueOf(500);
             if (fee.compareTo(minimumFee) < 0) {
                 fee = minimumFee;
             }
-            // Maximum fee cap
             BigDecimal maximumFee = "USD".equals(currency) ? BigDecimal.valueOf(50) : BigDecimal.valueOf(5000);
             if (fee.compareTo(maximumFee) > 0) {
                 fee = maximumFee;
             }
         } else if ("CRYPTO".equalsIgnoreCase(provider)) {
-            // Crypto withdrawal: Network fee + 0.5% service fee
-            BigDecimal networkFee = "ETH".equals(currency) ? BigDecimal.valueOf(0.0005) : BigDecimal.valueOf(0.00005); // ETH
-                                                                                                                       // vs
-                                                                                                                       // BTC
+            BigDecimal networkFee = "ETH".equals(currency) ? BigDecimal.valueOf(0.0005) : BigDecimal.valueOf(0.00005);
             BigDecimal serviceFee = amount.multiply(BigDecimal.valueOf(0.005));
             fee = networkFee.add(serviceFee);
         }
@@ -1033,7 +984,6 @@ public class TransactionService {
     }
 
     private BigDecimal calculateTransferFee(BigDecimal amount, String currency) {
-        // Internal transfer: 0.5% with minimum
         BigDecimal fee = amount.multiply(BigDecimal.valueOf(0.005));
         BigDecimal minimumFee = "USD".equals(currency) ? BigDecimal.valueOf(0.01) : BigDecimal.valueOf(1);
 
@@ -1041,7 +991,6 @@ public class TransactionService {
             return minimumFee;
         }
 
-        // Maximum fee cap
         BigDecimal maximumFee = "USD".equals(currency) ? BigDecimal.valueOf(10) : BigDecimal.valueOf(1000);
 
         if (fee.compareTo(maximumFee) > 0) {
@@ -1052,7 +1001,6 @@ public class TransactionService {
     }
 
     private BigDecimal getExchangeRate(String fromCurrency, String toCurrency) {
-        // Hardcoded rates for demo - in production, fetch from exchange service
         Map<String, BigDecimal> rates = new HashMap<>();
         rates.put("USD_KSH", BigDecimal.valueOf(150.0));
         rates.put("KSH_USD", BigDecimal.valueOf(0.0067));
@@ -1069,14 +1017,12 @@ public class TransactionService {
         return rates.getOrDefault(key, BigDecimal.ONE);
     }
 
-    // Additional utility methods
     public boolean hasSufficientBalance(Long userId, String currency, BigDecimal amount) {
         BigDecimal balance = walletService.getBalance(userId, currency);
         return balance.compareTo(amount) >= 0;
     }
 
     public BigDecimal calculateTotalFees(Long userId, String period) {
-        // Calculate fees for a period (day, week, month)
         LocalDateTime startDate;
         LocalDateTime endDate = LocalDateTime.now();
 
@@ -1237,7 +1183,7 @@ public class TransactionService {
                     "Bank->M-Pesa routing metadata missing mpesaNumber for tx " + transaction.getId());
         }
 
-        // Throws propagate -> @Transactional rolls back wallet credit too
+        // If the next leg fails, the surrounding transaction rolls back the wallet credit.
         mpesaService.initiateB2C(mpesaNumber, transaction.getAmount(), "NylePay Bank->M-Pesa");
         logger.info("Bank->M-Pesa routing dispatched: tx={} mpesa={}", transaction.getId(), mpesaNumber);
     }
@@ -1467,9 +1413,6 @@ public class TransactionService {
         return "BNK_" + flow + "_" + userId + "_" + System.currentTimeMillis();
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Local Kenyan Payments (Till, Paybill, Pochi, Send Money)
-    // ─────────────────────────────────────────────────────────────────────────
 
     /**
      * Creates a local payment transaction (B2B or B2C).
@@ -1498,7 +1441,6 @@ public class TransactionService {
             externalId = "LOCAL_" + paymentType + "_" + userId + "_" + System.currentTimeMillis();
         }
 
-        // Build metadata
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("paymentType", paymentType);
         metadata.put("destination", destination);
@@ -1523,7 +1465,6 @@ public class TransactionService {
         logger.info("Local payment created: userId={} type={} amount={} destination={} txId={}",
                 userId, paymentType, amount, destination, saved.getId());
 
-        // Email notification
         notifyUser(saved);
 
         return saved;
@@ -1570,7 +1511,6 @@ public class TransactionService {
             logger.info("B2B payment COMPLETED: txId={} type={}", transaction.getId(), transaction.getProvider());
         } else {
             transaction.setStatus("FAILED");
-            // Refund the wallet since B2B payment failed
             walletService.addBalance(transaction.getUserId(), "KSH", transaction.getAmount());
             logger.warn("B2B payment FAILED: txId={} resultCode={}", transaction.getId(), resultCode);
         }

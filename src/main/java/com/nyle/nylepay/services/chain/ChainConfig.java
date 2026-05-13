@@ -24,7 +24,6 @@ import java.util.Set;
 @Component
 public class ChainConfig {
 
-    // ───── RPC endpoints ─────────────────────────────────────────────────────
 
     @Value("${crypto.rpc.ethereum:https://eth-mainnet.g.alchemy.com/v2/demo}")
     private String ethereumRpc;
@@ -38,7 +37,6 @@ public class ChainConfig {
     @Value("${crypto.rpc.base:https://mainnet.base.org}")
     private String baseRpc;
 
-    // ───── ERC-20 contract addresses (Ethereum mainnet) ──────────────────────
 
     /** USDT – Tether: most liquid stablecoin, audit history since 2014 */
     public static final String USDT_CONTRACT = "0xdAC17F958D2ee523a2206206994597C13D831ec7";

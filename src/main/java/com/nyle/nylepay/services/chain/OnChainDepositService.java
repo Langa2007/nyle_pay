@@ -64,9 +64,7 @@ public class OnChainDepositService {
         this.walletService = walletService;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
     // Webhook signature verification
-    // ─────────────────────────────────────────────────────────────────────────
 
     /**
      * Verifies the HMAC-SHA256 signature sent by Moralis/Alchemy in the
@@ -156,9 +154,7 @@ public class OnChainDepositService {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
     // Stage 2 — finalise a previously CONFIRMING deposit
-    // ─────────────────────────────────────────────────────────────────────────
 
     /**
      * Advances a CONFIRMING transaction to COMPLETED once enough block

@@ -45,20 +45,17 @@ public class CryptoExchangeService {
      */
     @Transactional
     public Map<String, Object> processIncomingDeposit(String address, BigDecimal amount, String asset, String txHash) {
-        // 1. Resolve address to User
         com.nyle.nylepay.models.CryptoWallet wallet = cryptoWalletRepository.findByAddressIgnoreCase(address)
                 .orElseThrow(() -> new RuntimeException("Unrecognized deposit address: " + address));
         
         Long userId = wallet.getUserId();
         asset = asset.toUpperCase();
 
-        // 2. Record the raw deposit
         walletService.addBalance(userId, asset, amount);
         var depositTx = transactionService.createCryptoDeposit(userId, asset, amount, txHash);
 
         log.info("[GOLDEN FLOW] Detected {} {} deposit for user {}. Auto-swapping to KES...", amount, asset, userId);
 
-        // 3. Trigger Auto-Swap to KES
         try {
             Map<String, Object> swapResult = swapCrypto(userId, asset, "KSH", amount);
             
@@ -69,7 +66,6 @@ public class CryptoExchangeService {
             return result;
         } catch (Exception e) {
             log.error("Auto-swap failed for deposit {}: {}", txHash, e.getMessage());
-            // We still keep the deposit! The user just has the crypto in their NylePay wallet now.
             return Map.of("depositId", depositTx.getId(), "status", "DEPOSITED_PENDING_MANUAL_SWAP", "error", e.getMessage());
         }
     }
@@ -82,7 +78,6 @@ public class CryptoExchangeService {
                 .map(com.nyle.nylepay.models.CryptoWallet::getAddress)
                 .orElseGet(() -> {
                     // In production, this would call a KeyManagementService (KMS)
-                    // For demo, we generate a placeholder 0x address
                     com.nyle.nylepay.models.CryptoWallet wallet = new com.nyle.nylepay.models.CryptoWallet();
                     wallet.setUserId(userId);
                     wallet.setChain(chain.toUpperCase());
@@ -100,14 +95,12 @@ public class CryptoExchangeService {
     public Map<String, Object> withdrawToExternal(Long userId, String asset, BigDecimal amount, String address, String network) {
         asset = asset.toUpperCase();
 
-        // 1. Security & Compliance Checks
         if (!kycService.canTransact(userId, amount)) {
             throw new RuntimeException("KYC limit exceeded or verification required for this withdrawal.");
         }
         
         antiFraudService.checkWithdrawal(userId, amount, "CRYPTO_CEX");
         
-        // 3. Dispatch to CEX / Liquidity Provider
         Map<String, Object> txResult;
         String txHash = "0x" + java.util.UUID.randomUUID().toString().replace("-", "");
 
@@ -117,16 +110,13 @@ public class CryptoExchangeService {
             txResult.put("status", "SUCCESS");
             txResult.put("txHash", txHash);
         } else {
-            // Live Binance withdrawal
             txResult = binanceApiClient.withdraw(asset, amount, address, network);
         }
 
-        // 4. Record the withdrawal transaction (handles wallet subtraction)
         var tx = transactionService.createWithdrawal(userId, "CRYPTO", amount, asset, address);
         tx.setExternalId(txResult.getOrDefault("txHash", txHash).toString());
         tx.setStatus(txResult.getOrDefault("status", "SUCCESS").toString());
 
-        // 5. Return result
         Map<String, Object> result = new HashMap<>();
         result.put("userId", userId);
         result.put("transactionId", tx.getId());
@@ -140,19 +130,15 @@ public class CryptoExchangeService {
     }
     
     public BigDecimal getExchangeRate(String fromAsset, String toAsset) {
-        // Handle direct routing cases where a symbol doesn't directly exist
         // Binance symbols are usually like BTCUSDT, ETHBTC etc.
         try {
-            // Standard check (e.g. BTC to USDT -> BTCUSDT)
             return binanceApiClient.getTickerPrice(fromAsset + toAsset);
         } catch (Exception e) {
             try {
-                // Reverse check (e.g. USDT to BTC -> wait Binance doesn't have USDTBTC)
                 // We fetch BTCUSDT and invert the rate
                 BigDecimal reverseRate = binanceApiClient.getTickerPrice(toAsset + fromAsset);
                 return BigDecimal.ONE.divide(reverseRate, 8, RoundingMode.HALF_UP);
             } catch (Exception ex) {
-                // Not a direct pair. Try routing via USDT (e.g. KES -> USDT -> BTC)
                 // In production, you'd calculate multi-hop, here we assume all assets trade against USDT
                 if (!fromAsset.equals("USDT") && !toAsset.equals("USDT")) {
                      BigDecimal rate1 = getExchangeRate(fromAsset, "USDT");
@@ -188,18 +174,15 @@ public class CryptoExchangeService {
             throw new IllegalArgumentException("Amount must be greater than zero");
         }
 
-        // 1. Balance check (read-only — lock acquired in subtractBalance below)
         BigDecimal available = walletService.getBalance(userId, fromAsset);
         if (available.compareTo(amount) < 0) {
             throw new RuntimeException("Insufficient " + fromAsset + " balance. Have: " + available + ", need: " + amount);
         }
 
-        // 2. Fetch live exchange rate
         BigDecimal rate = getExchangeRate(fromAsset, toAsset);
         BigDecimal fee           = amount.multiply(new BigDecimal("0.002"));
         BigDecimal netInputForSwap = amount.subtract(fee);
 
-        // 4. Place the Binance market order BEFORE touching the wallet.
         //    Idempotency key = userId + timestamp prevents duplicates on retry.
         String side          = determineside(fromAsset, toAsset);
         String symbol        = getStandardSymbol(fromAsset, toAsset);
@@ -210,7 +193,6 @@ public class CryptoExchangeService {
         boolean simulated = false;
 
         if (!liveMode) {
-            // Sandbox: simulate only — wallets updated below only in sandbox path
             log.warn("[SANDBOX] Simulating Binance swap: {} {} {} → {}", side, orderQty, symbol, toAsset);
             orderResult = new HashMap<>();
             orderResult.put("status", "SIMULATED_SUCCESS");
@@ -218,7 +200,6 @@ public class CryptoExchangeService {
             orderResult.put("executedQty", orderQty.toPlainString());
             simulated = true;
         } else {
-            // Live: order must succeed before any ledger change
             orderResult = binanceApiClient.placeMarketOrder(symbol, side, orderQty);
             if (orderResult == null) {
                 throw new RuntimeException("Binance returned null response for order " + clientOrderId);
@@ -229,14 +210,11 @@ public class CryptoExchangeService {
             }
         }
 
-        // 5. Update NylePay wallet ONLY after confirmed execution
         //    ACID-Isolation: both calls use SELECT FOR UPDATE inside WalletService
-        // walletService.subtractBalance(userId, fromAsset, amount);
         // walletService.addBalance(userId, toAsset, expectedOutput);
         // We now use TransactionService.createConversion which handles balance mutations
         var tx = transactionService.createConversion(userId, fromAsset, toAsset, amount);
 
-        // 6. Return swap receipt
         Map<String, Object> result = new HashMap<>();
         result.put("status", simulated ? "SIMULATED" : "SUCCESS");
         result.put("transactionId", tx.getId());

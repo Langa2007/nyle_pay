@@ -1,369 +1,263 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import ThemeToggle from '../components/ThemeToggle';
 
-export default function Landing() {
-  const [mode, setMode] = useState('signin');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [error, setError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const { login, signup } = useAuth();
-  const navigate = useNavigate();
+const NAV_LINKS = ['Features', 'Pricing', 'Docs', 'Status'];
 
-  const handleSubmit = async (e) => {
+export default function Landing() {
+  const [mode, setMode]             = useState('signin');
+  const [email, setEmail]           = useState('');
+  const [password, setPassword]     = useState('');
+  const [fullName, setFullName]     = useState('');
+  const [mpesa, setMpesa]           = useState('');
+  const [error, setError]           = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const { login, signup }           = useAuth();
+  const navigate                    = useNavigate();
+
+  const submit = async (e) => {
     e.preventDefault();
     setError('');
     setSubmitting(true);
     try {
-      if (mode === 'signup') {
-        await signup(email, password, fullName);
-      } else {
-        await login(email, password);
-      }
+      if (mode === 'signup') await signup(email, password, fullName, mpesa, 'KE');
+      else await login(email, password);
       navigate('/dashboard');
     } catch (err) {
-      setError(err.message || 'Something went wrong');
+      setError(err.message || 'Authentication failed. Please check your credentials.');
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="landing-page">
-      <div className="landing-blob landing-blob-1" />
-      <div className="landing-blob landing-blob-2" />
-
-      <nav className="landing-nav">
-        <div className="landing-nav-logo">
-          <span className="text-gradient" style={{ fontWeight: 800, fontSize: '1.375rem' }}>NylePay</span>
-          <span style={{ color: 'var(--text-muted)', fontWeight: 500, marginLeft: '.5rem', fontSize: '.875rem' }}>for Business</span>
-        </div>
-        <div className="landing-nav-links" style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
-          <a href="#features">Features</a>
-          <a href="#pricing">Pricing</a>
-          <a href="#docs">Docs</a>
-          <ThemeToggle />
+    <div style={S.page}>
+      {/* ── Top navigation ── */}
+      <nav style={S.nav}>
+        <div style={S.navInner}>
+          <div style={S.navLeft}>
+            <a href="/" style={S.logo}>
+              <div style={S.logoMark}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+              <span style={S.logoName}>NylePay</span>
+              <span style={S.logoSub}>Business</span>
+            </a>
+            <div style={S.navLinks}>
+              {NAV_LINKS.map(l => (
+                <a key={l} href="#" style={S.navLink}>{l}</a>
+              ))}
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <ThemeToggle />
+          </div>
         </div>
       </nav>
 
-      {/* ── Main Split Layout ── */}
-      <main className="landing-main">
-        {/* Left: Value Proposition */}
-        <section className="landing-left animate-fade-up">
-          <div className="landing-badge">
-            Real-Time Settlement — No More T+1
+      {/* ── Page content ── */}
+      <main style={S.main}>
+        {/* Left — value proposition */}
+        <section style={S.left} className="animate-fade-up">
+          {/* Trust badge */}
+          <div style={S.trustBadge}>
+            <span style={S.trustDot} />
+            CBK-Regulated · PCI DSS SAQ-A · AML Screened
           </div>
-          <h1 className="landing-title">
-            Accept Payments.<br />
-            <span className="text-gradient">Get Paid Instantly.</span>
+
+          <h1 style={S.headline}>
+            The payments platform<br />
+            <span style={S.headlineBlue}>built for Africa</span>
           </h1>
-          <p className="landing-subtitle">
-            NylePay is the payment gateway built for African businesses. Get your API keys in minutes, integrate M-Pesa, Cards, and Crypto — and receive settlement the moment your customer pays.
+
+          <p style={S.body}>
+            Accept M-Pesa, Cards, and Crypto with a single API integration.
+            Real-time settlement, HMAC-signed webhooks, and enterprise-grade
+            security — so you can focus on building your product.
           </p>
 
-          {/* Feature Pills */}
-          <div className="landing-features">
-            <div className="feature-pill">
-              <span className="feature-icon"></span>
-              <div>
-                <strong>M-Pesa, Cards & Crypto</strong>
-                <p>One integration, every payment method.</p>
+          {/* Key metrics */}
+          <div style={S.statsRow}>
+            {[
+              { val: '1.5%', label: 'Flat rate, all methods' },
+              { val: 'T+0',  label: 'Real-time settlement' },
+              { val: '99.9%', label: 'API uptime SLA' },
+              { val: '<200ms', label: 'P99 response time' },
+            ].map(s => (
+              <div key={s.val} style={S.stat}>
+                <div style={S.statVal}>{s.val}</div>
+                <div style={S.statLabel}>{s.label}</div>
               </div>
-            </div>
-            <div className="feature-pill">
-              <span className="feature-icon"></span>
-              <div>
-                <strong>Instant Payouts</strong>
-                <p>Real-time settlement to your M-Pesa or Bank.</p>
+            ))}
+          </div>
+
+          {/* Feature list */}
+          <div style={S.features}>
+            {[
+              { icon: '⚡', title: 'Instant payouts', desc: 'M-Pesa and bank settlements land in seconds, not days.' },
+              { icon: '🔑', title: 'API-first design', desc: 'RESTful JSON API with sandbox environment and test keys.' },
+              { icon: '🔒', title: 'Enterprise security', desc: 'AES-256 encryption, HMAC webhooks, anomaly detection.' },
+              { icon: '📊', title: 'Real-time analytics', desc: 'Live transaction feed, revenue charts, and dispute management.' },
+            ].map(f => (
+              <div key={f.title} style={S.feature}>
+                <span style={S.featureIcon}>{f.icon}</span>
+                <div>
+                  <div style={S.featureTitle}>{f.title}</div>
+                  <div style={S.featureDesc}>{f.desc}</div>
+                </div>
               </div>
-            </div>
-            <div className="feature-pill">
-              <span className="feature-icon"></span>
-              <div>
-                <strong>Bank-Grade Security</strong>
-                <p>AES-256 encryption. HMAC webhook signatures.</p>
-              </div>
-            </div>
-            <div className="feature-pill">
-              <span className="feature-icon"></span>
-              <div>
-                <strong>1.5% Flat Fee</strong>
-                <p>No hidden charges. No setup costs.</p>
-              </div>
-            </div>
+            ))}
           </div>
         </section>
 
-        <section className="landing-right animate-fade-up delay-2">
-          <div className="auth-card glass-panel">
-            <div className="auth-tabs">
-              <button
-                className={`auth-tab ${mode === 'signin' ? 'auth-tab-active' : ''}`}
-                onClick={() => { setMode('signin'); setError(''); }}
-              >
-                Sign In
-              </button>
-              <button
-                className={`auth-tab ${mode === 'signup' ? 'auth-tab-active' : ''}`}
-                onClick={() => { setMode('signup'); setError(''); }}
-              >
-                Sign Up
-              </button>
+        {/* Right — auth card */}
+        <section style={S.right} className="animate-fade-up delay-200">
+          <div style={S.card}>
+            <div style={S.cardTop}>
+              <h2 style={S.cardTitle}>{mode === 'signin' ? 'Sign in to your account' : 'Create your merchant account'}</h2>
+              <p style={S.cardSub}>{mode === 'signin' ? 'Access your dashboard and API keys.' : 'Get API keys in under 5 minutes.'}</p>
             </div>
 
-            <form onSubmit={handleSubmit} className="auth-form">
+            {/* Mode switcher */}
+            <div style={S.modeSwitcher}>
+              {[['signin', 'Sign In'], ['signup', 'Sign Up']].map(([m, l]) => (
+                <button
+                  key={m}
+                  style={{ ...S.modeBtn, ...(mode === m ? S.modeBtnActive : {}) }}
+                  onClick={() => { setMode(m); setError(''); }}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
+
+            <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '0.125rem' }}>
               {mode === 'signup' && (
                 <div className="form-group">
                   <label className="form-label" htmlFor="fullName">Full Name</label>
-                  <input
-                    id="fullName"
-                    className="form-input"
-                    type="text"
-                    required
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="your name"
-                    autoComplete="name"
+                  <input id="fullName" className="form-input" type="text" required
+                    value={fullName} onChange={e => setFullName(e.target.value)}
+                    placeholder="Jane Wanjiru" autoComplete="name"
                   />
                 </div>
               )}
 
               <div className="form-group">
-                <label className="form-label" htmlFor="email">Business Email</label>
-                <input
-                  id="email"
-                  className="form-input"
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@company.com"
-                  autoComplete="email"
+                <label className="form-label" htmlFor="email">{mode === 'signup' ? 'Email Address' : 'Business Email'}</label>
+                <input id="email" className="form-input" type="email" required
+                  value={email} onChange={e => setEmail(e.target.value)}
+                  placeholder="you@company.com" autoComplete="email"
                 />
               </div>
 
               <div className="form-group">
-                <label className="form-label" htmlFor="password">Password</label>
-                <input
-                  id="password"
-                  className="form-input"
-                  type="password"
-                  required
-                  minLength={8}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Minimum 8 characters"
+                <label className="form-label" htmlFor="pass">Password</label>
+                <input id="pass" className="form-input" type="password" required minLength={8}
+                  value={password} onChange={e => setPassword(e.target.value)}
+                  placeholder={mode === 'signup' ? 'At least 8 characters' : 'Your password'}
                   autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                 />
               </div>
 
-              {error && <p className="form-error" style={{ marginBottom: '1rem' }}>{error}</p>}
+              {mode === 'signup' && (
+                <div className="form-group">
+                  <label className="form-label" htmlFor="mpesa">M-Pesa Number</label>
+                  <input id="mpesa" className="form-input" type="text" required
+                    value={mpesa} onChange={e => setMpesa(e.target.value)}
+                    placeholder="2547XXXXXXXX"
+                  />
+                  <p className="form-hint">Used for account verification and settlement payouts.</p>
+                </div>
+              )}
 
-              <button
-                type="submit"
-                className="btn-primary"
-                disabled={submitting}
-                style={{ width: '100%', padding: '.875rem' }}
-              >
+              {error && (
+                <div className="alert alert-error" style={{ marginBottom: '0.75rem' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0, marginTop: '1px' }}>
+                    <circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>
+                  </svg>
+                  {error}
+                </div>
+              )}
+
+              <button type="submit" className="btn-primary" disabled={submitting}
+                style={{ width: '100%', padding: '0.75rem', fontSize: '0.9375rem', borderRadius: '8px', marginTop: '0.25rem' }}>
                 {submitting
-                  ? 'Please wait…'
-                  : mode === 'signup'
-                    ? 'Create Account'
-                    : 'Sign In'
+                  ? <><span className="spinner" /> Please wait…</>
+                  : mode === 'signup' ? 'Create account' : 'Sign in to dashboard'
                 }
               </button>
             </form>
 
-            <p className="auth-footer">
+            <p style={S.switchLine}>
               {mode === 'signin'
-                ? <>Don't have an account? <button className="auth-switch-link" onClick={() => setMode('signup')}>Sign Up</button></>
-                : <>Already have an account? <button className="auth-switch-link" onClick={() => setMode('signin')}>Sign In</button></>
+                ? <>{`Don't have an account? `}<button style={S.switchBtn} onClick={() => { setMode('signup'); setError(''); }}>Create one free</button></>
+                : <>Already have an account? <button style={S.switchBtn} onClick={() => { setMode('signin'); setError(''); }}>Sign in</button></>
               }
             </p>
+
+            {/* Social proof */}
+            <div style={S.proofRow}>
+              <div style={S.proofLock}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+                </svg>
+                256-bit TLS encryption
+              </div>
+              <div style={S.proofLock}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+                PCI DSS compliant
+              </div>
+            </div>
           </div>
         </section>
       </main>
-
-      <style>{`
-        .landing-page {
-          min-height: 100vh;
-          position: relative;
-          overflow: hidden;
-        }
-
-        /* Glowing blobs */
-        .landing-blob {
-          position: absolute;
-          border-radius: 50%;
-          filter: blur(120px);
-          opacity: .15;
-          pointer-events: none;
-          z-index: 0;
-        }
-        .landing-blob-1 {
-          width: 600px; height: 600px;
-          background: var(--brand-blue);
-          top: -200px; right: -100px;
-        }
-        .landing-blob-2 {
-          width: 500px; height: 500px;
-          background: var(--brand-green);
-          bottom: -150px; left: -100px;
-        }
-
-        /* Nav */
-        .landing-nav {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 1.25rem 5%;
-          position: relative;
-          z-index: 10;
-        }
-        .landing-nav-logo { display: flex; align-items: baseline; }
-        .landing-nav-links { display: flex; gap: 2rem; }
-        .landing-nav-links a {
-          color: var(--text-secondary);
-          font-weight: 500;
-          font-size: .9375rem;
-          transition: color .2s;
-        }
-        .landing-nav-links a:hover { color: var(--text-primary); }
-
-        /* Main */
-        .landing-main {
-          display: flex;
-          align-items: center;
-          gap: 5rem;
-          padding: 4rem 5% 6rem;
-          min-height: calc(100vh - 80px);
-          position: relative;
-          z-index: 10;
-        }
-
-        /* Left */
-        .landing-left { flex: 1.2; max-width: 620px; }
-        .landing-badge {
-          display: inline-block;
-          padding: .375rem 1rem;
-          border-radius: var(--radius-full);
-          background: rgba(16,185,129,.1);
-          color: var(--brand-green);
-          font-size: .8125rem;
-          font-weight: 600;
-          margin-bottom: 1.5rem;
-          border: 1px solid rgba(16,185,129,.15);
-        }
-        .landing-title {
-          font-size: 3.5rem;
-          letter-spacing: -.02em;
-          margin-bottom: 1.25rem;
-          line-height: 1.1;
-        }
-        .landing-subtitle {
-          font-size: 1.125rem;
-          color: var(--text-secondary);
-          margin-bottom: 2.5rem;
-          max-width: 520px;
-          line-height: 1.7;
-        }
-
-        /* Feature Pills */
-        .landing-features {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 1rem;
-        }
-        .feature-pill {
-          display: flex;
-          align-items: flex-start;
-          gap: .75rem;
-          padding: 1rem;
-          border-radius: var(--radius-md);
-          background: rgba(255,255,255,.03);
-          border: 1px solid var(--border-color);
-          transition: background .2s;
-        }
-        .feature-pill:hover { background: rgba(255,255,255,.06); }
-        .feature-pill .feature-icon { font-size: 1.5rem; line-height: 1; }
-        .feature-pill strong {
-          display: block;
-          font-size: .875rem;
-          margin-bottom: .125rem;
-        }
-        .feature-pill p {
-          color: var(--text-muted);
-          font-size: .75rem;
-          line-height: 1.4;
-          margin: 0;
-        }
-
-        /* Right / Auth Card */
-        .landing-right { flex: 1; display: flex; justify-content: center; }
-        .auth-card {
-          width: 100%;
-          max-width: 420px;
-          padding: 2.5rem;
-        }
-
-        /* Auth Tabs */
-        .auth-tabs {
-          display: flex;
-          border-radius: var(--radius-sm);
-          background: var(--bg-primary);
-          padding: .25rem;
-          margin-bottom: 2rem;
-        }
-        .auth-tab {
-          flex: 1;
-          padding: .625rem;
-          border: none;
-          background: transparent;
-          color: var(--text-secondary);
-          font-family: var(--font-heading);
-          font-weight: 600;
-          font-size: .9375rem;
-          cursor: pointer;
-          border-radius: var(--radius-xs);
-          transition: all .2s;
-        }
-        .auth-tab-active {
-          background: var(--bg-tertiary);
-          color: var(--text-primary);
-          box-shadow: var(--shadow-sm);
-        }
-
-        .auth-form { display: flex; flex-direction: column; }
-
-        .auth-footer {
-          text-align: center;
-          margin-top: 1.5rem;
-          color: var(--text-muted);
-          font-size: .8125rem;
-        }
-        .auth-switch-link {
-          background: none;
-          border: none;
-          color: var(--brand-blue);
-          font-weight: 600;
-          cursor: pointer;
-          font-size: .8125rem;
-          font-family: inherit;
-        }
-        .auth-switch-link:hover { text-decoration: underline; }
-
-        /* Responsive */
-        @media (max-width: 900px) {
-          .landing-main { flex-direction: column; gap: 3rem; padding-top: 2rem; }
-          .landing-left { max-width: 100%; }
-          .landing-title { font-size: 2.5rem; }
-          .landing-features { grid-template-columns: 1fr; }
-          .landing-nav-links { display: none; }
-        }
-      `}</style>
     </div>
   );
 }
+
+/* ── Styles ── */
+const S = {
+  page: { minHeight: '100vh', background: '#f8fafc', display: 'flex', flexDirection: 'column' },
+  nav: { background: '#fff', borderBottom: '1px solid #e2e8f0', position: 'sticky', top: 0, zIndex: 100 },
+  navInner: { maxWidth: 1200, margin: '0 auto', padding: '0 2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '60px' },
+  navLeft: { display: 'flex', alignItems: 'center', gap: '2.5rem' },
+  logo: { display: 'flex', alignItems: 'center', gap: '0.6rem', textDecoration: 'none' },
+  logoMark: { width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg,#1d4ed8,#2563eb)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(37,99,235,.35)' },
+  logoName: { fontWeight: 800, fontSize: '1.125rem', color: '#0f172a', letterSpacing: '-0.02em' },
+  logoSub: { fontSize: '0.72rem', fontWeight: 700, color: '#2563eb', background: '#eff6ff', padding: '0.1rem 0.45rem', borderRadius: '4px', letterSpacing: '0.03em', textTransform: 'uppercase' },
+  navLinks: { display: 'flex', gap: '0.125rem' },
+  navLink: { color: '#475569', fontWeight: 500, fontSize: '0.875rem', padding: '0.375rem 0.625rem', borderRadius: '6px', transition: 'all 0.15s', textDecoration: 'none' },
+  main: { flex: 1, maxWidth: 1200, margin: '0 auto', padding: '5rem 2rem 4rem', display: 'grid', gridTemplateColumns: '1fr 420px', gap: '5rem', alignItems: 'start', width: '100%' },
+  left: { paddingTop: '0.5rem' },
+  trustBadge: { display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', fontWeight: 600, color: '#059669', background: '#d1fae5', border: '1px solid #a7f3d0', padding: '0.3rem 0.75rem', borderRadius: '100px', marginBottom: '1.75rem', letterSpacing: '0.02em' },
+  trustDot: { width: 6, height: 6, borderRadius: '50%', background: '#059669', animation: 'pulse-ring 2s ease infinite' },
+  headline: { fontSize: 'clamp(2.25rem, 4vw, 3.25rem)', fontWeight: 800, lineHeight: 1.12, letterSpacing: '-0.03em', color: '#0f172a', marginBottom: '1.25rem' },
+  headlineBlue: { color: '#2563eb' },
+  body: { fontSize: '1.0625rem', color: '#475569', lineHeight: 1.75, maxWidth: 520, marginBottom: '2.5rem' },
+  statsRow: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0', marginBottom: '2.5rem', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' },
+  stat: { padding: '1rem 1.25rem', borderRight: '1px solid #e2e8f0', textAlign: 'center' },
+  statVal: { fontSize: '1.375rem', fontWeight: 800, color: '#2563eb', letterSpacing: '-0.02em', marginBottom: '0.2rem' },
+  statLabel: { fontSize: '0.72rem', color: '#64748b', fontWeight: 500, lineHeight: 1.3 },
+  features: { display: 'flex', flexDirection: 'column', gap: '1.125rem' },
+  feature: { display: 'flex', alignItems: 'flex-start', gap: '0.875rem' },
+  featureIcon: { fontSize: '1.25rem', lineHeight: 1, marginTop: '1px', flexShrink: 0 },
+  featureTitle: { fontWeight: 600, fontSize: '0.9375rem', color: '#1e293b', marginBottom: '0.2rem' },
+  featureDesc: { fontSize: '0.84rem', color: '#64748b', lineHeight: 1.55 },
+  right: { position: 'sticky', top: '80px' },
+  card: { background: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '2rem', boxShadow: '0 4px 24px rgba(0,0,0,.07)' },
+  cardTop: { marginBottom: '1.5rem' },
+  cardTitle: { fontSize: '1.1875rem', fontWeight: 700, color: '#0f172a', marginBottom: '0.25rem', letterSpacing: '-0.01em' },
+  cardSub: { fontSize: '0.85rem', color: '#64748b' },
+  modeSwitcher: { display: 'flex', background: '#f1f5f9', padding: '3px', borderRadius: '8px', marginBottom: '1.5rem', gap: '2px' },
+  modeBtn: { flex: 1, padding: '0.5rem', border: 'none', background: 'transparent', color: '#64748b', fontWeight: 600, fontSize: '0.875rem', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit' },
+  modeBtnActive: { background: '#fff', color: '#1d4ed8', boxShadow: '0 1px 3px rgba(0,0,0,.08)' },
+  switchLine: { textAlign: 'center', marginTop: '1.25rem', fontSize: '0.8125rem', color: '#64748b' },
+  switchBtn: { background: 'none', border: 'none', color: '#2563eb', fontWeight: 600, cursor: 'pointer', fontSize: '0.8125rem', fontFamily: 'inherit', padding: 0 },
+  proofRow: { display: 'flex', justifyContent: 'center', gap: '1.5rem', marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid #f1f5f9' },
+  proofLock: { display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.72rem', color: '#94a3b8', fontWeight: 500 },
+};

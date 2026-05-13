@@ -1,4 +1,3 @@
-// ConversionRequest.java
 package com.nyle.nylepay.dto;
 
 import jakarta.validation.constraints.DecimalMin;
@@ -22,7 +21,6 @@ public class ConversionRequest {
     @DecimalMin(value = "0.01", message = "Amount must be greater than 0")
     private BigDecimal amount;
 
-    // Getters and Setters
     public Long getUserId() { return userId; }
     public void setUserId(Long userId) { this.userId = userId; }
     public String getFromCurrency() { return fromCurrency; }

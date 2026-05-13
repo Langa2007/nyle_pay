@@ -78,16 +78,13 @@ public class LocalPaymentController {
                         .body(ApiResponse.error("tillNumber is required for Till payments"));
             }
 
-            // Debit wallet
             walletService.deductBalance(request.getUserId(), "KSH", request.getAmount());
 
-            // Dispatch B2B to Safaricom
             Map<String, Object> mpesaResponse = mpesaService.payToTill(
                     request.getTillNumber(),
                     request.getAmount(),
                     request.getDescription());
 
-            // Record transaction
             var transaction = transactionService.createLocalPayment(
                     request.getUserId(),
                     "TILL",
@@ -96,7 +93,6 @@ public class LocalPaymentController {
                     null,
                     mpesaResponse);
 
-            // Audit Log
             auditLogService.logPaymentEvent(request.getUserId(), "PAYMENT_INITIATED",
                     "Till payment to " + request.getTillNumber(), "SUCCESS",
                     Map.of("transactionId", transaction.getId(), "tillNumber", request.getTillNumber(), "amount",
@@ -135,17 +131,14 @@ public class LocalPaymentController {
                         .body(ApiResponse.error("paybillNumber is required for Paybill payments"));
             }
 
-            // Debit wallet
             walletService.deductBalance(request.getUserId(), "KSH", request.getAmount());
 
-            // Dispatch B2B to Safaricom
             Map<String, Object> mpesaResponse = mpesaService.payToPaybill(
                     request.getPaybillNumber(),
                     request.getAccountNumber(),
                     request.getAmount(),
                     request.getDescription());
 
-            // Record transaction
             var transaction = transactionService.createLocalPayment(
                     request.getUserId(),
                     "PAYBILL",
@@ -154,7 +147,6 @@ public class LocalPaymentController {
                     request.getAccountNumber(),
                     mpesaResponse);
 
-            // Audit Log
             auditLogService.logPaymentEvent(request.getUserId(), "PAYMENT_INITIATED",
                     "Paybill payment to " + request.getPaybillNumber() + " (Acc: " + request.getAccountNumber() + ")",
                     "SUCCESS",
@@ -195,16 +187,13 @@ public class LocalPaymentController {
                         .body(ApiResponse.error("recipientPhone is required for Pochi payments"));
             }
 
-            // Debit wallet
             walletService.deductBalance(request.getUserId(), "KSH", request.getAmount());
 
-            // Dispatch via B2B (Pochi shortcode 440000 + phone as account reference)
             Map<String, Object> mpesaResponse = mpesaService.payToPochi(
                     request.getRecipientPhone(),
                     request.getAmount(),
                     request.getDescription());
 
-            // Record transaction
             var transaction = transactionService.createLocalPayment(
                     request.getUserId(),
                     "POCHI",
@@ -213,7 +202,6 @@ public class LocalPaymentController {
                     request.getRecipientPhone(),
                     mpesaResponse);
 
-            // Audit Log
             auditLogService.logPaymentEvent(request.getUserId(), "PAYMENT_INITIATED",
                     "Pochi payment to " + request.getRecipientPhone(), "SUCCESS",
                     Map.of("transactionId", transaction.getId(), "recipientPhone", request.getRecipientPhone(),
@@ -254,16 +242,13 @@ public class LocalPaymentController {
 
             String normalizedPhone = mpesaService.normalizePhoneNumber(request.getRecipientPhone());
 
-            // Debit wallet
             walletService.deductBalance(request.getUserId(), "KSH", request.getAmount());
 
-            // Dispatch B2C to Safaricom
             Map<String, Object> mpesaResponse = mpesaService.initiateB2C(
                     normalizedPhone,
                     request.getAmount(),
                     request.getDescription() != null ? request.getDescription() : "NylePay Send Money");
 
-            // Record transaction
             var transaction = transactionService.createLocalPayment(
                     request.getUserId(),
                     "SEND_MONEY",
@@ -272,7 +257,6 @@ public class LocalPaymentController {
                     null,
                     mpesaResponse);
 
-            // Audit Log
             auditLogService.logPaymentEvent(request.getUserId(), "WITHDRAWAL_INITIATED",
                     "Send Money to " + normalizedPhone, "SUCCESS",
                     Map.of("transactionId", transaction.getId(), "recipientPhone", normalizedPhone, "amount",
@@ -299,33 +283,28 @@ public class LocalPaymentController {
         User user = userService.getUserById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Anti-Fraud check
         AntiFraudService.FraudCheckResult fraudResult = antiFraudService.checkTransaction(
                 userId, amount, paymentType, user.getCreatedAt(), request);
 
         if (fraudResult.isBlocked()) {
             throw new RuntimeException("Transaction blocked: " + fraudResult.getReason());
         }
-        // KYC check
         if (!kycService.canTransact(userId, amount)) {
             throw new RuntimeException(
                     "Transaction blocked: KYC not verified or monthly limit exceeded. " +
                             "Complete KYC at /api/kyc/submit to increase your limits.");
         }
 
-        // Balance check
         BigDecimal balance = walletService.getBalance(userId, "KSH");
         if (balance.compareTo(amount) < 0) {
             throw new RuntimeException(
                     "Insufficient KSH balance. Available: " + balance + ", Required: " + amount);
         }
 
-        // Minimum amount (Safaricom minimum is KES 1)
         if (amount.compareTo(BigDecimal.ONE) < 0) {
             throw new RuntimeException("Minimum payment amount is KES 1");
         }
 
-        // Maximum B2B amount (Safaricom B2B max is KES 999,999)
         BigDecimal maxAmount = new BigDecimal("999999");
         if (amount.compareTo(maxAmount) > 0) {
             throw new RuntimeException("Maximum single payment amount is KES 999,999");

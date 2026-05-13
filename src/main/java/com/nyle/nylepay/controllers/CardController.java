@@ -51,9 +51,7 @@ public class CardController {
         this.amlScreeningService = amlScreeningService;
     }
 
-    // ─────────────────────────────────────────────────────────────────────
     // Paystack — initiate card top-up
-    // ─────────────────────────────────────────────────────────────────────
 
     /**
      * POST /api/card/paystack/initiate
@@ -72,7 +70,6 @@ public class CardController {
         String currency   = (String) body.getOrDefault("currency", "KES");
         String callbackUrl = (String) body.getOrDefault("callbackUrl", "");
 
-        // AML screening
         AmlScreeningService.AmlResult aml = amlScreeningService.screenTransaction(
             userId, amount, currency, "CARD_DEPOSIT", "DEPOSIT");
         if (aml.isBlocked()) {
@@ -86,9 +83,7 @@ public class CardController {
         return ResponseEntity.ok(result);
     }
 
-    // ─────────────────────────────────────────────────────────────────────
     // Stripe — initiate card top-up
-    // ─────────────────────────────────────────────────────────────────────
 
     /**
      * POST /api/card/stripe/initiate
@@ -115,9 +110,7 @@ public class CardController {
         return ResponseEntity.ok(result);
     }
 
-    // ─────────────────────────────────────────────────────────────────────
     // Paystack Webhook — HMAC-SHA512 verified
-    // ─────────────────────────────────────────────────────────────────────
 
     /**
      * POST /api/card/webhook/paystack
@@ -146,7 +139,6 @@ public class CardController {
                 String reference    = (String) data.get("reference");
                 Object amountObj    = data.get("amount");
                 String currency     = (String) data.getOrDefault("currency", "KES");
-                // Paystack amount is in kobo (× 100)
                 BigDecimal amount   = new BigDecimal(amountObj.toString())
                                         .divide(BigDecimal.valueOf(100));
 
@@ -162,9 +154,7 @@ public class CardController {
         return ResponseEntity.ok("OK");
     }
 
-    // ─────────────────────────────────────────────────────────────────────
     // Stripe Webhook — Stripe-Signature verified
-    // ─────────────────────────────────────────────────────────────────────
 
     /**
      * POST /api/card/webhook/stripe
@@ -198,9 +188,7 @@ public class CardController {
         return ResponseEntity.ok("OK");
     }
 
-    // ─────────────────────────────────────────────────────────────────────
     // Verify a Paystack payment callback (for frontend redirect verification)
-    // ─────────────────────────────────────────────────────────────────────
 
     /**
      * GET /api/card/paystack/verify/{reference}
@@ -216,9 +204,6 @@ public class CardController {
         return ResponseEntity.ok(result);
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // Helper
-    // ─────────────────────────────────────────────────────────────────────
 
     private Long getUserId(Authentication auth) {
         if (auth == null) throw new RuntimeException("Not authenticated");
