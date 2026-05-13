@@ -73,6 +73,11 @@ public class TransactionService {
         return transactionRepository.save(transaction);
     }
 
+    private final TransactionRepository transactionRepository;
+    private final UserRepository userRepository;
+    private final WalletService walletService;
+    private final MpesaService mpesaService;
+    private final EmailService emailService;
     private final BankTransferService bankTransferService;
     private final CheckoutSessionRepository checkoutSessionRepository;
     private final SettlementService settlementService;

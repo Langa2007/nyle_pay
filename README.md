@@ -1,626 +1,352 @@
-<p align="center">
-  <img src="https://img.shields.io/badge/Spring%20Boot-4.0-6DB33F?style=for-the-badge&logo=spring-boot" alt="Spring Boot">
-  <img src="https://img.shields.io/badge/Java-21-ED8B00?style=for-the-badge&logo=openjdk" alt="Java 21">
-  <img src="https://img.shields.io/badge/PostgreSQL-15-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL">
-  <img src="https://img.shields.io/badge/Redis-7-DC382D?style=for-the-badge&logo=redis&logoColor=white" alt="Redis">
-  <img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" alt="License">
-</p>
-
 # NylePay
 
-**A modular, Kenya-first digital wallet and payment gateway** that unifies M-Pesa, bank transfers, card payments, cryptocurrency, and merchant checkout into a single REST API. Built with production-grade ACID compliance, AES-256-GCM encryption, and CBK regulatory awareness.
+NylePay is a Kenya-first financial routing engine.
 
----
+It lets a user or merchant say:
 
-## Table of Contents
+> Here is where the money is. Here is where it should go. Route it legally, quote it clearly, execute it safely, and reconcile it.
 
-- [What NylePay Does](#what-nylepay-does)
-- [Architecture](#architecture)
-- [Features](#features)
-- [Tech Stack](#tech-stack)
-- [Project Structure](#project-structure)
-- [Getting Started](#getting-started)
-- [Environment Variables](#environment-variables)
-- [API Reference](#api-reference)
-- [Security Model](#security-model)
-- [Roadmap](#roadmap)
-- [License](#license)
+The first market is Kenya, with M-Pesa, Kenyan banks, cards, NylePay wallet accounts, and crypto rails. The long-term model is Africa-wide routing, where each country gets its own local mobile-money and bank adapters while the core quote, execution, compliance, and ledger logic stays the same.
 
----
+## What Makes NylePay Different
 
-## What NylePay Does
+NylePay is not only a payment gateway and not only a crypto off-ramp. It is a universal money-routing layer:
 
-NylePay is a **payment orchestration platform** that lets users:
+- Accept from M-Pesa, bank, card, NylePay wallet, on-chain crypto, or linked CEX liquidity.
+- Convert between fiat and crypto where supported.
+- Settle to M-Pesa, bank, Till, Paybill, Pochi la Biashara, NylePay account, merchant balance, or on-chain wallet.
+- Quote the route before execution: fees, FX, network estimate, legs, and expected speed.
+- Execute through provider adapters and finalize by callback, not by optimistic assumptions.
+- Keep NylePay account numbers in the existing 11-character format: `NPYXXXXXXXX`.
 
-1. **Move fiat** between M-Pesa ↔ NylePay wallet ↔ Bank accounts
-2. **Move crypto** between centralized exchanges (Binance, Bybit) ↔ NylePay wallet ↔ on-chain addresses
-3. **Cross-convert** between fiat and crypto rails (CEX → M-Pesa, Crypto → Bank)
-4. **Pay locally** in Kenya using Till, Paybill, Pochi la Biashara, and Send Money
-5. **Accept card payments** via Visa/Mastercard (Paystack for Africa, Stripe internationally)
-6. **Operate as a merchant** with payment links, checkout sessions, and webhook-based settlement
-7. **Identity & compliance** — KYC via Smile Identity, AML screening, monthly limit enforcement
+## Core Product
 
----
+### 1. Universal Routing API
 
-## Architecture
+The new routing API is the center of NylePay:
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        REST API (Spring Boot)                    │
-├────────┬────────┬─────────┬──────────┬──────────┬───────────────┤
-│ Auth   │Payment │  Card   │   CEX    │  Chain   │   Merchant    │
-│Contrlr │Contrlr │Contrlr  │ Contrlr  │ Contrlr  │   Contrlr     │
-├────────┴────────┴─────────┴──────────┴──────────┴───────────────┤
-│                       Service Layer                              │
-├──────┬───────┬────────┬───────┬───────┬───────┬────────┬────────┤
-│Mpesa │Wallet │Transac │ Card  │  CEX  │ Chain │  KYC   │Merchant│
-│Svc   │Svc    │tion Svc│Pay Svc│Routing│Deposit│  Svc   │  Svc   │
-├──────┴───────┴────────┴───────┴───────┴───────┴────────┴────────┤
-│                   Repository Layer (JPA)                         │
-├─────────────────────────────────────────────────────────────────┤
-│              PostgreSQL           │           Redis              │
-│    (Transactions, Wallets, Users) │  (OTP, Rate Limits, Cache)   │
-└───────────────────────────────────┴─────────────────────────────┘
-```
+- `POST /api/routes/quote`
+- `POST /api/routes/execute`
+- `GET /api/routes/capabilities`
 
-### Payment Provider Integrations
+Routes are expressed by source and destination rails:
 
-| Provider | Purpose | Status |
-|----------|---------|--------|
-| **Safaricom M-Pesa** | STK Push, B2C, B2B (Till/Paybill/Pochi) | ✅ Implemented |
-| **Flutterwave** | Bank transfers, account resolution (Kenya, Nigeria, Ghana) | ✅ Implemented |
-| **Paystack** | Card payments — Visa/Mastercard/Verve (Africa) | ✅ Implemented |
-| **Stripe** | Card payments — Visa/Mastercard (International) | ✅ Implemented |
-| **Binance** | CEX trading, withdrawals, balance aggregation | ✅ Implemented |
-| **Bybit** | CEX trading, withdrawals, balance aggregation | ✅ Implemented |
-| **Moralis/Alchemy** | On-chain deposit webhooks (EVM chains) | ✅ Implemented |
-| **Web3j** | On-chain EVM withdrawals (ETH, USDT, USDC, DAI) | ✅ Implemented |
-| **Smile Identity** | KYC verification (National ID, Passport, Biometric) | ✅ Implemented |
-| **Resend** | Transactional emails (Welcome, OTP, Transaction alerts) | ✅ Implemented |
-
----
-
-## Features
-
-### 💰 Wallet & Transfers
-- Multi-currency wallet (KSH, USD, EUR, GBP, ETH, BTC, USDT, USDC, DAI)
-- ACID-compliant balance operations with `SELECT FOR UPDATE` row locking
-- Internal P2P transfers between NylePay users
-- Customer-initiated wrong-recipient reversal requests with NylePay support review
-- Currency conversion with configurable exchange rates and 1% fee
-
-### 📱 M-Pesa Integration
-- **STK Push** — Customer-initiated deposits to NylePay wallet
-- **B2C** — Wallet withdrawals to M-Pesa phone numbers
-- **B2B** — Pay to Till, Paybill, and Pochi la Biashara
-- **C2B** — URL registration for receiving payments
-- Tiered fee calculation and phone number normalization
-
-### 🏦 Bank Transfers
-- Deposit via bank transfer (instructions + settlement account)
-- Withdraw to any Kenyan bank via Flutterwave
-- Bank account linking with account name resolution
-- Bank → M-Pesa routing (multi-leg transaction orchestration)
-- Support for 14+ Kenyan banks (KCB, Equity, Co-op, NCBA, etc.)
-
-### 💳 Card Payments
-- **Paystack** — Primary acquirer for Africa (Visa, Mastercard, Verve)
-- **Stripe** — International payments (USD, EUR)
-- PCI DSS SAQ-A compliant (card capture handled by provider SDKs)
-- Refund support (full and partial)
-- HMAC-SHA512 (Paystack) and Stripe-Signature webhook verification
-
-### 🪙 Cryptocurrency
-- **CEX Integration** — Link Binance/Bybit accounts with encrypted API keys
-- **Aggregated balances** across all linked exchanges
-- **Auto-routing** — CEX → Fiat → M-Pesa in one flow
-- **On-chain deposits** — Moralis/Alchemy webhook-driven with configurable confirmations
-- **On-chain withdrawals** — EVM transfers via Web3j (Ethereum, Polygon, Arbitrum, Base)
-- **Custody wallets** — EVM key pair generation with AES-256-GCM encrypted private keys
-- Support for ETH, USDT, USDC, DAI across 4 chains
-
-### 🛒 Merchant Gateway
-- Merchant registration with encrypted API keys (`npy_pub_*` / `npy_sec_*`, shown once)
-- Payment link creation with configurable expiry → generates hosted checkout URL
-- **Hosted Checkout Page** — premium dark-mode UI served by NylePay at `/checkout/{ref}`
-- Customer pays via **M-Pesa**, **Card (Paystack)**, or **NylePay Wallet** on a single page
-- Webhook delivery with **HMAC-SHA256 signatures** and 3-retry exponential backoff
-- **Real-Time Settlement** — pending balances immediately pushed to merchant M-Pesa or bank upon payment completion
-- Full and partial **refund** support (ACID-safe)
-- Configurable fee percentage (default 1.5%) per merchant
-
-### 🇰🇪 Local Payments
-- **Till** — Pay to Buy Goods via Safaricom B2B API
-- **Paybill** — Pay to Paybill numbers with account references
-- **Pochi la Biashara** — Pay to Pochi wallets via shortcode 440000
-- **Send Money** — B2C to M-Pesa phone numbers
-- KYC guard + monthly limit enforcement on all local payments
-
-### 🆔 KYC & Compliance
-- Smile Identity integration (National ID, Passport, Driver's License, Biometric)
-- **NylePay Account Numbers** — `NPYXXXXXXXX` format (11 characters), generated on KYC verification
-- CBK-mandated KES 70,000 monthly limit for unverified users
-- Real-time monthly transaction sum enforcement
-- AML screening with threshold and structuring detection
-
-### 🌍 Market Position & Competitive Edge
-NylePay is designed to edge out traditional gateways and crypto exchanges by solving the **Trust-Speed-Access** triad:
-- **Speed**: While competitors (e.g., Yellow Card) often suffer from delayed deposits/withdrawals, NylePay uses **Real-time Settlement** [x] to ensure payouts are instant.
-- **Access**: Unlike App-only players, NylePay is building a **Hybrid USSD/App model** [ ] to reach the millions of offline-first users in Kenya, Nigeria, and South Africa.
-- **Compliance**: Built from day one for **CBK PSP Tier 2** regulatory standards, ensuring merchant funds are legally protected.
-- **Full-Stack**: One API for M-Pesa, Bank, Card, and Institutional Crypto liquidity (CEX Bridge).
-
-### 🔐 Security
-- JWT authentication (stateless, BCrypt password hashing)
-- AES-256-GCM encryption for all secrets at rest (API keys, private keys, merchant secrets)
-- HMAC webhook signature verification for all payment providers
-- Per-IP rate limiting with Bucket4j (path-specific tiers)
-- **2FA / OTP** — Redis-backed, 6-digit, 5-minute TTL, max 5 attempts
-- `SELECT FOR UPDATE` pessimistic locking prevents double-spend
-- Idempotent webhook processing via unique `externalId` constraints
-- CORS whitelist and role-based access control (USER / ADMIN)
-- Legal account freeze/block controls for documented court and government agency orders
-
-### 📶 USSD Strategy (Offline Banking) [PENDING]
-To dominate the African market, NylePay is integrating an offline USSD layer (`*XXX#`) via Africa's Talking:
-- **For Retail Users**: Buy/Sell crypto, check balance, and send P2P without internet or a smartphone.
-- **For Merchants**: Settle sales to M-Pesa or Bank and check business balances instantly via feature phone.
-- **Status**: [ ] Integration with Africa's Talking Gateway.
-- **Status**: [ ] USSD Callback Mapping to SettlementService.
-
-### Supportcare Reversals & Legal Holds
-- Senders can request a reversal for a completed NylePay wallet transfer when they report a wrong recipient.
-- NylePay supportcare must call the recipient and record the outcome through the admin endpoint.
-- If the recipient is unreachable, does not pick, or the phone is off, NylePay checks the recipient wallet balance and reverses the sent amount when funds are still available.
-- If the recipient balance is insufficient, the sender receives an `INSUFFICIENT_RECIPIENT_FUNDS` response for support follow-up.
-- If the recipient says they expected the funds or disputes the complaint, NylePay records `DISPUTED_POLICE_REPORT_REQUIRED`; the sender should be advised to report the matter to police for further reversal action.
-- Admins can freeze or block accounts when NylePay receives a valid court order or authorized request from agencies such as police, KRA, or other competent government authorities. Frozen/blocked accounts cannot initiate outgoing wallet transactions until released.
-
----
-
-## Tech Stack
-
-| Component | Technology |
-|-----------|------------|
-| Framework | Spring Boot 4.0.2 |
-| Language | Java 21 |
-| Database | PostgreSQL 15 (Neon Cloud) |
-| Cache / OTP | Redis 7 |
-| ORM | Hibernate / Spring Data JPA |
-| Auth | JWT (jjwt 0.12.5) + Spring Security |
-| Crypto | Web3j 4.10 (EVM transactions) |
-| Cards | Stripe Java SDK 26.3 |
-| Rate Limiting | Bucket4j 8.10 |
-| API Docs | SpringDoc OpenAPI 2.8 |
-| Email | Resend REST API |
-| Build | Maven + Maven Wrapper |
-| Containerization | Docker + Docker Compose |
-| Checkout UI | Vanilla HTML/CSS/JS (Spring Boot static) |
-
----
-
-## Merchant Gateway Integration
-
-NylePay can be used as a **payment gateway** for any store or application. Merchants integrate once and accept payments via M-Pesa, card, and crypto without building their own payment infrastructure.
-
-### Step 1 — Register as a Merchant
-```bash
-POST /api/merchant/register
-Authorization: Bearer {your_nylepay_jwt}
-
-{
-  "businessName": "Acme Store",
-  "businessEmail": "payments@acme.com",
-  "webhookUrl": "https://acme.com/nylepay-webhook"
-}
-```
-
-**Response** (save the `secretKey` — shown only once):
 ```json
 {
-  "publicKey":    "npy_pub_abc123...",
-  "secretKey":    "npy_sec_xyz789...",
-  "webhookSecret": "hmac-secret-for-verifying-webhooks",
-  "status":       "PENDING"
-}
-```
-
-### Step 2 — Set Your Settlement Account
-```bash
-POST /api/merchant/settlement-account
-
-{ "type": "MPESA", "phone": "254712345678" }
-```
-
-### Step 3 — Create a Payment Link (per order)
-```bash
-POST /api/merchant/payment-link
-
-{
+  "sourceRail": "NYLEPAY_WALLET",
+  "destinationRail": "MPESA",
+  "sourceAsset": "KSH",
+  "destinationAsset": "KSH",
   "amount": 2500,
-  "currency": "KES",
-  "description": "Order #1042",
-  "redirectUrl": "https://acme.com/thank-you",
-  "expiryMinutes": 60
-}
-```
-
-**Response** — share this URL with your customer:
-```json
-{
-  "paymentUrl": "https://api.yourdomain.com/checkout/NPY-LNK-ABC123XYZ",
-  "reference":  "NPY-LNK-ABC123XYZ",
-  "expiresAt":  "2026-04-29T23:00:00"
-}
-```
-
-### Step 4 — Receive Webhook on Payment Completion
-NylePay sends a signed POST to your `webhookUrl`:
-```json
-{
-  "event":   "payment.succeeded",
-  "eventId": "evt_1714396800000",
-  "data": {
-    "reference": "NPY-LNK-ABC123XYZ",
-    "amount":    2500,
-    "currency":  "KES",
-    "status":    "COMPLETED"
+  "country": "KE",
+  "purpose": "Supplier payout",
+  "destination": {
+    "phone": "254712345678"
   }
 }
 ```
 
-Verify the signature before trusting the event:
-```javascript
-// Node.js example
-const crypto = require('crypto');
-const sig = req.headers['x-nylepay-signature'];
-const expected = crypto.createHmac('sha256', WEBHOOK_SECRET)
-                       .update(rawBody).digest('hex');
-if (sig !== expected) return res.sendStatus(401); // Reject tampered events
-// Mark order as paid ✅
+The authenticated user owns the route. Execution does not trust a `userId` in the request body.
+
+### 2. Merchant Gateway
+
+Merchants can accept payments from multiple rails and settle to their preferred destination:
+
+- M-Pesa checkout
+- Card checkout
+- NylePay wallet checkout
+- Crypto intake routes
+- Settlement to M-Pesa or bank
+- Signed merchant webhooks
+- Merchant API keys for headless API access
+
+### 3. Wallet And Ledger
+
+NylePay keeps a multi-currency wallet per user:
+
+- KSH, USD, stablecoins, ETH, BTC, and other configured assets
+- Pessimistic database locks for balance mutation
+- Idempotent callback handling by provider references
+- Transaction codes for user-facing receipts
+
+### 4. Crypto Bridge
+
+Crypto remains part of the product, but as a routing rail rather than the whole brand:
+
+- On-chain custody addresses for supported EVM chains
+- On-chain deposit webhooks
+- On-chain withdrawals
+- CEX account linking for advanced users
+- Future institutional liquidity adapter for production crypto-to-fiat routing
+
+Recommended production posture: use institutional liquidity/custody partners for high-volume conversion and keep user CEX API linking as an optional advanced feature.
+
+## Kenya-First Rails
+
+| Rail | Source | Destination | Notes |
+|---|---:|---:|---|
+| NylePay Wallet | Yes | Yes | Core instant ledger rail |
+| M-Pesa | Yes | Yes | STK Push, B2C, B2B |
+| Bank | Yes | Yes | Flutterwave/local bank adapter |
+| Card | Yes | Planned destination refunds | Paystack/Stripe provider adapters |
+| Till | No | Yes | Safaricom B2B Buy Goods |
+| Paybill | No | Yes | Safaricom B2B Paybill |
+| Pochi | No | Yes | Safaricom Pochi via shortcode/account reference |
+| On-chain | Yes | Yes | EVM custody and webhooks |
+| CEX | Yes | Yes, adapter-dependent | Binance/Bybit provider layer |
+| Merchant | Yes | Yes | Checkout sessions and settlement |
+
+## Route Examples
+
+### Wallet To M-Pesa
+
+```json
+{
+  "sourceRail": "NYLEPAY_WALLET",
+  "destinationRail": "MPESA",
+  "sourceAsset": "KSH",
+  "amount": 1000,
+  "destination": {
+    "phone": "254712345678"
+  }
+}
 ```
 
-### Settlement & Headless API
-NylePay features **real-time instant settlement**. Upon successful payment, your balance (after NylePay's 1.5% fee) is immediately swept to your registered M-Pesa or bank account. If the destination network is down, funds are parked in your `pendingSettlement` balance, which can be manually retried or settled automatically upon next successful payment.
+### Wallet To Paybill
 
-You can also route payments programmatically from your own backend using NylePay's **Headless APIs** (authenticated via `Authorization: Bearer npy_sec_...`):
-- `POST /api/v1/merchant/charges` — Initiate STK Push or Wallet charges directly.
-- `POST /api/v1/merchant/transfers` — Execute instant payouts to external accounts.
-- `GET /api/v1/merchant/balance` — Check your real-time settlement balance.
-
----
-
-## Project Structure
-
-```
-nylepay/
-├── src/main/java/com/nyle/nylepay/
-│   ├── NylepayApplication.java           # Entry point
-│   │
-│   ├── config/
-│   │   ├── AdminInitializer.java         # Admin seed (env-var based)
-│   │   ├── JwtAuthenticationFilter.java  # JWT request filter
-│   │   ├── RateLimitFilter.java          # Bucket4j per-IP rate limiter
-│   │   ├── SecurityConfig.java           # Spring Security chain
-│   │   ├── SwaggerConfig.java            # OpenAPI config
-│   │   └── WebConfig.java               # CORS config
-│   │
-│   ├── controllers/
-│   │   ├── AuthController.java           # Register, Login, OTP, Password Reset
-│   │   ├── PaymentController.java        # Deposits, Withdrawals, Transfers, Webhooks
-│   │   ├── LocalPaymentController.java   # Till, Paybill, Pochi, Send Money
-│   │   ├── CardController.java           # Paystack & Stripe card payments
-│   │   ├── CexController.java            # CEX account management
-│   │   ├── OnChainController.java        # Crypto deposits & withdrawals
-│   │   ├── MerchantController.java       # Merchant registration & payment links
-│   │   ├── KycController.java            # KYC submission & status
-│   │   ├── UserController.java           # Profile, bank linking, stats
-│   │   ├── WalletController.java         # Balance queries
-│   │   ├── ExchangeController.java       # Cross-rail routing
-│   │   └── AdminController.java          # Admin dashboard APIs
-│   │
-│   ├── dto/                              # Request/Response DTOs
-│   │   ├── ApiResponse.java              # Standardized API envelope
-│   │   ├── DepositRequest.java
-│   │   ├── WithdrawalRequest.java
-│   │   ├── TransferRequest.java
-│   │   ├── LocalPaymentRequest.java
-│   │   ├── ConversionRequest.java
-│   │   ├── BankLinkRequest.java
-│   │   ├── RegisterRequest.java
-│   │   └── LoginRequest.java
-│   │
-│   ├── models/                           # JPA Entities
-│   │   ├── User.java                     # Users + KYC + OTP + Account Number
-│   │   ├── Wallet.java                   # Multi-currency balance ledger
-│   │   ├── Transaction.java              # All transaction types
-│   │   ├── CryptoWallet.java             # EVM custody wallets per chain
-│   │   ├── Merchant.java                 # Merchant accounts
-│   │   ├── CheckoutSession.java          # Payment links
-│   │   ├── SavedCard.java                # Tokenized card references
-│   │   ├── UserBankDetail.java           # Linked bank accounts
-│   │   └── UserExchangeKey.java          # Encrypted CEX API keys
-│   │
-│   ├── repositories/                     # Spring Data JPA repositories
-│   │
-│   ├── services/
-│   │   ├── MpesaService.java             # Safaricom STK/B2C/B2B/C2B APIs
-│   │   ├── TransactionService.java       # Transaction orchestration engine
-│   │   ├── WalletService.java            # ACID-safe balance operations
-│   │   ├── UserService.java              # Registration, profile, password
-│   │   ├── OtpService.java               # Redis-backed 2FA
-│   │   ├── EmailService.java             # Resend transactional emails
-│   │   ├── JwtService.java               # JWT generation & validation
-│   │   ├── BankTransferService.java      # Flutterwave bank routing
-│   │   ├── card/
-│   │   │   ├── CardPaymentService.java   # Paystack + Stripe orchestration
-│   │   │   ├── PaystackCardService.java  # Paystack API wrapper
-│   │   │   └── StripeCardService.java    # Stripe API wrapper
-│   │   ├── cex/
-│   │   │   ├── ICexProvider.java         # Plugin interface for exchanges
-│   │   │   ├── BinanceProviderImpl.java  # Binance REST integration
-│   │   │   ├── BybitProviderImpl.java    # Bybit REST integration
-│   │   │   └── CexRoutingService.java    # Auto-routing across exchanges
-│   │   ├── chain/
-│   │   │   ├── OnChainDepositService.java    # Webhook-driven deposits
-│   │   │   └── OnChainWithdrawalService.java # Web3j EVM withdrawals
-│   │   ├── kyc/
-│   │   │   ├── KycService.java           # Smile Identity + account number gen
-│   │   │   └── AmlScreeningService.java  # CBK threshold screening
-│   │   ├── merchant/
-│   │   │   ├── MerchantService.java      # Merchant accounts & payment links
-│   │   │   ├── RefundService.java        # Multi-provider refunds
-│   │   │   └── WebhookDeliveryService.java # Outbound merchant webhooks
-│   │   └── routing/
-│   │       └── ExchangeRoutingService.java # Cross-rail fund movement
-│   │
-│   ├── utils/
-│   │   └── EncryptionUtils.java          # AES-256-GCM encrypt/decrypt
-│   │
-│   └── exceptions/                       # Custom exception classes
-│
-├── src/main/resources/
-│   └── application.properties            # Config (secrets via env vars)
-│
-├── docker-compose.yml                    # PostgreSQL + pgAdmin + Redis
-├── pom.xml                               # Maven dependencies
-├── .env                                  # Local secrets (git-ignored)
-├── .gitignore                            # Ignores .env, docker props, etc.
-└── README.md                             # This file
+```json
+{
+  "sourceRail": "NYLEPAY_WALLET",
+  "destinationRail": "PAYBILL",
+  "sourceAsset": "KSH",
+  "amount": 3500,
+  "purpose": "Rent",
+  "destination": {
+    "paybillNumber": "123456",
+    "accountNumber": "HOUSE-A12"
+  }
+}
 ```
 
----
+### On-chain Crypto To Local Settlement
 
-## Getting Started
-
-### Prerequisites
-
-- **Java 21** (or later)
-- **PostgreSQL 15** (local or cloud — Neon, Supabase, etc.)
-- **Redis 7** (local or cloud)
-- **Maven** (or use the included `mvnw` wrapper)
-
-### 1. Clone the Repository
-
-```bash
-git clone https://github.com/yourusername/nylepay.git
-cd nylepay
+```json
+{
+  "sourceRail": "ONCHAIN",
+  "destinationRail": "MPESA",
+  "sourceAsset": "USDT",
+  "destinationAsset": "KSH",
+  "amount": 50,
+  "destination": {
+    "phone": "254712345678",
+    "chain": "POLYGON"
+  }
+}
 ```
 
-### 2. Create Your `.env` File
+Execution returns a NylePay custody address and route instructions. The route continues after on-chain confirmations and provider liquidity settlement.
 
-Copy the template and fill in your credentials:
+### Wallet To NylePay Account
 
-```bash
-cp .env.example .env
+```json
+{
+  "sourceRail": "NYLEPAY_WALLET",
+  "destinationRail": "NYLEPAY_WALLET",
+  "sourceAsset": "KSH",
+  "amount": 500,
+  "destination": {
+    "accountNumber": "NPYABCD2345"
+  }
+}
 ```
 
-> ⚠️ The `.env` file is git-ignored. Never commit it.
+## Routing API
 
-### 3. Start Infrastructure (Docker)
+### Capabilities
 
-```bash
-docker-compose up -d
+```http
+GET /api/routes/capabilities
+Authorization: Bearer <jwt>
 ```
 
-This starts PostgreSQL, pgAdmin, and Redis.
+Returns Kenya-first rails, supported assets, and the account number format.
 
-### 4. Build & Run
+### Quote A Route
 
-```bash
-# Using Maven Wrapper (no global Maven install needed)
-./mvnw spring-boot:run
-
-# Or with Maven
-mvn spring-boot:run
+```http
+POST /api/routes/quote
+Authorization: Bearer <jwt>
+Content-Type: application/json
 ```
 
-The API will be available at `http://localhost:8080`.
+Returns:
 
-### 5. Access API Documentation
+- `route`
+- `sourceRail`
+- `destinationRail`
+- `amountIn`
+- `fxRate`
+- `grossAmountOut`
+- `nylePayFee`
+- `networkFeeEstimate`
+- `netAmountOut`
+- `estimatedSpeed`
+- `settlementMode`
+- `legs`
 
-Open Swagger UI: [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
+### Execute A Route
 
----
+```http
+POST /api/routes/execute
+Authorization: Bearer <jwt>
+Content-Type: application/json
+```
+
+Possible statuses:
+
+- `INTAKE_REQUIRED`: user/provider must complete the first funding leg.
+- `INTAKE_INITIATED`: STK/card/provider collection has started.
+- `PROCESSING`: wallet was debited and external dispatch has started.
+- `PENDING_APPROVAL`: a reserved route awaits an explicit confirmation step.
+- `COMPLETED`: internal NylePay route completed.
+- `ROUTE_NOT_AUTOMATED`: quote exists, but execution adapter is not production-wired yet.
+
+## Existing APIs
+
+The original APIs remain available and are now considered rail-specific APIs:
+
+- `/api/payments/**`: deposits, withdrawals, transfer history, M-Pesa/bank webhooks
+- `/api/payments/local/**`: Till, Paybill, Pochi, Send Money
+- `/api/merchant/**`: merchant onboarding, payment links, refunds
+- `/api/v1/merchant/**`: merchant headless API via `Bearer npy_sec_...`
+- `/api/card/**`: Paystack/Stripe card flows
+- `/api/crypto/**`: wallet creation and on-chain callbacks
+- `/api/kyc/**`: KYC status and submission
+- `/api/admin/**`: admin/compliance operations
+
+## Architecture
+
+```text
+Client / Merchant / Developer
+        |
+        v
+RouteController
+        |
+        +--> RouteQuoteService
+        |       - rail validation
+        |       - FX estimate
+        |       - fee estimate
+        |       - execution legs
+        |
+        +--> RouteExecutionService
+                - authenticated user ownership
+                - wallet-funded execution
+                - inbound intake instructions
+                - provider dispatch
+                - existing transaction services
+
+Provider Adapters
+        |
+        +--> M-Pesa
+        +--> Bank / Flutterwave
+        +--> Card / Paystack / Stripe
+        +--> On-chain EVM
+        +--> CEX / Liquidity
+
+Core Data
+        |
+        +--> Users with NPYXXXXXXXX account numbers
+        +--> Wallet balances
+        +--> Transactions
+        +--> Merchants
+        +--> Checkout sessions
+        +--> Audit logs
+```
+
+## Security And Money Movement Rules
+
+- Route execution resolves the user from the JWT.
+- Wallet mutations use pessimistic row locks.
+- External payouts should remain `PROCESSING` until callbacks confirm success or failure.
+- Webhooks must be verified before they mutate balances.
+- Provider references are used for idempotency.
+- Crypto private keys and merchant secrets are AES-256-GCM encrypted at rest.
+- Merchants receive signed webhooks.
+- Admin legal-hold controls can freeze or block outgoing transactions.
+
+## Sandbox Developer Mode
+
+For local development:
+
+```properties
+NYLEPAY_SANDBOX_ENABLED=true
+cex.live-mode=false
+flutterwave.live-mode=false
+paystack.live-mode=false
+stripe.live-mode=false
+kyc.smile.live-mode=false
+aml.live-mode=false
+mpesa.environment=sandbox
+```
+
+Sandbox mode is intended for developers to test the routing contract without moving real money. Some rails still call provider sandbox endpoints, so configure Daraja sandbox keys when testing M-Pesa flows.
+
+## Required Stack
+
+- Java 21+
+- Spring Boot 4
+- PostgreSQL
+- Redis
+- Maven wrapper
+- Provider sandbox accounts for M-Pesa, card, bank, KYC, and crypto webhooks as needed
 
 ## Environment Variables
 
-All sensitive values are injected from environment variables. Set these in your `.env` file for local development, or in your hosting dashboard (Render, Railway, etc.) for production.
+See [API_KEYS.md](API_KEYS.md) for the complete sandbox and production key checklist.
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `SPRING_DATASOURCE_URL` | PostgreSQL JDBC URL | ✅ |
-| `SPRING_DATASOURCE_USERNAME` | Database username | ✅ |
-| `SPRING_DATASOURCE_PASSWORD` | Database password | ✅ |
-| `JWT_SECRET` | JWT signing secret (min 32 chars) | ✅ |
-| `SECURITY_ENCRYPTION_KEY` | AES-256 key for encrypting secrets at rest | ✅ |
-| `ADMIN_EMAIL` | Admin seed account email | ✅ |
-| `ADMIN_PASSWORD` | Admin seed account password (min 12 chars) | ✅ |
-| `ADMIN_FULL_NAME` | Admin display name | ❌ |
-| `MPESA_CONSUMER_KEY` | Safaricom Daraja API consumer key | ✅ |
-| `MPESA_CONSUMER_SECRET` | Safaricom Daraja API consumer secret | ✅ |
-| `MPESA_PASSKEY` | Safaricom Lipa na M-Pesa passkey | ✅ |
-| `FLUTTERWAVE_SECRET_KEY` | Flutterwave API secret key | ✅ |
-| `FLUTTERWAVE_PUBLIC_KEY` | Flutterwave API public key | ❌ |
-| `FLUTTERWAVE_ENC_KEY` | Flutterwave encryption key | ❌ |
-| `FLUTTERWAVE_WEBHOOK_SECRET` | Flutterwave webhook verification hash | ✅ |
-| `PAYSTACK_SECRET_KEY` | Paystack API secret key | ✅ |
-| `PAYSTACK_PUBLIC_KEY` | Paystack API public key | ❌ |
-| `PAYSTACK_WEBHOOK_SECRET` | Paystack webhook secret | ✅ |
-| `STRIPE_SECRET_KEY` | Stripe API secret key | ✅ |
-| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret | ✅ |
-| `SMILE_PARTNER_ID` | Smile Identity partner ID | ❌ |
-| `SMILE_API_KEY` | Smile Identity API key | ❌ |
-| `COMPLYADVANTAGE_API_KEY` | AML screening API key | ❌ |
-| `RESEND_API_KEY` | Resend email API key | ❌ |
+Minimum local variables:
 
----
+```properties
+SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/nylepay
+SPRING_DATASOURCE_USERNAME=nylepay
+SPRING_DATASOURCE_PASSWORD=nylepay
+JWT_SECRET=<32+ chars>
+SECURITY_ENCRYPTION_KEY=<32-byte/base64-compatible secret>
+ADMIN_EMAIL=admin@nylepay.local
+ADMIN_PASSWORD=<strong password>
+```
 
-## API Reference
+## Build
 
-### Authentication
+```bash
+./mvnw -DskipTests package
+```
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/auth/register` | Register a new user |
-| POST | `/api/auth/login` | Login (returns JWT + account number) |
-| POST | `/api/auth/refresh-token` | Refresh JWT token |
-| POST | `/api/auth/forgot-password` | Request password reset email |
-| POST | `/api/auth/reset-password` | Reset password with token |
-| POST | `/api/auth/otp/request` | Request 6-digit OTP |
-| POST | `/api/auth/otp/verify` | Verify OTP |
-| POST | `/api/auth/otp/enable` | Enable 2FA |
-| POST | `/api/auth/otp/disable` | Disable 2FA |
+Run:
 
-### Payments
+```bash
+./mvnw spring-boot:run
+```
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/payments/deposit/mpesa` | M-Pesa STK Push deposit |
-| POST | `/api/payments/deposit/bank` | Bank deposit (instructions) |
-| POST | `/api/payments/withdraw` | Withdraw to M-Pesa/Bank/Crypto |
-| POST | `/api/payments/transfer` | Internal P2P transfer |
-| POST | `/api/payments/transactions/{id}/reversal-requests` | Request wrong-recipient transfer reversal |
-| POST | `/api/payments/convert` | Currency conversion |
-| GET | `/api/payments/transaction/{id}` | Get transaction details |
-| GET | `/api/payments/user/{userId}/transactions` | User transaction history |
+Swagger:
 
-### Admin Support & Compliance
-
-| Method | Endpoint | Purpose |
-|--------|----------|---------|
-| POST | `/api/admin/transactions/{id}/reversal/resolve` | Record supportcare recipient call outcome and complete/decline reversal |
-| POST | `/api/admin/users/{userId}/legal-hold` | Freeze, block, release, or unblock an account under court/government order |
-
-Supported reversal outcomes: `NO_RESPONSE`, `PHONE_OFF`, `RECIPIENT_UNREACHABLE`, `RECIPIENT_CONSENTS`, `EXPECTED_FUNDS`, `RECIPIENT_DISPUTES`.
-
-Supported legal hold actions: `FREEZE`, `BLOCK`, `UNFREEZE`, `UNBLOCK`, `RELEASE`.
-
-### Local Payments (Kenya)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/payments/local/till` | Pay to Till number |
-| POST | `/api/payments/local/paybill` | Pay to Paybill |
-| POST | `/api/payments/local/pochi` | Pay to Pochi la Biashara |
-| POST | `/api/payments/local/send` | Send Money to M-Pesa |
-
-### Card Payments
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/card/pay` | Initialize card payment |
-| POST | `/api/card/verify` | Verify card payment |
-| POST | `/api/card/refund` | Issue refund |
-| GET | `/api/card/user/{userId}/cards` | List saved cards |
-
-### Crypto / CEX
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/payments/cex/connect` | Link CEX account |
-| GET | `/api/payments/cex/{userId}/balances` | Aggregated CEX balances |
-| POST | `/api/payments/cex/withdraw` | CEX → M-Pesa auto-route |
-| POST | `/api/crypto/wallet/create` | Generate EVM custody wallet |
-| GET | `/api/crypto/wallet/{userId}` | Get wallet addresses |
-
-### Webhooks (Unauthenticated)
-
-| Method | Endpoint | Provider |
-|--------|----------|----------|
-| POST | `/api/payments/webhook/mpesa` | Safaricom STK Push |
-| POST | `/api/payments/webhook/mpesa/result` | Safaricom B2C result |
-| POST | `/api/payments/webhook/mpesa/b2b` | Safaricom B2B result |
-| POST | `/api/payments/webhook/bank` | Flutterwave bank |
-| POST | `/api/card/webhook/paystack` | Paystack card |
-| POST | `/api/card/webhook/stripe` | Stripe card |
-| POST | `/api/crypto/webhook/deposit` | Moralis/Alchemy on-chain |
-| POST | `/api/kyc/webhook` | Smile Identity KYC |
-
----
-
-## Security Model
-
-### Encryption
-
-| Data | Algorithm | Key Source |
-|------|-----------|------------|
-| API keys at rest | AES-256-GCM | `SECURITY_ENCRYPTION_KEY` |
-| Passwords | BCrypt (strength 10) | Auto-generated salt |
-| JWT tokens | HMAC-SHA256 | `JWT_SECRET` |
-| Webhook verification | HMAC-SHA256/512 | Provider-specific secrets |
-| Crypto private keys | AES-256-GCM | `SECURITY_ENCRYPTION_KEY` |
-
-### Rate Limiting (per IP)
-
-| Endpoint Category | Limit |
-|-------------------|-------|
-| `/api/auth/**` | 20 req/min |
-| `/api/payments/local/**` | 15 req/min |
-| `/api/payments/**` | 30 req/min |
-| `/api/kyc/**` | 10 req/min |
-| All others | 100 req/min |
-| Webhooks | Exempt |
-
-### ACID Transaction Safety
-
-- All balance mutations use `SELECT ... FOR UPDATE` (pessimistic locking)
-- Webhook handlers are idempotent via unique `externalId` constraints
-- Failed withdrawals are automatically refunded within the same `@Transactional` boundary
-- PostgreSQL WAL ensures durability across restarts
-
----
+```text
+http://localhost:8080/swagger-ui.html
+```
 
 ## Roadmap
 
-- [x] **Phase 1** — Local Payment Rails (Till, Paybill, Pochi, Send Money, ACID Settlement, KYC)
-- [x] **Phase 2 — Security & UX Hardening (COMPLETED)**
-- [x] **Phase 3 — Crypto Bridge & Global Rails (COMPLETED)**
-- [x] **Phase 4 — Real-time Merchant Settlement (COMPLETED)**
-- [ ] **Phase 5 — Offline & USSD (Pending Integration)**
-  - [ ] Africa's Talking USSD Gateway Integration
-  - [ ] USSD Merchant Settlement Shortcuts
-  - [ ] SMS Notifications & 2FA
-  - [ ] Offline Balance Inquiries
-- [ ] **Phase 6 — Regional Scaling (Nigeria & South Africa)**
-  - [ ] Nigeria: Virtual Account Payouts (USSD *XXX#)
-  - [ ] South Africa: Retail Cash-Out Bridge
-
----
-
-## 🔐 Security & Compliance
-
-- **Account & Privacy Policy**: [ACCOUNT_POLICY.md](ACCOUNT_POLICY.md)
-- **Funds Flow & Architecture**: [FUNDS_FLOW.md](FUNDS_FLOW.md)
-
----
+- [x] Kenya-first route quote API
+- [x] Kenya-first route execution facade
+- [x] Preserve 11-character `NPYXXXXXXXX` account numbers
+- [ ] Immutable double-entry ledger table
+- [ ] Provider-independent route state machine
+- [ ] Callback-confirmed settlement for every external payout
+- [ ] Institutional liquidity adapter for crypto-to-fiat routes
+- [ ] Merchant routing policies and fallback rails
+- [ ] Reconciliation dashboard
+- [ ] Country adapter framework for Africa-wide mobile money rails
 
 ## License
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
-
----
-
-<p align="center">
-  Built by Langa Fidel in Nairobi 🇰🇪
-</p>
+MIT.
