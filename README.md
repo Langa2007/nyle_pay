@@ -1,352 +1,274 @@
 # NylePay
 
-NylePay is a Kenya-first financial routing engine.
+NylePay is a Kenya-first financial routing platform built around one simple promise:
 
-It lets a user or merchant say:
+> Tell us where the money is and where it needs to go. NylePay handles the route.
 
-> Here is where the money is. Here is where it should go. Route it legally, quote it clearly, execute it safely, and reconcile it.
+It is designed for a market where money does not live in one place. A Kenyan user may hold value in M-Pesa, a bank account, a card, a crypto wallet, a stablecoin balance, a merchant till, or an exchange account. A merchant may want to accept payments from all of those places but settle only to M-Pesa or a bank account.
 
-The first market is Kenya, with M-Pesa, Kenyan banks, cards, NylePay wallet accounts, and crypto rails. The long-term model is Africa-wide routing, where each country gets its own local mobile-money and bank adapters while the core quote, execution, compliance, and ledger logic stays the same.
+NylePay turns that fragmented reality into one routing layer.
 
-## What Makes NylePay Different
+## The Gap
 
-NylePay is not only a payment gateway and not only a crypto off-ramp. It is a universal money-routing layer:
+Kenya already has strong financial rails, but they are scattered:
 
-- Accept from M-Pesa, bank, card, NylePay wallet, on-chain crypto, or linked CEX liquidity.
-- Convert between fiat and crypto where supported.
-- Settle to M-Pesa, bank, Till, Paybill, Pochi la Biashara, NylePay account, merchant balance, or on-chain wallet.
-- Quote the route before execution: fees, FX, network estimate, legs, and expected speed.
-- Execute through provider adapters and finalize by callback, not by optimistic assumptions.
-- Keep NylePay account numbers in the existing 11-character format: `NPYXXXXXXXX`.
+- M-Pesa dominates daily payments.
+- Banks still matter for businesses, salaries, suppliers, and settlement.
+- Cards are useful for online and international payments.
+- Stablecoins and crypto are increasingly used for cross-border value movement.
+- Merchants want simple checkout and predictable settlement, not five integrations.
+- Users want to move money without understanding rails, liquidity, provider rules, or settlement delays.
 
-## Core Product
+Most products solve only one part:
 
-### 1. Universal Routing API
-
-The new routing API is the center of NylePay:
-
-- `POST /api/routes/quote`
-- `POST /api/routes/execute`
-- `GET /api/routes/capabilities`
-
-Routes are expressed by source and destination rails:
-
-```json
-{
-  "sourceRail": "NYLEPAY_WALLET",
-  "destinationRail": "MPESA",
-  "sourceAsset": "KSH",
-  "destinationAsset": "KSH",
-  "amount": 2500,
-  "country": "KE",
-  "purpose": "Supplier payout",
-  "destination": {
-    "phone": "254712345678"
-  }
-}
-```
-
-The authenticated user owns the route. Execution does not trust a `userId` in the request body.
-
-### 2. Merchant Gateway
-
-Merchants can accept payments from multiple rails and settle to their preferred destination:
-
-- M-Pesa checkout
-- Card checkout
-- NylePay wallet checkout
-- Crypto intake routes
-- Settlement to M-Pesa or bank
-- Signed merchant webhooks
-- Merchant API keys for headless API access
-
-### 3. Wallet And Ledger
-
-NylePay keeps a multi-currency wallet per user:
-
-- KSH, USD, stablecoins, ETH, BTC, and other configured assets
-- Pessimistic database locks for balance mutation
-- Idempotent callback handling by provider references
-- Transaction codes for user-facing receipts
-
-### 4. Crypto Bridge
-
-Crypto remains part of the product, but as a routing rail rather than the whole brand:
-
-- On-chain custody addresses for supported EVM chains
-- On-chain deposit webhooks
-- On-chain withdrawals
-- CEX account linking for advanced users
-- Future institutional liquidity adapter for production crypto-to-fiat routing
-
-Recommended production posture: use institutional liquidity/custody partners for high-volume conversion and keep user CEX API linking as an optional advanced feature.
-
-## Kenya-First Rails
-
-| Rail | Source | Destination | Notes |
-|---|---:|---:|---|
-| NylePay Wallet | Yes | Yes | Core instant ledger rail |
-| M-Pesa | Yes | Yes | STK Push, B2C, B2B |
-| Bank | Yes | Yes | Flutterwave/local bank adapter |
-| Card | Yes | Planned destination refunds | Paystack/Stripe provider adapters |
-| Till | No | Yes | Safaricom B2B Buy Goods |
-| Paybill | No | Yes | Safaricom B2B Paybill |
-| Pochi | No | Yes | Safaricom Pochi via shortcode/account reference |
-| On-chain | Yes | Yes | EVM custody and webhooks |
-| CEX | Yes | Yes, adapter-dependent | Binance/Bybit provider layer |
-| Merchant | Yes | Yes | Checkout sessions and settlement |
-
-## Route Examples
-
-### Wallet To M-Pesa
-
-```json
-{
-  "sourceRail": "NYLEPAY_WALLET",
-  "destinationRail": "MPESA",
-  "sourceAsset": "KSH",
-  "amount": 1000,
-  "destination": {
-    "phone": "254712345678"
-  }
-}
-```
-
-### Wallet To Paybill
-
-```json
-{
-  "sourceRail": "NYLEPAY_WALLET",
-  "destinationRail": "PAYBILL",
-  "sourceAsset": "KSH",
-  "amount": 3500,
-  "purpose": "Rent",
-  "destination": {
-    "paybillNumber": "123456",
-    "accountNumber": "HOUSE-A12"
-  }
-}
-```
-
-### On-chain Crypto To Local Settlement
-
-```json
-{
-  "sourceRail": "ONCHAIN",
-  "destinationRail": "MPESA",
-  "sourceAsset": "USDT",
-  "destinationAsset": "KSH",
-  "amount": 50,
-  "destination": {
-    "phone": "254712345678",
-    "chain": "POLYGON"
-  }
-}
-```
-
-Execution returns a NylePay custody address and route instructions. The route continues after on-chain confirmations and provider liquidity settlement.
-
-### Wallet To NylePay Account
-
-```json
-{
-  "sourceRail": "NYLEPAY_WALLET",
-  "destinationRail": "NYLEPAY_WALLET",
-  "sourceAsset": "KSH",
-  "amount": 500,
-  "destination": {
-    "accountNumber": "NPYABCD2345"
-  }
-}
-```
-
-## Routing API
-
-### Capabilities
-
-```http
-GET /api/routes/capabilities
-Authorization: Bearer <jwt>
-```
-
-Returns Kenya-first rails, supported assets, and the account number format.
-
-### Quote A Route
-
-```http
-POST /api/routes/quote
-Authorization: Bearer <jwt>
-Content-Type: application/json
-```
-
-Returns:
-
-- `route`
-- `sourceRail`
-- `destinationRail`
-- `amountIn`
-- `fxRate`
-- `grossAmountOut`
-- `nylePayFee`
-- `networkFeeEstimate`
-- `netAmountOut`
-- `estimatedSpeed`
-- `settlementMode`
-- `legs`
-
-### Execute A Route
-
-```http
-POST /api/routes/execute
-Authorization: Bearer <jwt>
-Content-Type: application/json
-```
-
-Possible statuses:
-
-- `INTAKE_REQUIRED`: user/provider must complete the first funding leg.
-- `INTAKE_INITIATED`: STK/card/provider collection has started.
-- `PROCESSING`: wallet was debited and external dispatch has started.
-- `PENDING_APPROVAL`: a reserved route awaits an explicit confirmation step.
-- `COMPLETED`: internal NylePay route completed.
-- `ROUTE_NOT_AUTOMATED`: quote exists, but execution adapter is not production-wired yet.
-
-## Existing APIs
-
-The original APIs remain available and are now considered rail-specific APIs:
-
-- `/api/payments/**`: deposits, withdrawals, transfer history, M-Pesa/bank webhooks
-- `/api/payments/local/**`: Till, Paybill, Pochi, Send Money
-- `/api/merchant/**`: merchant onboarding, payment links, refunds
-- `/api/v1/merchant/**`: merchant headless API via `Bearer npy_sec_...`
-- `/api/card/**`: Paystack/Stripe card flows
-- `/api/crypto/**`: wallet creation and on-chain callbacks
-- `/api/kyc/**`: KYC status and submission
-- `/api/admin/**`: admin/compliance operations
-
-## Architecture
-
-```text
-Client / Merchant / Developer
-        |
-        v
-RouteController
-        |
-        +--> RouteQuoteService
-        |       - rail validation
-        |       - FX estimate
-        |       - fee estimate
-        |       - execution legs
-        |
-        +--> RouteExecutionService
-                - authenticated user ownership
-                - wallet-funded execution
-                - inbound intake instructions
-                - provider dispatch
-                - existing transaction services
-
-Provider Adapters
-        |
-        +--> M-Pesa
-        +--> Bank / Flutterwave
-        +--> Card / Paystack / Stripe
-        +--> On-chain EVM
-        +--> CEX / Liquidity
-
-Core Data
-        |
-        +--> Users with NPYXXXXXXXX account numbers
-        +--> Wallet balances
-        +--> Transactions
-        +--> Merchants
-        +--> Checkout sessions
-        +--> Audit logs
-```
-
-## Security And Money Movement Rules
-
-- Route execution resolves the user from the JWT.
-- Wallet mutations use pessimistic row locks.
-- External payouts should remain `PROCESSING` until callbacks confirm success or failure.
-- Webhooks must be verified before they mutate balances.
-- Provider references are used for idempotency.
-- Crypto private keys and merchant secrets are AES-256-GCM encrypted at rest.
-- Merchants receive signed webhooks.
-- Admin legal-hold controls can freeze or block outgoing transactions.
-
-## Sandbox Developer Mode
-
-For local development:
-
-```properties
-NYLEPAY_SANDBOX_ENABLED=true
-cex.live-mode=false
-flutterwave.live-mode=false
-paystack.live-mode=false
-stripe.live-mode=false
-kyc.smile.live-mode=false
-aml.live-mode=false
-mpesa.environment=sandbox
-```
-
-Sandbox mode is intended for developers to test the routing contract without moving real money. Some rails still call provider sandbox endpoints, so configure Daraja sandbox keys when testing M-Pesa flows.
-
-## Required Stack
-
-- Java 21+
-- Spring Boot 4
-- PostgreSQL
-- Redis
-- Maven wrapper
-- Provider sandbox accounts for M-Pesa, card, bank, KYC, and crypto webhooks as needed
-
-## Environment Variables
-
-See [API_KEYS.md](API_KEYS.md) for the complete sandbox and production key checklist.
-
-Minimum local variables:
-
-```properties
-SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/nylepay
-SPRING_DATASOURCE_USERNAME=nylepay
-SPRING_DATASOURCE_PASSWORD=nylepay
-JWT_SECRET=<32+ chars>
-SECURITY_ENCRYPTION_KEY=<32-byte/base64-compatible secret>
-ADMIN_EMAIL=admin@nylepay.local
-ADMIN_PASSWORD=<strong password>
-```
-
-## Build
-
-```bash
-./mvnw -DskipTests package
-```
-
-Run:
-
-```bash
-./mvnw spring-boot:run
-```
-
-Swagger:
-
-```text
-http://localhost:8080/swagger-ui.html
-```
-
-## Roadmap
-
-- [x] Kenya-first route quote API
-- [x] Kenya-first route execution facade
-- [x] Preserve 11-character `NPYXXXXXXXX` account numbers
-- [ ] Immutable double-entry ledger table
-- [ ] Provider-independent route state machine
-- [ ] Callback-confirmed settlement for every external payout
-- [ ] Institutional liquidity adapter for crypto-to-fiat routes
-- [ ] Merchant routing policies and fallback rails
-- [ ] Reconciliation dashboard
-- [ ] Country adapter framework for Africa-wide mobile money rails
-
-## License
-
-MIT.
+- A payment gateway helps merchants collect money.
+- A crypto off-ramp helps users convert crypto to local currency.
+- A wallet helps users hold balances.
+- A bank transfer provider moves money between accounts.
+- A mobile money integration handles M-Pesa.
+
+NylePay's opportunity is to connect these worlds into a single routing experience.
+
+## The Product
+
+NylePay is a universal money router for users, merchants, and developers.
+
+A user or business chooses:
+
+- source: where money is coming from
+- destination: where money should arrive
+- asset: what value is being moved
+- route preference: speed, cost, settlement rail, or reliability
+
+NylePay then quotes, executes, tracks, and reconciles the route.
+
+Example routes:
+
+- M-Pesa to NylePay wallet
+- NylePay wallet to M-Pesa
+- NylePay wallet to Till
+- NylePay wallet to Paybill
+- NylePay wallet to Pochi la Biashara
+- Bank to wallet
+- Wallet to bank
+- Card to merchant
+- Stablecoin to M-Pesa
+- Stablecoin to bank
+- Crypto wallet to merchant settlement
+- CEX balance to M-Pesa
+- Customer payment from any supported rail to merchant bank settlement
+
+The product is not "crypto only" and not "M-Pesa only." Crypto is one rail. M-Pesa is one rail. Banks are one rail. Cards are one rail. NylePay is the routing brain above them.
+
+## Why Kenya First
+
+Kenya is the right first market because it has:
+
+- deep mobile money behavior
+- strong merchant use of Till and Paybill
+- high digital payment familiarity
+- diaspora and cross-border payment demand
+- growing stablecoin and crypto utility
+- a clear need for business settlement tools
+- merchants who want payment simplicity without technical complexity
+
+Winning Kenya first gives NylePay a strong operating template for Africa. The expansion model is not to copy-paste M-Pesa everywhere, but to adapt the destination rail per country:
+
+- Kenya: M-Pesa, banks, Till, Paybill, Pochi
+- Ghana: MTN MoMo, Vodafone Cash, banks
+- Uganda: MTN MoMo, Airtel Money, banks
+- Tanzania: M-Pesa, Tigo Pesa, Airtel Money, banks
+- Nigeria: bank accounts, virtual accounts, cards, mobile wallets
+- South Africa: bank EFT, cards, wallets, cash-out partners
+
+The routing engine stays the same. The local rail adapters change.
+
+## Merchant Vision
+
+For merchants, NylePay should feel like:
+
+> One checkout. Many ways to pay. One settlement destination.
+
+A merchant should be able to accept:
+
+- M-Pesa
+- card
+- NylePay wallet
+- bank transfer
+- crypto/stablecoins
+- future country-specific mobile money rails
+
+Then settle to:
+
+- M-Pesa
+- bank account
+- NylePay merchant balance
+- another supported business rail
+
+The merchant does not need to care how the money arrived. NylePay handles routing, conversion, fees, confirmation, settlement, and webhooks.
+
+This is the gateway angle: NylePay is not merely collecting payments. It is deciding the best path from customer value to merchant settlement.
+
+## User Vision
+
+For users, NylePay should feel like:
+
+> Any balance can become useful money.
+
+A user should be able to:
+
+- receive crypto and cash out to M-Pesa
+- top up from M-Pesa and pay a Paybill
+- hold funds in a NylePay wallet
+- send to another NylePay account
+- move from wallet to bank
+- pay merchants without thinking about the merchant's settlement rail
+- convert supported assets when needed
+
+The user should not need to know whether a route uses STK, B2C, B2B, bank payout, on-chain confirmation, card settlement, or liquidity conversion. NylePay abstracts that away.
+
+## Developer Vision
+
+For developers, NylePay should be:
+
+> One API for financial routing in Kenya, then Africa.
+
+Instead of integrating M-Pesa, card providers, bank payout APIs, crypto webhooks, checkout pages, settlement webhooks, fraud rules, and reconciliation separately, developers integrate one routing layer.
+
+The developer asks for a quote, starts a route, listens for status changes, and receives a final event when the money reaches the destination or fails safely.
+
+## Competitive Position
+
+NylePay should not compete by claiming to have every rail first. That is expensive and easy to copy.
+
+NylePay should compete by owning the routing experience:
+
+- clearer quotes before money moves
+- faster local settlement where possible
+- better merchant settlement workflows
+- stronger Kenya-specific payment UX
+- support for both fiat and crypto without making crypto the whole identity
+- reliable route status tracking
+- legal and compliance-aware limits
+- support for small merchants, online merchants, and developers
+- eventual offline access through USSD/SMS for users without smartphones
+
+The market already has crypto off-ramps, exchanges, payment gateways, and mobile money integrations. The defensible wedge is becoming the layer that coordinates them intelligently.
+
+## Against Crypto Off-Ramps
+
+Crypto off-ramps usually answer one question:
+
+> How do I turn crypto into local money?
+
+NylePay should answer a bigger question:
+
+> How do I move value from anywhere to anywhere useful?
+
+That means crypto-to-M-Pesa is just one route among many. A merchant should be able to receive stablecoin value and settle to bank. A user should be able to move M-Pesa to wallet, wallet to Paybill, crypto to bank, or wallet to another user.
+
+This broader utility makes NylePay less dependent on crypto market cycles.
+
+## Against Traditional Payment Gateways
+
+Traditional gateways focus on collection. NylePay should focus on collection plus routing plus settlement.
+
+A normal gateway may help a merchant accept card or M-Pesa. NylePay should help a merchant accept many value sources and decide where the resulting value should land.
+
+That matters because African merchants are practical. They do not only want "payments accepted." They want:
+
+- funds available quickly
+- settlement to the account they actually use
+- visibility on failed payments
+- simple refunds
+- low integration complexity
+- support for local rails
+- a way to accept new forms of value like stablecoins without becoming crypto experts
+
+## Trust Strategy
+
+NylePay should be positioned as a financial routing and settlement company, not as a speculative crypto brand.
+
+The trust message:
+
+- Kenya-first
+- compliance-aware
+- merchant-friendly
+- user-controlled
+- transparent fees
+- route tracking
+- callback-confirmed settlement
+- account controls for legal holds and fraud protection
+- strong encryption for secrets and private keys
+
+Crypto should be described as supported digital asset routing, not as a casino-like feature.
+
+## Product Principles
+
+1. **Route by intent**
+   Users should describe the outcome, not the rails.
+
+2. **Quote before execution**
+   Show fees, FX, expected speed, and route legs before money moves.
+
+3. **Confirm by provider callback**
+   Initiating a transfer is not the same as completing it.
+
+4. **Keep local rails first-class**
+   M-Pesa, Till, Paybill, Pochi, and Kenyan banks are not side features. They are the foundation.
+
+5. **Make crypto useful**
+   Crypto should become spendable, withdrawable, and settleable value.
+
+6. **Serve merchants seriously**
+   Merchants need settlement, reconciliation, refunds, payment links, and webhooks.
+
+7. **Design for Africa, launch in Kenya**
+   The core engine should support future country adapters without rebuilding the platform.
+
+## Kenya Beachhead
+
+The strongest launch wedge is:
+
+- NylePay wallet
+- M-Pesa in and out
+- Paybill, Till, and Pochi payments
+- merchant checkout
+- merchant settlement to M-Pesa or bank
+- crypto/stablecoin to M-Pesa or bank for verified users
+- developer routing API
+
+This gives NylePay both consumer and merchant value.
+
+Consumers get freedom of movement.
+
+Merchants get broader acceptance and simpler settlement.
+
+Developers get one integration.
+
+## Long-Term Direction
+
+NylePay can grow into:
+
+- a routing API for African fintech developers
+- a merchant gateway with multi-rail settlement
+- a stablecoin-to-local-money utility layer
+- a wallet for users who move across mobile money, bank, and crypto
+- a liquidity and settlement orchestration layer for businesses
+- a country-by-country mobile money abstraction layer
+
+The ambition is not just to process payments.
+
+The ambition is to become the financial switchboard for practical African money movement.
+
+## One-Line Positioning
+
+**NylePay routes money from wherever it is to wherever it needs to go, starting with Kenya.**
+
+## Short Pitch
+
+NylePay is a Kenya-first money routing platform for users, merchants, and developers. It connects M-Pesa, banks, cards, wallets, and crypto into one routing layer, allowing value to be collected from many sources and settled to the destination that matters: M-Pesa, bank, merchant balance, Paybill, Till, Pochi, or supported digital asset rails.
+
+## North Star
+
+One account. Many rails. Any legal destination.
