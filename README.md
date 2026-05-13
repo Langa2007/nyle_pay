@@ -143,6 +143,13 @@ NylePay is a **payment orchestration platform** that lets users:
 - Real-time monthly transaction sum enforcement
 - AML screening with threshold and structuring detection
 
+### 🌍 Market Position & Competitive Edge
+NylePay is designed to edge out traditional gateways and crypto exchanges by solving the **Trust-Speed-Access** triad:
+- **Speed**: While competitors (e.g., Yellow Card) often suffer from delayed deposits/withdrawals, NylePay uses **Real-time Settlement** [x] to ensure payouts are instant.
+- **Access**: Unlike App-only players, NylePay is building a **Hybrid USSD/App model** [ ] to reach the millions of offline-first users in Kenya, Nigeria, and South Africa.
+- **Compliance**: Built from day one for **CBK PSP Tier 2** regulatory standards, ensuring merchant funds are legally protected.
+- **Full-Stack**: One API for M-Pesa, Bank, Card, and Institutional Crypto liquidity (CEX Bridge).
+
 ### 🔐 Security
 - JWT authentication (stateless, BCrypt password hashing)
 - AES-256-GCM encryption for all secrets at rest (API keys, private keys, merchant secrets)
@@ -153,6 +160,13 @@ NylePay is a **payment orchestration platform** that lets users:
 - Idempotent webhook processing via unique `externalId` constraints
 - CORS whitelist and role-based access control (USER / ADMIN)
 - Legal account freeze/block controls for documented court and government agency orders
+
+### 📶 USSD Strategy (Offline Banking) [PENDING]
+To dominate the African market, NylePay is integrating an offline USSD layer (`*XXX#`) via Africa's Talking:
+- **For Retail Users**: Buy/Sell crypto, check balance, and send P2P without internet or a smartphone.
+- **For Merchants**: Settle sales to M-Pesa or Bank and check business balances instantly via feature phone.
+- **Status**: [ ] Integration with Africa's Talking Gateway.
+- **Status**: [ ] USSD Callback Mapping to SettlementService.
 
 ### Supportcare Reversals & Legal Holds
 - Senders can request a reversal for a completed NylePay wallet transfer when they report a wrong recipient.
@@ -581,20 +595,16 @@ Supported legal hold actions: `FREEZE`, `BLOCK`, `UNFREEZE`, `UNBLOCK`, `RELEASE
 
 - [x] **Phase 1** — Local Payment Rails (Till, Paybill, Pochi, Send Money, ACID Settlement, KYC)
 - [x] **Phase 2 — Security & UX Hardening (COMPLETED)**
-- **Error Abstraction Layer**: Technical exceptions (e.g., "M-Pesa callback failed") are now caught, logged internally, and hidden from users behind generic, friendly messages.
-- **NylePayException**: A new custom exception hierarchy for errors that are safe and helpful to display to the user.
-- **Transaction Code System**: Renamed "Claim Codes" to "Transaction Codes" across the entire stack for better clarity (e.g., `MP2NP-XXXXX`).
-- **Audit Logs**: All sensitive operations (swaps, withdrawals, logins) are tracked in the audit database.
-
 - [x] **Phase 3 — Crypto Bridge & Global Rails (COMPLETED)**
-- **Binance Integration**: Support for automated crypto swaps (Stablecoins -> KES).
-- **Golden Flow**: Deposit USDT/ETH/USDC -> Auto-Swap to KES -> Withdraw to M-Pesa.
-- **On-Chain Custody**: Dedicated EVM addresses for every user with encrypted key storage.
-
-- [ ] **Phase 4 — Offline & USSD**
-  - [ ] Africa's Talking USSD Gateway
+- [x] **Phase 4 — Real-time Merchant Settlement (COMPLETED)**
+- [ ] **Phase 5 — Offline & USSD (Pending Integration)**
+  - [ ] Africa's Talking USSD Gateway Integration
+  - [ ] USSD Merchant Settlement Shortcuts
   - [ ] SMS Notifications & 2FA
   - [ ] Offline Balance Inquiries
+- [ ] **Phase 6 — Regional Scaling (Nigeria & South Africa)**
+  - [ ] Nigeria: Virtual Account Payouts (USSD *XXX#)
+  - [ ] South Africa: Retail Cash-Out Bridge
 
 ---
 
