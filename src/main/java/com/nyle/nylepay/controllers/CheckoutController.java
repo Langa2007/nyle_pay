@@ -280,27 +280,10 @@ public class CheckoutController {
     }
 
     /**
-     * Credits the merchant's pendingSettlement after deducting NylePay's fee.
+     * Credits the merchant immediately after deducting NylePay's fee.
      * Called when a checkout session is confirmed as COMPLETED.
      */
     public void creditMerchant(CheckoutSession session, BigDecimal amount) {
-        merchantRepository.findById(session.getMerchantId()).ifPresent(merchant -> {
-            BigDecimal fee = amount.multiply(merchant.getFeePercent())
-                    .divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP);
-            BigDecimal netAmount = amount.subtract(fee);
-            
-            try {
-                settlementService.settle(merchant, netAmount);
-                log.info("Merchant {} real-time settlement succeeded: gross={} fee={} net={}",
-                        merchant.getId(), amount, fee, netAmount);
-            } catch (Exception e) {
-                BigDecimal current = merchant.getPendingSettlement() != null
-                        ? merchant.getPendingSettlement() : BigDecimal.ZERO;
-                merchant.setPendingSettlement(current.add(netAmount));
-                merchantRepository.save(merchant);
-                log.warn("Merchant {} real-time settlement failed: {}. Added net={} to pending.",
-                        merchant.getId(), e.getMessage(), netAmount);
-            }
-        });
+        settlementService.settleMerchantRealTime(session, amount);
     }
 }

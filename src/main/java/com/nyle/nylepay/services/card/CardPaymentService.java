@@ -7,6 +7,7 @@ import com.nyle.nylepay.repositories.CheckoutSessionRepository;
 import com.nyle.nylepay.repositories.MerchantRepository;
 import com.nyle.nylepay.repositories.TransactionRepository;
 import com.nyle.nylepay.services.WalletService;
+import com.nyle.nylepay.services.merchant.SettlementService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -42,6 +43,7 @@ public class CardPaymentService {
     private final TransactionRepository      transactionRepository;
     private final CheckoutSessionRepository  checkoutSessionRepository;
     private final MerchantRepository         merchantRepository;
+    private final SettlementService           settlementService;
 
     public CardPaymentService(
             PaystackCardService paystackCardService,
@@ -49,13 +51,15 @@ public class CardPaymentService {
             WalletService walletService,
             TransactionRepository transactionRepository,
             CheckoutSessionRepository checkoutSessionRepository,
-            MerchantRepository merchantRepository) {
+            MerchantRepository merchantRepository,
+            SettlementService settlementService) {
         this.paystackCardService     = paystackCardService;
         this.stripeCardService       = stripeCardService;
         this.walletService           = walletService;
         this.transactionRepository   = transactionRepository;
         this.checkoutSessionRepository = checkoutSessionRepository;
         this.merchantRepository      = merchantRepository;
+        this.settlementService       = settlementService;
     }
 
     // Paystack — initiate
@@ -198,16 +202,8 @@ public class CardPaymentService {
         return "COMPLETED".equals(status) || "FAILED".equals(status) || "REFUNDED".equals(status);
     }
 
-    /** Credits merchant wallet minus NylePay fee after checkout session completes. */
+    /** Settles merchant immediately after checkout session completes. */
     private void creditMerchant(CheckoutSession session) {
-        Optional<Merchant> merchantOpt = merchantRepository.findById(session.getMerchantId());
-        if (merchantOpt.isEmpty()) return;
-        Merchant merchant = merchantOpt.get();
-        BigDecimal fee = session.getAmount()
-            .multiply(merchant.getFeePercent())
-            .divide(BigDecimal.valueOf(100));
-        BigDecimal net = session.getAmount().subtract(fee);
-        walletService.addBalance(merchant.getUserId(), session.getCurrency(), net);
-        log.info("Merchant {} credited {} {} (fee={})", merchant.getId(), net, session.getCurrency(), fee);
+        settlementService.settleMerchantRealTime(session, session.getAmount());
     }
 }

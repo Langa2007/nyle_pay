@@ -17,15 +17,11 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Automated daily settlement service.
+ * Real-time settlement service.
  *
- * At 22:00 EAT every day, NylePay sweeps all merchants with a pending
- * settlement balance and sends the funds to their configured M-Pesa number
- * or bank account, recording a SETTLEMENT transaction for the audit trail.
- *
- * NylePay's fee has already been deducted when the CheckoutController credits
- * the merchant (gross - fee = pendingSettlement). This job simply initiates
- * the outbound transfer of whatever is pending.
+ * When a CheckoutSession is marked COMPLETED, NylePay calculates the fee
+ * and immediately initiates the outbound transfer of funds to the merchant's
+ * configured M-Pesa number or bank account.
  *
  * Minimum settlement amount: KES 100 (configurable).
  */
@@ -48,12 +44,11 @@ public class SettlementService {
     }
 
     /**
-     * Scheduled daily at 22:00 EAT (19:00 UTC).
-     * Processes all ACTIVE merchants with a pending settlement balance >= KES 100.
+     * Legacy daily settlement logic — now used only as a manual fallback
+     * if real-time settlement fails and funds accumulate in pendingSettlement.
      */
-    @Scheduled(cron = "0 0 19 * * *") // 19:00 UTC = 22:00 EAT
-    public void runDailySettlement() {
-        log.info("=== Daily Settlement Run Started: {} ===", LocalDateTime.now());
+    public void processPendingSettlements() {
+        log.info("=== Manual Settlement Sweep Started: {} ===", LocalDateTime.now());
 
         List<Merchant> merchants = merchantRepository.findAll();
         int processed = 0;
@@ -78,6 +73,33 @@ public class SettlementService {
         }
 
         log.info("=== Daily Settlement Complete: {} processed, {} skipped ===", processed, skipped);
+    }
+
+    /**
+     * Calculates fees and settles a merchant immediately for a specific checkout session.
+     * Called when a payment is confirmed (M-Pesa, Card, or Wallet).
+     */
+    @Transactional
+    public void settleMerchantRealTime(com.nyle.nylepay.models.CheckoutSession session, BigDecimal grossAmount) {
+        merchantRepository.findById(session.getMerchantId()).ifPresent(merchant -> {
+            BigDecimal fee = grossAmount.multiply(merchant.getFeePercent())
+                    .divide(BigDecimal.valueOf(100), 4, java.math.RoundingMode.HALF_UP);
+            BigDecimal netAmount = grossAmount.subtract(fee);
+
+            try {
+                settle(merchant, netAmount);
+                log.info("Merchant {} real-time settlement succeeded: session={} gross={} fee={} net={}",
+                        merchant.getId(), session.getReference(), grossAmount, fee, netAmount);
+            } catch (Exception e) {
+                // If real-time settlement fails (e.g. M-Pesa API down), add to pending for later sweep
+                BigDecimal current = merchant.getPendingSettlement() != null
+                        ? merchant.getPendingSettlement() : BigDecimal.ZERO;
+                merchant.setPendingSettlement(current.add(netAmount));
+                merchantRepository.save(merchant);
+                log.warn("Merchant {} real-time settlement failed: {}. Added net={} to pending.",
+                        merchant.getId(), e.getMessage(), netAmount);
+            }
+        });
     }
 
     /**

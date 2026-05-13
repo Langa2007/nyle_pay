@@ -79,7 +79,7 @@ export default function Dashboard() {
         {tab === 'overview' && <OverviewTab biz={biz} user={user} setTab={setTab} />}
         {tab === 'payments' && <PaymentsTab />}
         {tab === 'api'      && <ApiKeysTab user={user} />}
-        {tab === 'docs'     && <div style={{ padding: '2rem' }}><ApiDocs /></div>}
+        {tab === 'docs'     && <div style={{ padding: '2rem' }}><ApiDocs embedded /></div>}
         {tab === 'settings' && <SettingsTab user={user} />}
       </div>
     </div>

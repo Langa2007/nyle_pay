@@ -125,7 +125,7 @@ NylePay is a **payment orchestration platform** that lets users:
 - **Hosted Checkout Page** — premium dark-mode UI served by NylePay at `/checkout/{ref}`
 - Customer pays via **M-Pesa**, **Card (Paystack)**, or **NylePay Wallet** on a single page
 - Webhook delivery with **HMAC-SHA256 signatures** and 3-retry exponential backoff
-- **Automatic Daily Settlement** — pending balances pushed to merchant M-Pesa or bank at 22:00 EAT
+- **Real-Time Settlement** — pending balances immediately pushed to merchant M-Pesa or bank upon payment completion
 - Full and partial **refund** support (ACID-safe)
 - Configurable fee percentage (default 1.5%) per merchant
 
@@ -267,7 +267,7 @@ if (sig !== expected) return res.sendStatus(401); // Reject tampered events
 ```
 
 ### Settlement & Headless API
-NylePay features **real-time instant settlement**. Upon successful payment, your balance (after NylePay's 1.5% fee) is immediately swept to your registered M-Pesa or bank account. If the destination network is down, funds are parked in your `pendingSettlement` balance, which is automatically retried every day at **22:00 EAT**.
+NylePay features **real-time instant settlement**. Upon successful payment, your balance (after NylePay's 1.5% fee) is immediately swept to your registered M-Pesa or bank account. If the destination network is down, funds are parked in your `pendingSettlement` balance, which can be manually retried or settled automatically upon next successful payment.
 
 You can also route payments programmatically from your own backend using NylePay's **Headless APIs** (authenticated via `Authorization: Bearer npy_sec_...`):
 - `POST /api/v1/merchant/charges` — Initiate STK Push or Wallet charges directly.

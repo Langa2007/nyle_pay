@@ -1,258 +1,304 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import MarketingNav from '../components/MarketingNav';
 import SandboxTester from '../components/SandboxTester';
 
-const ENDPOINTS = [
-  { method:'POST', path:'/api/auth/register', auth:false, tag:'Auth', title:'Create Account', desc:'Register a new NylePay account. Required before merchant onboarding.', body:{ fullName:'string', email:'string', password:'string (min 8)', mpesaNumber:'string — 2547XXXXXXXX', countryCode:'string — e.g. "KE"' }, response:{ success:true, data:{ token:'JWT', userId:'number', email:'string', fullName:'string', accountNumber:'NPY-XXXXXXXX' } } },
-  { method:'POST', path:'/api/auth/login', auth:false, tag:'Auth', title:'Authenticate', desc:'Authenticate with email and password. Returns a JWT access token valid for 24 hours. Include this token as a Bearer token on all protected requests.', body:{ email:'string', password:'string' }, response:{ success:true, data:{ token:'JWT', userId:'number', email:'string' } } },
-  { method:'POST', path:'/api/merchant/register', auth:'jwt', tag:'Merchant', title:'Register Merchant', desc:'Onboard your business and receive API credentials. The secretKey is returned once — store it immediately in your server environment variables.', body:{ businessName:'string', businessEmail:'string', settlementPhone:'string — 2547XXXXXXXX', webhookUrl:'string (optional, HTTPS)' }, response:{ success:true, data:{ merchantId:'number', publicKey:'npy_pub_live_...', secretKey:'npy_sec_live_...', webhookSecret:'whsec_...', status:'PENDING' } } },
-  { method:'GET',  path:'/api/merchant/profile', auth:'jwt', tag:'Merchant', title:'Merchant Profile', desc:'Retrieve your merchant profile including business name, key status, settlement configuration, and account standing.', body:null, response:{ success:true, data:{ merchantId:'number', businessName:'string', status:'ACTIVE | PENDING | SUSPENDED', balance:'number (KES)', publicKey:'npy_pub_live_...' } } },
-  { method:'POST', path:'/api/merchant/payment-link', auth:'jwt', tag:'Payments', title:'Create Payment Link', desc:'Generate a hosted, time-limited checkout URL. Redirect your customer to checkoutUrl to complete payment via M-Pesa, Card, or Crypto.', body:{ amount:'number (KES)', currency:'string — "KES"', description:'string', redirectUrl:'string (optional)', expiryMinutes:'number — default 60' }, response:{ success:true, data:{ reference:'string', checkoutUrl:'https://pay.nylepay.com/c/...', amount:'number', expiresAt:'ISO 8601 timestamp' } } },
-  { method:'POST', path:'/api/v1/merchant/charges', auth:'secret', tag:'Payments', title:'Initiate STK Push', desc:'Directly trigger an M-Pesa STK Push prompt on a customer\'s handset. Authenticate with your Secret Key (not JWT). The customer enters their M-Pesa PIN to confirm payment.', body:{ method:'"MPESA"', phone:'string — 2547XXXXXXXX', amount:'number (KES)', reference:'string — your internal order ID' }, response:{ success:true, data:{ chargeId:'string', status:'PENDING', method:'MPESA', amount:'number', phone:'string' } } },
-  { method:'GET',  path:'/api/v1/merchant/balance', auth:'secret', tag:'Payments', title:'Settlement Balance', desc:'Query your real-time settlement balance. Authenticate with your Secret Key. Balance reflects completed transactions pending withdrawal.', body:null, response:{ success:true, data:{ available:'number (KES)', pending:'number (KES)', currency:'KES', lastUpdated:'ISO 8601' } } },
-  { method:'POST', path:'/api/v1/merchant/transfers', auth:'secret', tag:'Payments', title:'Initiate Payout', desc:'Transfer your available balance to an external M-Pesa or bank account. Authenticate with your Secret Key.', body:{ amount:'number (KES)', method:'"MPESA" | "BANK"', phone:'string (M-Pesa) — optional', accountNumber:'string (bank) — optional', reference:'string' }, response:{ success:true, data:{ transferId:'string', status:'QUEUED', amount:'number', estimatedArrival:'ISO 8601' } } },
+const BASE_URL = 'https://api.nylepay.com';
+
+const endpoints = [
+  {
+    group: 'Authentication',
+    method: 'POST',
+    path: '/api/auth/register',
+    auth: 'Public',
+    title: 'Create a NylePay user',
+    description: 'Creates the account used to access the merchant dashboard and start onboarding.',
+    body: { fullName: 'Jane Wanjiru', email: 'payments@example.com', password: 'strong-password', mpesaNumber: '254712345678', countryCode: 'KE' },
+  },
+  {
+    group: 'Authentication',
+    method: 'POST',
+    path: '/api/auth/login',
+    auth: 'Public',
+    title: 'Sign in',
+    description: 'Returns a JWT used for dashboard and merchant onboarding endpoints.',
+    body: { email: 'payments@example.com', password: 'strong-password' },
+  },
+  {
+    group: 'Merchant setup',
+    method: 'POST',
+    path: '/api/merchant/register',
+    auth: 'JWT Bearer',
+    title: 'Register a merchant',
+    description: 'Creates a merchant profile and returns API credentials. Store secret keys server-side only.',
+    body: { businessName: 'Acme Store', businessEmail: 'payments@acme.co.ke', settlementPhone: '254712345678', webhookUrl: 'https://example.com/nylepay/webhook' },
+  },
+  {
+    group: 'Merchant setup',
+    method: 'GET',
+    path: '/api/merchant/profile',
+    auth: 'JWT Bearer',
+    title: 'Get merchant profile',
+    description: 'Returns merchant status, settlement configuration, and public API key details.',
+  },
+  {
+    group: 'Payments',
+    method: 'POST',
+    path: '/api/merchant/payment-link',
+    auth: 'JWT Bearer',
+    title: 'Create a payment link',
+    description: 'Creates a hosted checkout URL for an order. Customers can pay using available NylePay rails.',
+    body: { amount: 1500, currency: 'KES', description: 'Order #1001', redirectUrl: 'https://example.com/thank-you', expiryMinutes: 60 },
+  },
+  {
+    group: 'Payments',
+    method: 'POST',
+    path: '/api/v1/merchant/charges',
+    auth: 'Secret Key',
+    title: 'Create a direct charge',
+    description: 'Initiates a server-side merchant charge, such as an M-Pesa STK Push.',
+    body: { method: 'MPESA', phone: '254712345678', amount: 1500, reference: 'ORDER-1001' },
+  },
+  {
+    group: 'Payments',
+    method: 'GET',
+    path: '/api/v1/merchant/balance',
+    auth: 'Secret Key',
+    title: 'Get settlement balance',
+    description: 'Returns available and pending merchant settlement balances.',
+  },
+  {
+    group: 'Payouts',
+    method: 'POST',
+    path: '/api/v1/merchant/transfers',
+    auth: 'Secret Key',
+    title: 'Create a payout',
+    description: 'Moves available merchant funds to an M-Pesa or bank destination.',
+    body: { amount: 2500, method: 'MPESA', phone: '254712345678', reference: 'PAYOUT-1001' },
+  },
 ];
 
-const WEBHOOK_EVENTS = [
-  { event:'payment.completed',  trigger:'Customer payment confirmed and settled to balance.' },
-  { event:'payment.failed',     trigger:'Payment attempt failed — insufficient funds, timeout, or cancellation.' },
-  { event:'payment.pending',    trigger:'Payment initiated, awaiting customer action (e.g. M-Pesa PIN entry).' },
-  { event:'payment.refunded',   trigger:'Payment successfully reversed and refunded to the customer.' },
-  { event:'payout.completed',   trigger:'Settlement payout delivered to your M-Pesa or bank account.' },
-  { event:'payout.failed',      trigger:'Settlement payout could not be delivered. Funds returned to balance.' },
-  { event:'key.regenerated',    trigger:'API keys were rotated. Previous keys are now invalid.' },
+const webhookEvents = [
+  ['payment.pending', 'A payment has been initiated and is awaiting customer action.'],
+  ['payment.completed', 'A payment has been confirmed and credited to merchant settlement balance.'],
+  ['payment.failed', 'A payment failed, timed out, or was cancelled.'],
+  ['payment.refunded', 'A payment has been refunded or reversed.'],
+  ['payout.completed', 'A settlement payout has been delivered.'],
+  ['payout.failed', 'A settlement payout failed and funds remain available.'],
 ];
 
-const WEBHOOK_CODE = {
-  'Node.js': `// Express — verify webhook signature
-const crypto = require('crypto');
+function requestFor(endpoint) {
+  return endpoint.body ? JSON.stringify(endpoint.body, null, 2) : null;
+}
 
-app.post('/nylepay-webhook', express.raw({ type: '*/*' }), (req, res) => {
-  const sig      = req.headers['x-nylepay-signature'];
-  const expected = crypto
-    .createHmac('sha256', process.env.NYLEPAY_WEBHOOK_SECRET)
-    .update(req.body)           // raw Buffer — do NOT parse JSON first
-    .digest('hex');
+function authHeader(auth) {
+  if (auth === 'Secret Key') return 'Authorization: Bearer $NYLEPAY_SECRET_KEY';
+  if (auth === 'JWT Bearer') return 'Authorization: Bearer $NYLEPAY_JWT';
+  return null;
+}
 
-  if (!crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(sig))) {
-    return res.status(401).json({ error: 'Invalid signature' });
+function sample(endpoint, language) {
+  const url = `${BASE_URL}${endpoint.path}`;
+  const body = requestFor(endpoint);
+  const header = authHeader(endpoint.auth);
+
+  if (language === 'cURL') {
+    const lines = [`curl -X ${endpoint.method} "${url}"`, '  -H "Content-Type: application/json"'];
+    if (header) lines.push(`  -H "${header}"`);
+    if (body) lines.push(`  -d '${body.replaceAll('\n', '\n  ')}'`);
+    return lines.join(' \\\n');
   }
 
-  const event = JSON.parse(req.body);
-  switch (event.type) {
-    case 'payment.completed':
-      await fulfillOrder(event.data.reference);
-      break;
-    case 'payment.failed':
-      await cancelOrder(event.data.reference);
-      break;
-  }
-  res.status(200).json({ received: true });
-});`,
-  'Python': `# Flask — verify webhook signature
-import hmac, hashlib, os, json
-from flask import request, abort, jsonify
-
-@app.route('/nylepay-webhook', methods=['POST'])
-def webhook():
-    sig    = request.headers.get('X-NylePay-Signature', '')
-    secret = os.environ['NYLEPAY_WEBHOOK_SECRET'].encode()
-    digest = hmac.new(secret, request.data, hashlib.sha256).hexdigest()
-
-    if not hmac.compare_digest(digest, sig):
-        abort(401)
-
-    event = request.get_json(force=True)
-    if event['type'] == 'payment.completed':
-        fulfill_order(event['data']['reference'])
-
-    return jsonify(received=True), 200`,
-};
-
-const AUTH_CODE = {
-  'Node.js': `// All JWT-protected endpoints
-const res = await fetch('https://api.nylepay.com/api/merchant/profile', {
-  headers: { 'Authorization': \`Bearer \${jwtToken}\` },
+  if (language === 'JavaScript') {
+    return `const response = await fetch('${url}', {
+  method: '${endpoint.method}',
+  headers: {
+    'Content-Type': 'application/json',${header ? `\n    'Authorization': 'Bearer ' + process.env.${endpoint.auth === 'Secret Key' ? 'NYLEPAY_SECRET_KEY' : 'NYLEPAY_JWT'},` : ''}
+  },${body ? `\n  body: JSON.stringify(${body}),` : ''}
 });
 
-// Secret Key endpoints (charges, balance, transfers)
-const charge = await fetch('https://api.nylepay.com/api/v1/merchant/charges', {
-  method: 'POST',
-  headers: {
-    'Authorization': \`Bearer \${process.env.NYLEPAY_SECRET_KEY}\`,
-    'Content-Type':  'application/json',
-  },
-  body: JSON.stringify({ method:'MPESA', phone:'254712345678', amount:1500, reference:'ORD-001' }),
-});`,
-  'Python': `# JWT-protected endpoints
-import requests, os
+const result = await response.json();`;
+  }
 
-headers = {'Authorization': f'Bearer {jwt_token}'}
-profile = requests.get('https://api.nylepay.com/api/merchant/profile', headers=headers)
+  if (language === 'Python') {
+    return `import os
+import requests
 
-# Secret Key endpoints
-secret_headers = {
-    'Authorization': f'Bearer {os.environ["NYLEPAY_SECRET_KEY"]}',
-    'Content-Type':  'application/json',
+headers = {'Content-Type': 'application/json'}${header ? `
+headers['Authorization'] = 'Bearer ' + os.environ['${endpoint.auth === 'Secret Key' ? 'NYLEPAY_SECRET_KEY' : 'NYLEPAY_JWT'}']` : ''}
+
+response = requests.${endpoint.method.toLowerCase()}(
+    '${url}',
+    headers=headers${body ? `,
+    json=${body.replaceAll('true', 'True').replaceAll('false', 'False').replaceAll('null', 'None')}` : ''}
+)
+result = response.json()`;
+  }
+
+  if (language === 'PHP') {
+    return `<?php
+$headers = ['Content-Type: application/json'];${header ? `
+$headers[] = 'Authorization: Bearer ' . getenv('${endpoint.auth === 'Secret Key' ? 'NYLEPAY_SECRET_KEY' : 'NYLEPAY_JWT'}');` : ''}
+
+$ch = curl_init('${url}');
+curl_setopt_array($ch, [
+    CURLOPT_CUSTOMREQUEST => '${endpoint.method}',
+    CURLOPT_HTTPHEADER => $headers,
+    CURLOPT_RETURNTRANSFER => true,${body ? `
+    CURLOPT_POSTFIELDS => json_encode(${JSON.stringify(endpoint.body, null, 4)}),` : ''}
+]);
+
+$result = json_decode(curl_exec($ch), true);`;
+  }
+
+  return `HttpClient client = HttpClient.newHttpClient();
+HttpRequest.Builder builder = HttpRequest.newBuilder()
+    .uri(URI.create("${url}"))
+    .header("Content-Type", "application/json")${header ? `
+    .header("Authorization", "Bearer " + System.getenv("${endpoint.auth === 'Secret Key' ? 'NYLEPAY_SECRET_KEY' : 'NYLEPAY_JWT'}"))` : ''};
+
+HttpRequest request = builder
+    .method("${endpoint.method}", ${body ? `HttpRequest.BodyPublishers.ofString("""
+${body}
+""")` : 'HttpRequest.BodyPublishers.noBody()'})
+    .build();
+
+HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());`;
 }
-charge = requests.post(
-    'https://api.nylepay.com/api/v1/merchant/charges',
-    headers=secret_headers,
-    json={'method':'MPESA','phone':'254712345678','amount':1500,'reference':'ORD-001'}
-)`,
-};
 
-const tags = [...new Set(ENDPOINTS.map(e => e.tag))];
+const languages = ['cURL', 'JavaScript', 'Python', 'PHP', 'Java'];
+const groups = ['All', ...new Set(endpoints.map((endpoint) => endpoint.group))];
 
-export default function ApiDocs() {
-  const [tab, setTab]         = useState('reference');
-  const [active, setActive]   = useState(ENDPOINTS[0]);
-  const [langW, setLangW]     = useState('Node.js');
-  const [langA, setLangA]     = useState('Node.js');
-  const [copied, setCopied]   = useState('');
-  const [filterTag, setFilterTag] = useState('All');
+export default function ApiDocs({ embedded = false }) {
+  const [tab, setTab] = useState('reference');
+  const [language, setLanguage] = useState('cURL');
+  const [group, setGroup] = useState('All');
+  const [activePath, setActivePath] = useState(endpoints[0].path);
+  const [copied, setCopied] = useState(false);
 
-  const copy = (text, id) => {
-    navigator.clipboard.writeText(text);
-    setCopied(id);
-    setTimeout(() => setCopied(''), 2000);
+  const filtered = useMemo(() => (
+    group === 'All' ? endpoints : endpoints.filter((endpoint) => endpoint.group === group)
+  ), [group]);
+  const active = endpoints.find((endpoint) => endpoint.path === activePath) || filtered[0] || endpoints[0];
+  const code = sample(active, language);
+
+  const copy = async () => {
+    await navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1600);
   };
 
-  const mc = (m) => m === 'GET' ? 'badge-method-get' : 'badge-method-post';
-  const authLabel = (a) => a === 'secret' ? '🔑 Secret Key' : a === 'jwt' ? '🔐 JWT Bearer' : '🔓 Public';
-  const authClass = (a) => a === 'secret' ? 'badge-amber' : a === 'jwt' ? 'badge-blue' : 'badge-green';
+  const content = (
+    <main className={embedded ? 'docs-shell embedded' : 'docs-shell'}>
+      {!embedded && (
+        <section className="marketing-subhero docs-hero">
+          <div className="eyebrow">API documentation</div>
+          <h1>Integrate NylePay from any language</h1>
+          <p>
+            NylePay is a JSON over HTTP API. Use cURL, JavaScript, Python, PHP, Java, Go, Ruby, .NET, or any stack that can send HTTPS requests.
+          </p>
+        </section>
+      )}
 
-  const filtered = filterTag === 'All' ? ENDPOINTS : ENDPOINTS.filter(e => e.tag === filterTag);
-
-  return (
-    <div>
-      {/* Tab bar */}
-      <div className="tab-bar" style={{ marginBottom: '1.5rem' }}>
-        {[['reference','Endpoint Reference'],['webhooks','Webhook Events'],['sandbox','Sandbox Tester']].map(([id, label]) => (
-          <button key={id} className={`tab-item ${tab===id?'active':''}`} onClick={() => setTab(id)}>{label}</button>
+      <div className="tab-bar">
+        {[
+          ['reference', 'Endpoint reference'],
+          ['webhooks', 'Webhooks'],
+          ['sandbox', 'Sandbox tester'],
+        ].map(([id, label]) => (
+          <button key={id} className={`tab-item ${tab === id ? 'active' : ''}`} onClick={() => setTab(id)}>{label}</button>
         ))}
       </div>
 
-      {/* ─── ENDPOINT REFERENCE ─── */}
       {tab === 'reference' && (
-        <div style={{ display:'grid', gridTemplateColumns:'260px 1fr', gap:'1.5rem', alignItems:'start' }}>
-          {/* Sidebar */}
-          <div style={{ position:'sticky', top:'1rem', background:'var(--bg-surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-md)', overflow:'hidden' }}>
-            {/* Tag filter */}
-            <div style={{ padding:'0.625rem', borderBottom:'1px solid var(--border)', display:'flex', gap:'0.25rem', flexWrap:'wrap' }}>
-              {['All', ...tags].map(t => (
-                <button key={t} onClick={() => setFilterTag(t)}
-                  style={{ padding:'0.2rem 0.6rem', borderRadius:'100px', border:'none', fontSize:'0.72rem', fontWeight:600, cursor:'pointer', background: filterTag===t ? 'var(--brand)' : 'var(--gray-100)', color: filterTag===t ? '#fff' : 'var(--text-secondary)', fontFamily:'inherit' }}>
-                  {t}
-                </button>
+        <section className="docs-reference">
+          <aside className="docs-sidebar">
+            <div className="docs-filter">
+              {groups.map((item) => (
+                <button key={item} className={group === item ? 'active' : ''} onClick={() => setGroup(item)}>{item}</button>
               ))}
             </div>
-            {filtered.map(ep => (
-              <div key={ep.path+ep.method} onClick={() => setActive(ep)}
-                style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.6rem 0.875rem', cursor:'pointer', borderBottom:'1px solid var(--border)', background: active===ep ? 'var(--blue-50)' : 'transparent', borderLeft: active===ep ? '3px solid var(--brand)' : '3px solid transparent', transition:'all 0.1s' }}>
-                <span className={`badge ${mc(ep.method)}`} style={{ fontSize:'0.58rem' }}>{ep.method}</span>
-                <span style={{ fontSize:'0.8rem', color:'var(--text-secondary)', fontWeight:500 }}>{ep.title}</span>
-              </div>
+            {filtered.map((endpoint) => (
+              <button
+                key={`${endpoint.method}-${endpoint.path}`}
+                className={`endpoint-row ${active.path === endpoint.path ? 'active' : ''}`}
+                onClick={() => setActivePath(endpoint.path)}
+              >
+                <span className={`badge ${endpoint.method === 'GET' ? 'badge-method-get' : 'badge-method-post'}`}>{endpoint.method}</span>
+                <span>{endpoint.title}</span>
+              </button>
             ))}
-          </div>
+          </aside>
 
-          {/* Detail */}
-          <div>
-            <div style={{ display:'flex', alignItems:'center', gap:'0.75rem', marginBottom:'1rem', flexWrap:'wrap' }}>
-              <span className={`badge ${mc(active.method)}`}>{active.method}</span>
-              <code style={{ fontFamily:'var(--font-mono)', fontSize:'0.9rem', color:'var(--text-primary)', fontWeight:600 }}>{active.path}</code>
-              <span className={`badge ${authClass(active.auth)}`} style={{ marginLeft:'auto' }}>{authLabel(active.auth)}</span>
+          <article className="docs-detail">
+            <div className="endpoint-heading">
+              <span className={`badge ${active.method === 'GET' ? 'badge-method-get' : 'badge-method-post'}`}>{active.method}</span>
+              <code>{active.path}</code>
+              <span className="badge badge-gray">{active.auth}</span>
             </div>
-            <h2 style={{ fontSize:'1.375rem', fontWeight:800, letterSpacing:'-0.02em', marginBottom:'0.375rem' }}>{active.title}</h2>
-            <p style={{ color:'var(--text-secondary)', lineHeight:1.7, marginBottom:'1.5rem', fontSize:'0.9375rem' }}>{active.desc}</p>
+            <h2>{active.title}</h2>
+            <p>{active.description}</p>
 
             {active.body && (
-              <div className="card" style={{ marginBottom:'1.25rem' }}>
-                <h4 style={{ fontSize:'0.78rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', color:'var(--text-tertiary)', marginBottom:'0.875rem' }}>Request Body</h4>
-                <table className="data-table">
-                  <thead><tr><th>Field</th><th>Type / Description</th></tr></thead>
-                  <tbody>
-                    {Object.entries(active.body).map(([k,v]) => (
-                      <tr key={k}>
-                        <td><code style={{ fontFamily:'var(--font-mono)', fontSize:'0.82rem', color:'var(--blue-700)', background:'var(--blue-50)', padding:'0.1rem 0.35rem', borderRadius:'3px' }}>{k}</code></td>
-                        <td style={{ color:'var(--text-secondary)', fontSize:'0.84rem' }}>{v}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="card docs-card">
+                <h3>Request body</h3>
+                <pre className="schema-preview">{requestFor(active)}</pre>
               </div>
             )}
 
-            <div className="card" style={{ marginBottom:'1.25rem' }}>
-              <h4 style={{ fontSize:'0.78rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', color:'var(--text-tertiary)', marginBottom:'0.875rem' }}>Response Schema</h4>
-              <div className="code-block" style={{ position:'relative' }}>
-                <button className="copy-btn" onClick={() => copy(JSON.stringify(active.response,null,2),'resp')}>{copied==='resp'?'✓ Copied':'Copy'}</button>
-                <pre><code>{JSON.stringify(active.response, null, 2)}</code></pre>
-              </div>
-            </div>
-
-            {/* Auth note on first two */}
-            {(active.tag === 'Auth' || active === ENDPOINTS[0]) && (
-              <div className="card">
-                <h4 style={{ fontSize:'0.78rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', color:'var(--text-tertiary)', marginBottom:'0.875rem' }}>
-                  Authentication — Code Example
-                </h4>
-                <div style={{ display:'flex', gap:'0.25rem', marginBottom:'0.5rem' }}>
-                  {Object.keys(AUTH_CODE).map(l => (
-                    <button key={l} onClick={() => setLangA(l)} style={{ padding:'0.2rem 0.65rem', border:'none', borderRadius:'4px', fontSize:'0.75rem', fontWeight:600, cursor:'pointer', fontFamily:'inherit', background: langA===l ? 'var(--brand)' : 'var(--gray-100)', color: langA===l ? '#fff' : 'var(--text-secondary)' }}>{l}</button>
+            <div className="card docs-card">
+              <div className="code-header">
+                <h3>{language} example</h3>
+                <div className="language-tabs">
+                  {languages.map((item) => (
+                    <button key={item} className={language === item ? 'active' : ''} onClick={() => setLanguage(item)}>{item}</button>
                   ))}
                 </div>
-                <div className="code-block" style={{ position:'relative' }}>
-                  <button className="copy-btn" onClick={() => copy(AUTH_CODE[langA],'auth')}>{copied==='auth'?'✓ Copied':'Copy'}</button>
-                  <pre><code>{AUTH_CODE[langA]}</code></pre>
-                </div>
               </div>
-            )}
-          </div>
-        </div>
+              <div className="code-block">
+                <button className="copy-btn" onClick={copy}>{copied ? 'Copied' : 'Copy'}</button>
+                <pre><code>{code}</code></pre>
+              </div>
+            </div>
+          </article>
+        </section>
       )}
 
-      {/* ─── WEBHOOK EVENTS ─── */}
       {tab === 'webhooks' && (
-        <div>
-          <div className="alert alert-info" style={{ marginBottom:'1.5rem' }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink:0, marginTop:'1px' }}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-            <div>Every POST to your webhook URL includes an <code style={{ fontFamily:'var(--font-mono)', fontSize:'0.82rem' }}>X-NylePay-Signature</code> header containing <code style={{ fontFamily:'var(--font-mono)', fontSize:'0.82rem' }}>HMAC-SHA256(webhookSecret, rawBody)</code>. Always verify this header before fulfilling orders.</div>
+        <section className="docs-webhooks">
+          <div className="alert alert-info">
+            Always verify the <code>X-NylePay-Signature</code> header against the raw request body before fulfilling an order.
           </div>
-
-          <div className="card" style={{ marginBottom:'1.5rem' }}>
-            <h3 style={{ fontSize:'0.9375rem', fontWeight:700, marginBottom:'1rem' }}>Event Types</h3>
+          <div className="card docs-card">
+            <h3>Event types</h3>
             <table className="data-table">
-              <thead><tr><th>Event</th><th>Description</th></tr></thead>
+              <thead><tr><th>Event</th><th>When it is sent</th></tr></thead>
               <tbody>
-                {WEBHOOK_EVENTS.map(e => (
-                  <tr key={e.event}>
-                    <td><code style={{ fontFamily:'var(--font-mono)', fontSize:'0.82rem', color:'var(--blue-700)', background:'var(--blue-50)', padding:'0.1rem 0.4rem', borderRadius:'3px', whiteSpace:'nowrap' }}>{e.event}</code></td>
-                    <td style={{ color:'var(--text-secondary)', fontSize:'0.875rem' }}>{e.trigger}</td>
-                  </tr>
+                {webhookEvents.map(([event, description]) => (
+                  <tr key={event}><td><code>{event}</code></td><td>{description}</td></tr>
                 ))}
               </tbody>
             </table>
           </div>
-
-          <div className="card">
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'0.875rem' }}>
-              <h3 style={{ fontSize:'0.9375rem', fontWeight:700 }}>Signature Verification</h3>
-              <div style={{ display:'flex', gap:'0.25rem' }}>
-                {Object.keys(WEBHOOK_CODE).map(l => (
-                  <button key={l} onClick={() => setLangW(l)} style={{ padding:'0.2rem 0.65rem', border:'none', borderRadius:'4px', fontSize:'0.75rem', fontWeight:600, cursor:'pointer', fontFamily:'inherit', background: langW===l ? 'var(--brand)' : 'var(--gray-100)', color: langW===l ? '#fff' : 'var(--text-secondary)' }}>{l}</button>
-                ))}
-              </div>
-            </div>
-            <div className="code-block" style={{ position:'relative' }}>
-              <button className="copy-btn" onClick={() => copy(WEBHOOK_CODE[langW],'hook')}>{copied==='hook'?'✓ Copied':'Copy'}</button>
-              <pre><code>{WEBHOOK_CODE[langW]}</code></pre>
+          <div className="card docs-card">
+            <h3>Verification formula</h3>
+            <div className="code-block">
+              <pre><code>{`expected = HMAC_SHA256(webhookSecret, rawRequestBody)
+secure_compare(expected, request.headers['X-NylePay-Signature'])`}</code></pre>
             </div>
           </div>
-        </div>
+        </section>
       )}
 
-      {/* ─── SANDBOX TESTER ─── */}
       {tab === 'sandbox' && <SandboxTester />}
+    </main>
+  );
+
+  if (embedded) return content;
+
+  return (
+    <div className="marketing-page">
+      <MarketingNav />
+      {content}
     </div>
   );
 }

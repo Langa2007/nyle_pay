@@ -51,7 +51,7 @@ How money moves within NylePay:
 ### B. Merchant Checkout
 - **Process**: Customer pays a Merchant via a Checkout Session.
 - **Mechanism**: Customer's wallet is debited -> NylePay takes a small fee -> Merchant's wallet is credited.
-- **Settlement**: Merchant balance is available for withdrawal immediately (Instant Settlement).
+- **Settlement**: Merchant balance is immediately paid out to their registered external account (M-Pesa/Bank) upon checkout completion (Real-Time Settlement).
 
 ---
 

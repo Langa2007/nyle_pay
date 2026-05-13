@@ -7,6 +7,9 @@ import com.nyle.nylepay.repositories.TransactionRepository;
 import com.nyle.nylepay.models.User;
 import com.nyle.nylepay.repositories.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nyle.nylepay.models.CheckoutSession;
+import com.nyle.nylepay.repositories.CheckoutSessionRepository;
+import com.nyle.nylepay.services.merchant.SettlementService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -70,12 +73,9 @@ public class TransactionService {
         return transactionRepository.save(transaction);
     }
 
-    private final TransactionRepository transactionRepository;
-    private final UserRepository userRepository;
-    private final WalletService walletService;
-    private final MpesaService mpesaService;
-    private final EmailService emailService;
     private final BankTransferService bankTransferService;
+    private final CheckoutSessionRepository checkoutSessionRepository;
+    private final SettlementService settlementService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public TransactionService(TransactionRepository transactionRepository,
@@ -83,13 +83,17 @@ public class TransactionService {
             WalletService walletService,
             MpesaService mpesaService,
             EmailService emailService,
-            BankTransferService bankTransferService) {
+            BankTransferService bankTransferService,
+            CheckoutSessionRepository checkoutSessionRepository,
+            SettlementService settlementService) {
         this.transactionRepository = transactionRepository;
         this.userRepository = userRepository;
         this.walletService = walletService;
         this.mpesaService = mpesaService;
         this.emailService = emailService;
         this.bankTransferService = bankTransferService;
+        this.checkoutSessionRepository = checkoutSessionRepository;
+        this.settlementService = settlementService;
     }
 
     @Transactional
@@ -532,7 +536,28 @@ public class TransactionService {
                 .findByExternalId(checkoutRequestId);
 
         if (pendingTransaction.isEmpty()) {
-            logger.warn("No MPesa deposit transaction found for CheckoutRequestID={}", checkoutRequestId);
+            // Check if this is a merchant CheckoutSession
+            Optional<CheckoutSession> sessionOpt = checkoutSessionRepository.findByProviderIntentId(checkoutRequestId);
+            if (sessionOpt.isPresent()) {
+                CheckoutSession session = sessionOpt.get();
+                if ("COMPLETED".equals(session.getStatus())) {
+                    logger.info("Ignoring duplicate MPesa callback for settled CheckoutSession {}", session.getReference());
+                    return;
+                }
+                
+                if ("0".equals(resultCode)) {
+                    session.setStatus("COMPLETED");
+                    checkoutSessionRepository.save(session);
+                    settlementService.settleMerchantRealTime(session, session.getAmount());
+                    logger.info("CheckoutSession {} completed via MPesa real-time settlement", session.getReference());
+                } else {
+                    session.setStatus("FAILED");
+                    checkoutSessionRepository.save(session);
+                }
+                return;
+            }
+
+            logger.warn("No MPesa transaction or CheckoutSession found for CheckoutRequestID={}", checkoutRequestId);
             return;
         }
 
