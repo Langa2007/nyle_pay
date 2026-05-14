@@ -1,15 +1,14 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { AuthContext } from './authContextValue';
 
-const AuthContext = createContext(null);
-
-const API = 'http://localhost:8080';
+const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
 
 export function AuthProvider({ children }) {
   const [user, setUser]     = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const stored = localStorage.getItem('npy_merchant_session');
+    const stored = localStorage.getItem('npy_business_session');
     if (stored) {
       try { setUser(JSON.parse(stored)); } catch { /* corrupt */ }
     }
@@ -37,17 +36,17 @@ export function AuthProvider({ children }) {
       email: userEmail,
       fullName,
       accountNumber,
-      merchantId: null,
+      businessId: null,
       businessName: null,
       apiKeys: null,
     };
-    localStorage.setItem('npy_merchant_session', JSON.stringify(session));
+    localStorage.setItem('npy_business_session', JSON.stringify(session));
     setUser(session);
     return session;
   };
 
   /**
-   * Create a new NylePay consumer account (required before merchant registration).
+   * Create a new NylePay user account required before business onboarding.
    * mpesaNumber and countryCode are required by the backend.
    */
   const signup = async (email, password, fullName, mpesaNumber = '', countryCode = 'KE') => {
@@ -64,26 +63,20 @@ export function AuthProvider({ children }) {
     return login(email, password);
   };
 
-  const updateMerchantInfo = (info) => {
+  const updateBusinessInfo = (info) => {
     const updated = { ...user, ...info };
-    localStorage.setItem('npy_merchant_session', JSON.stringify(updated));
+    localStorage.setItem('npy_business_session', JSON.stringify(updated));
     setUser(updated);
   };
 
   const logout = () => {
-    localStorage.removeItem('npy_merchant_session');
+    localStorage.removeItem('npy_business_session');
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, logout, updateMerchantInfo }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, logout, updateBusinessInfo }}>
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used inside AuthProvider');
-  return ctx;
 }

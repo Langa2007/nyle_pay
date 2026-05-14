@@ -1,16 +1,80 @@
-# React + Vite
+# NylePay Business
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+NylePay Business is the business-facing web console for NylePay's routing engine. It is designed for Kenyan businesses first: collect money from the rail a customer wants to use, then route and settle it to the account the business chooses in real time.
 
-Currently, two official plugins are available:
+The product direction is simple: one business account, many financial rails. A business should be able to accept M-Pesa, cards, wallets, bank transfers, and crypto, then settle to M-Pesa, bank, wallet, Paybill, or future country-specific mobile money rails as NylePay expands across Africa.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Gap It Fills
 
-## React Compiler
+Businesses in Kenya often deal with fragmented payment operations:
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- M-Pesa collections live in one workflow.
+- Bank settlement and reconciliation live somewhere else.
+- Card payments need another provider.
+- Crypto liquidity and fiat conversion are disconnected from ordinary business accounts.
+- Developers must integrate each provider separately.
 
-## Expanding the ESLint configuration
+NylePay Business turns that into a routing problem. The business tells NylePay where value is coming from, where it should go, and which preference matters most: fastest, lowest cost, M-Pesa first, bank first, wallet reserve, or fallback-enabled.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Core Promise
+
+- Collect from any supported source rail.
+- Quote fees, FX, speed, and destination before execution.
+- Execute the route with idempotency.
+- Track every leg until completion.
+- Settle to the configured business destination in real time where the rail allows.
+- Send signed webhooks for route and settlement events.
+- Give developers a sandbox that behaves like the real routing engine without moving real money.
+
+## Business Console Scope
+
+The web app is meant to provide:
+
+- Business onboarding and initial settlement setup.
+- API key management with secret keys shown once.
+- Route creation and quote testing.
+- Route history with source, destination, fee, FX, provider reference, and status.
+- Settlement policy management.
+- Webhook configuration and delivery visibility.
+- Developer docs and sandbox route simulation.
+- Exportable reconciliation views for finance teams.
+
+## Market Direction
+
+NylePay should not compete only as another checkout provider. The stronger position is business money routing:
+
+- For small businesses: make it simple to receive money and settle where they want.
+- For developers: one API instead of many payment integrations.
+- For marketplaces: collect from many rails and settle many destinations.
+- For crypto-aware businesses: bridge crypto value into Kenyan business rails legally and auditable.
+- For African expansion: keep one NylePay API while adding each country's dominant mobile money rails behind it.
+
+## Developer Environment
+
+Set the backend base URL with:
+
+```bash
+VITE_API_BASE_URL=http://localhost:8080
+```
+
+Common commands:
+
+```bash
+npm install
+npm run dev
+npm run build
+```
+
+The sandbox tester in the docs is intended to cover:
+
+- Authentication.
+- Business registration.
+- Route capabilities.
+- M-Pesa to bank quotes.
+- Crypto to M-Pesa quotes.
+- Route execution.
+- Route status inspection.
+
+## Security Direction
+
+Secret credentials must never be stored in browser local storage. The console should show them once during registration, then rely on the backend for key rotation, audit logs, and status display. Public keys can be shown in the browser; secret keys and webhook secrets belong only in server-side environment variables.

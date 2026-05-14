@@ -11,7 +11,7 @@ const endpoints = [
     path: '/api/auth/register',
     auth: 'Public',
     title: 'Create a NylePay user',
-    description: 'Creates the account used to access the merchant dashboard and start onboarding.',
+    description: 'Creates the user identity used to access NylePay Business.',
     body: { fullName: 'Jane Wanjiru', email: 'payments@example.com', password: 'strong-password', mpesaNumber: '254712345678', countryCode: 'KE' },
   },
   {
@@ -20,70 +20,88 @@ const endpoints = [
     path: '/api/auth/login',
     auth: 'Public',
     title: 'Sign in',
-    description: 'Returns a JWT used for dashboard and merchant onboarding endpoints.',
+    description: 'Returns a JWT used for dashboard access and business onboarding.',
     body: { email: 'payments@example.com', password: 'strong-password' },
   },
   {
-    group: 'Merchant setup',
+    group: 'Business setup',
     method: 'POST',
-    path: '/api/merchant/register',
+    path: '/api/business/register',
     auth: 'JWT Bearer',
-    title: 'Register a merchant',
-    description: 'Creates a merchant profile and returns API credentials. Store secret keys server-side only.',
-    body: { businessName: 'Acme Store', businessEmail: 'payments@acme.co.ke', settlementPhone: '254712345678', webhookUrl: 'https://example.com/nylepay/webhook' },
+    title: 'Register a business',
+    description: 'Creates a business profile, initial settlement policy, and API credentials. Secret credentials must stay server-side.',
+    body: { businessName: 'Acme Store', businessEmail: 'payments@acme.co.ke', settlementMethod: 'MPESA', settlementPhone: '254712345678', webhookUrl: 'https://example.com/nylepay/webhook' },
   },
   {
-    group: 'Merchant setup',
+    group: 'Routing',
     method: 'GET',
-    path: '/api/merchant/profile',
-    auth: 'JWT Bearer',
-    title: 'Get merchant profile',
-    description: 'Returns merchant status, settlement configuration, and public API key details.',
-  },
-  {
-    group: 'Payments',
-    method: 'POST',
-    path: '/api/merchant/payment-link',
-    auth: 'JWT Bearer',
-    title: 'Create a payment link',
-    description: 'Creates a hosted checkout URL for an order. Customers can pay using available NylePay rails.',
-    body: { amount: 1500, currency: 'KES', description: 'Order #1001', redirectUrl: 'https://example.com/thank-you', expiryMinutes: 60 },
-  },
-  {
-    group: 'Payments',
-    method: 'POST',
-    path: '/api/v1/merchant/charges',
+    path: '/api/routes/capabilities?country=KE',
     auth: 'Secret Key',
-    title: 'Create a direct charge',
-    description: 'Initiates a server-side merchant charge, such as an M-Pesa STK Push.',
-    body: { method: 'MPESA', phone: '254712345678', amount: 1500, reference: 'ORDER-1001' },
+    title: 'List route capabilities',
+    description: 'Returns supported source and destination rails for a country, starting with Kenya.',
   },
   {
-    group: 'Payments',
+    group: 'Routing',
+    method: 'POST',
+    path: '/api/routes/quote',
+    auth: 'Secret Key',
+    title: 'Quote a route',
+    description: 'Prices a route before money moves, including rail, fee, estimated speed, FX, and fallback information.',
+    body: {
+      sourceRail: 'MPESA',
+      destinationRail: 'BANK',
+      sourceCurrency: 'KES',
+      destinationCurrency: 'KES',
+      amount: 1500,
+      customerPhone: '254712345678',
+      destination: { bankCode: '01', accountNumber: '1234567890' },
+      reference: 'ORDER-1001',
+    },
+  },
+  {
+    group: 'Routing',
+    method: 'POST',
+    path: '/api/routes/execute',
+    auth: 'Secret Key',
+    title: 'Execute a route',
+    description: 'Starts a quoted route. NylePay tracks each leg until the route is completed, failed, or awaiting customer/provider action.',
+    body: { quoteId: 'rtq_123', idempotencyKey: 'ORDER-1001' },
+  },
+  {
+    group: 'Routing',
     method: 'GET',
-    path: '/api/v1/merchant/balance',
+    path: '/api/routes/{routeId}',
     auth: 'Secret Key',
-    title: 'Get settlement balance',
-    description: 'Returns available and pending merchant settlement balances.',
+    title: 'Get route status',
+    description: 'Returns route status, source, destination, fees, provider references, and leg-level state.',
   },
   {
-    group: 'Payouts',
+    group: 'Checkout',
     method: 'POST',
-    path: '/api/v1/merchant/transfers',
+    path: '/api/business/checkout-links',
+    auth: 'JWT Bearer',
+    title: 'Create business checkout link',
+    description: 'Creates a hosted checkout URL that resolves into a NylePay route after the customer selects a rail.',
+    body: { amount: 1500, currency: 'KES', description: 'Order #1001', destinationRail: 'MPESA', redirectUrl: 'https://example.com/thank-you', expiryMinutes: 60 },
+  },
+  {
+    group: 'Settlements',
+    method: 'POST',
+    path: '/api/business/settlement-policy',
     auth: 'Secret Key',
-    title: 'Create a payout',
-    description: 'Moves available merchant funds to an M-Pesa or bank destination.',
-    body: { amount: 2500, method: 'MPESA', phone: '254712345678', reference: 'PAYOUT-1001' },
+    title: 'Update settlement policy',
+    description: 'Sets primary destination, fallback destination, settlement mode, and route preference.',
+    body: { mode: 'REALTIME', primaryRail: 'MPESA', primaryPhone: '254712345678', fallbackRail: 'BANK', preference: 'FASTEST' },
   },
 ];
 
 const webhookEvents = [
-  ['payment.pending', 'A payment has been initiated and is awaiting customer action.'],
-  ['payment.completed', 'A payment has been confirmed and credited to merchant settlement balance.'],
-  ['payment.failed', 'A payment failed, timed out, or was cancelled.'],
-  ['payment.refunded', 'A payment has been refunded or reversed.'],
-  ['payout.completed', 'A settlement payout has been delivered.'],
-  ['payout.failed', 'A settlement payout failed and funds remain available.'],
+  ['route.created', 'A route has been accepted and is ready for provider processing.'],
+  ['route.processing', 'One or more route legs are in progress.'],
+  ['route.completed', 'The final destination has received the routed value.'],
+  ['route.failed', 'The route failed, timed out, or was rejected.'],
+  ['settlement.completed', 'A business settlement was delivered to the configured destination.'],
+  ['webhook.retry', 'A webhook delivery failed and has been scheduled for retry.'],
 ];
 
 function requestFor(endpoint) {
@@ -134,38 +152,17 @@ response = requests.${endpoint.method.toLowerCase()}(
 result = response.json()`;
   }
 
-  if (language === 'PHP') {
-    return `<?php
-$headers = ['Content-Type: application/json'];${header ? `
-$headers[] = 'Authorization: Bearer ' . getenv('${endpoint.auth === 'Secret Key' ? 'NYLEPAY_SECRET_KEY' : 'NYLEPAY_JWT'}');` : ''}
-
-$ch = curl_init('${url}');
-curl_setopt_array($ch, [
-    CURLOPT_CUSTOMREQUEST => '${endpoint.method}',
-    CURLOPT_HTTPHEADER => $headers,
-    CURLOPT_RETURNTRANSFER => true,${body ? `
-    CURLOPT_POSTFIELDS => json_encode(${JSON.stringify(endpoint.body, null, 4)}),` : ''}
-]);
-
-$result = json_decode(curl_exec($ch), true);`;
-  }
-
-  return `HttpClient client = HttpClient.newHttpClient();
-HttpRequest.Builder builder = HttpRequest.newBuilder()
+  return `HttpRequest request = HttpRequest.newBuilder()
     .uri(URI.create("${url}"))
     .header("Content-Type", "application/json")${header ? `
-    .header("Authorization", "Bearer " + System.getenv("${endpoint.auth === 'Secret Key' ? 'NYLEPAY_SECRET_KEY' : 'NYLEPAY_JWT'}"))` : ''};
-
-HttpRequest request = builder
+    .header("Authorization", "Bearer " + System.getenv("${endpoint.auth === 'Secret Key' ? 'NYLEPAY_SECRET_KEY' : 'NYLEPAY_JWT'}"))` : ''}
     .method("${endpoint.method}", ${body ? `HttpRequest.BodyPublishers.ofString("""
 ${body}
 """)` : 'HttpRequest.BodyPublishers.noBody()'})
-    .build();
-
-HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());`;
+    .build();`;
 }
 
-const languages = ['cURL', 'JavaScript', 'Python', 'PHP', 'Java'];
+const languages = ['cURL', 'JavaScript', 'Python', 'Java'];
 const groups = ['All', ...new Set(endpoints.map((endpoint) => endpoint.group))];
 
 export default function ApiDocs({ embedded = false }) {
@@ -192,9 +189,9 @@ export default function ApiDocs({ embedded = false }) {
       {!embedded && (
         <section className="marketing-subhero docs-hero">
           <div className="eyebrow">API documentation</div>
-          <h1>Integrate NylePay from any language</h1>
+          <h1>Route business money from any supported rail</h1>
           <p>
-            NylePay is a JSON over HTTP API. Use cURL, JavaScript, Python, PHP, Java, Go, Ruby, .NET, or any stack that can send HTTPS requests.
+            NylePay Business is a JSON over HTTP API for quoting, executing, settling, and reconciling routes across M-Pesa, banks, wallets, cards, and crypto rails.
           </p>
         </section>
       )}
@@ -218,11 +215,7 @@ export default function ApiDocs({ embedded = false }) {
               ))}
             </div>
             {filtered.map((endpoint) => (
-              <button
-                key={`${endpoint.method}-${endpoint.path}`}
-                className={`endpoint-row ${active.path === endpoint.path ? 'active' : ''}`}
-                onClick={() => setActivePath(endpoint.path)}
-              >
+              <button key={`${endpoint.method}-${endpoint.path}`} className={`endpoint-row ${active.path === endpoint.path ? 'active' : ''}`} onClick={() => setActivePath(endpoint.path)}>
                 <span className={`badge ${endpoint.method === 'GET' ? 'badge-method-get' : 'badge-method-post'}`}>{endpoint.method}</span>
                 <span>{endpoint.title}</span>
               </button>
@@ -266,7 +259,7 @@ export default function ApiDocs({ embedded = false }) {
       {tab === 'webhooks' && (
         <section className="docs-webhooks">
           <div className="alert alert-info">
-            Always verify the <code>X-NylePay-Signature</code> header against the raw request body before fulfilling an order.
+            Always verify the <code>X-NylePay-Signature</code> header against the raw request body before fulfilling an order or marking a route as settled.
           </div>
           <div className="card docs-card">
             <h3>Event types</h3>

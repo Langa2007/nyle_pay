@@ -1,16 +1,46 @@
-# React + Vite
+# NylePay Consumer Web
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This site is the public explainer for NylePay. It does not handle login, signup, wallet access, or account onboarding. Those flows belong inside the mobile app and the NylePay Business console.
 
-Currently, two official plugins are available:
+## Purpose
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+The site explains NylePay as a payment routing engine:
 
-## React Compiler
+- Money can start from M-Pesa, bank, card, wallet, or supported crypto rails.
+- Money can land in M-Pesa, bank, wallet, Paybill, Till, or future country-specific mobile money rails.
+- NylePay quotes the route, checks policy, executes the route, tracks every leg, and reconciles the result.
+- Businesses and developers use NylePay Business and the API documentation.
+- Individuals use the app, not the marketing website, for account access.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Main Public Sections
 
-## Expanding the ESLint configuration
+- What NylePay does.
+- How funds flow through the routing engine.
+- Route examples.
+- Developer and business links.
+- Account policy.
+- Trust, security, and compliance principles.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Links
+
+The public site links to the business console using:
+
+```bash
+VITE_NYLEPAY_BUSINESS_URL=http://localhost:5174
+```
+
+If the variable is not set, the site defaults to `http://localhost:5174`.
+
+## Commands
+
+```bash
+npm install
+npm run dev
+npm run build
+```
+
+## Product Positioning
+
+NylePay should not be described as only a wallet, crypto product, or merchant gateway. The stronger public position is:
+
+> Payment routing for African commerce. Any supported source, any supported destination, one legal route.

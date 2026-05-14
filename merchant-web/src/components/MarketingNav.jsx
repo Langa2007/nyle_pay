@@ -20,11 +20,11 @@ export default function MarketingNav() {
           </span>
           <span className="brand-copy">
             <strong>NylePay</strong>
-            <span>Merchant</span>
+            <span>Business</span>
           </span>
         </Link>
 
-        <nav className="marketing-links" aria-label="Merchant navigation">
+        <nav className="marketing-links" aria-label="Business navigation">
           {navItems.map((item) => (
             <NavLink
               key={item.to}

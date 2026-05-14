@@ -3,18 +3,19 @@ import { Link } from 'react-router-dom';
 import MarketingNav from '../components/MarketingNav';
 
 const included = [
-  'Hosted checkout and payment links',
-  'M-Pesa, card, wallet, and crypto payment options',
-  'Merchant dashboard and transaction exports',
-  'Signed webhook delivery',
-  'Sandbox credentials',
-  'Settlement tracking',
+  'Hosted checkout, payment links, and route intents',
+  'M-Pesa, card, wallet, bank, and crypto routing options',
+  'Business dashboard with exports and reconciliation',
+  'Signed webhook delivery and retry visibility',
+  'Sandbox credentials and route simulation',
+  'Real-time settlement policy management',
 ];
 
 const rows = [
-  ['M-Pesa and wallet payments', '1.5%', 'Charged on successful payments only'],
-  ['Card payments', 'Provider cost + NylePay margin', 'Shown in your merchant agreement'],
-  ['Bank or M-Pesa settlement', 'Standard payout fee applies', 'Depends on rail and destination'],
+  ['M-Pesa and wallet collections', '1.5%', 'Charged on successful routed payments only'],
+  ['Card and international payments', 'Provider cost + NylePay margin', 'Shown before production activation'],
+  ['Crypto intake and conversion', 'Network/provider cost + spread', 'Depends on asset, chain, and liquidity partner'],
+  ['Bank or M-Pesa settlement', 'Rail fee applies', 'Depends on destination and payout method'],
   ['Refunds and reversals', 'No NylePay platform fee', 'Provider fees may be non-refundable'],
 ];
 
@@ -25,18 +26,18 @@ export default function Pricing() {
       <main>
         <section className="marketing-subhero">
           <div className="eyebrow">Pricing</div>
-          <h1>Clear pricing for merchant payments</h1>
+          <h1>Clear pricing for business payment routing</h1>
           <p>
-            Start with a simple platform rate for successful payments. Custom terms are available for high-volume merchants and regulated payout use cases.
+            Start with a simple platform rate for successful local routes. Complex routes disclose provider fees, FX, spread, and settlement cost before money moves.
           </p>
         </section>
 
         <section className="pricing-layout">
           <article className="pricing-card primary">
-            <div className="pricing-kicker">Standard merchant plan</div>
+            <div className="pricing-kicker">Standard business plan</div>
             <h2>1.5%</h2>
-            <p>per successful NylePay merchant transaction, excluding third-party provider costs where applicable.</p>
-            <Link className="btn-primary" to="/register-business">Create merchant account</Link>
+            <p>per successful local NylePay route, excluding third-party provider, FX, network, or payout costs where applicable.</p>
+            <Link className="btn-primary" to="/register-business">Create business account</Link>
           </article>
 
           <article className="pricing-card">
@@ -69,8 +70,8 @@ export default function Pricing() {
 
         <section className="cta-band">
           <div>
-            <h2>Need volume pricing?</h2>
-            <p>Contact NylePay support after onboarding to review settlement volume, risk controls, and custom terms.</p>
+            <h2>Need custom routing terms?</h2>
+            <p>High-volume businesses can negotiate route pricing by rail, destination, risk profile, and settlement volume.</p>
           </div>
           <Link className="btn-outline" to="/docs">Review integration options</Link>
         </section>

@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import MarketingNav from '../components/MarketingNav';
 
 const featurePreview = [
-  ['Unified checkout', 'Accept M-Pesa, cards, wallet payments, and crypto through one hosted checkout or API.'],
-  ['Real-time settlement', 'Track completed payments instantly and move funds to M-Pesa or bank rails.'],
-  ['Signed webhooks', 'Every payment event is delivered with HMAC signatures for safe order fulfillment.'],
-  ['Merchant operations', 'Manage balances, payment links, API keys, refunds, and settlements from one dashboard.'],
+  ['Route any collection', 'Accept M-Pesa, cards, wallets, bank transfers, and crypto through one business API.'],
+  ['Settle in real time', 'Send value to the M-Pesa number, bank account, or wallet your business chooses.'],
+  ['Control fallback rails', 'Define what happens when a provider is slow, down, rejected, or too expensive.'],
+  ['Reconcile every leg', 'See source, destination, fees, FX, provider references, and webhook status in one place.'],
 ];
 
 export default function Landing() {
@@ -46,26 +46,26 @@ export default function Landing() {
       <main>
         <section className="merchant-hero">
           <div className="merchant-hero-copy">
-            <div className="eyebrow">Merchant payment infrastructure for Kenya and Africa</div>
-            <h1>NylePay Merchant</h1>
+            <div className="eyebrow">Business money routing for Kenya first, Africa next</div>
+            <h1>NylePay Business</h1>
             <p className="hero-lede">
-              Accept local and international payments, reconcile settlement, and automate commerce workflows with one REST API built around M-Pesa, cards, wallets, and merchant checkout.
+              Let customers pay from the rail they trust, then route the money to the account your business wants in real time. M-Pesa, bank, wallet, card, and crypto rails become one programmable business layer.
             </p>
             <div className="hero-actions">
-              <Link className="btn-primary" to="/register-business">Open merchant account</Link>
-              <Link className="btn-outline" to="/docs">View API docs</Link>
+              <Link className="btn-primary" to="/register-business">Open business account</Link>
+              <Link className="btn-outline" to="/docs">View routing API</Link>
             </div>
             <div className="merchant-metrics" aria-label="Platform highlights">
-              <div><strong>1.5%</strong><span>standard merchant fee</span></div>
-              <div><strong>T+0</strong><span>settlement tracking</span></div>
-              <div><strong>HMAC</strong><span>signed webhooks</span></div>
+              <div><strong>One API</strong><span>collections and payouts</span></div>
+              <div><strong>Real time</strong><span>settlement routing</span></div>
+              <div><strong>HMAC</strong><span>signed route webhooks</span></div>
             </div>
           </div>
 
-          <aside className="auth-panel" aria-label="Merchant sign in">
+          <aside className="auth-panel" aria-label="Business sign in">
             <div className="auth-panel-header">
-              <h2>{mode === 'signin' ? 'Sign in to dashboard' : 'Create merchant access'}</h2>
-              <p>{mode === 'signin' ? 'Manage payments, keys, and settlements.' : 'Create your access account before business registration.'}</p>
+              <h2>{mode === 'signin' ? 'Sign in to Business' : 'Create business access'}</h2>
+              <p>{mode === 'signin' ? 'Manage routes, keys, settlements, and webhooks.' : 'Create your access account before business onboarding.'}</p>
             </div>
 
             <div className="segmented-control">
@@ -95,7 +95,7 @@ export default function Landing() {
                 <div className="form-group">
                   <label className="form-label" htmlFor="mpesa">M-Pesa number</label>
                   <input id="mpesa" className="form-input" type="text" required value={mpesa} onChange={(event) => setMpesa(event.target.value)} placeholder="2547XXXXXXXX" />
-                  <p className="form-hint">Used for account verification and settlement setup.</p>
+                  <p className="form-hint">Used for account verification and first settlement destination.</p>
                 </div>
               )}
 
@@ -110,8 +110,8 @@ export default function Landing() {
 
         <section className="section-band">
           <div className="section-heading">
-            <span className="eyebrow">Built for merchant operations</span>
-            <h2>Everything a growing merchant needs to accept and manage payments</h2>
+            <span className="eyebrow">Built for business routing</span>
+            <h2>Collect from anywhere. Route to the account you choose.</h2>
           </div>
           <div className="feature-grid">
             {featurePreview.map(([title, body]) => (

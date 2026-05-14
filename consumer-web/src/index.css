@@ -92,6 +92,25 @@ ul { list-style: none; }
 
 img { display: block; max-width: 100%; }
 
+table th {
+  text-align: left;
+  padding: 1rem;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-bottom: 1px solid var(--border-color);
+}
+
+table td {
+  padding: 1rem;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-color);
+  vertical-align: top;
+}
+
+table tr:last-child td { border-bottom: 0; }
+
 /* ─── GLOBAL BACKGROUND GRID ────────────────────────────────────────────── */
 body::before {
   content: '';
@@ -396,4 +415,41 @@ body::before {
   /* Navbar: hide desktop links, show hamburger */
   nav .nav-links-desktop { display: none !important; }
   nav .nav-hamburger     { display: flex !important; }
+}
+
+@media (max-width: 1024px) {
+  [style*="grid-template-columns: minmax(0, 1.1fr) 440px"],
+  [style*="grid-template-columns: repeat(5"],
+  [style*="grid-template-columns: repeat(4"],
+  [style*="grid-template-columns: repeat(3"],
+  [style*="grid-template-columns: 1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  nav > div:nth-child(2) {
+    position: absolute;
+    top: 68px;
+    left: 5%;
+    right: 5%;
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 0.75rem !important;
+    padding: 1rem;
+    background: rgba(13,20,34,0.98);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    display: none !important;
+  }
+
+  nav > div:nth-child(2)[style*="flex"] {
+    display: flex !important;
+  }
+
+  nav > div:last-child a {
+    display: none !important;
+  }
+
+  nav button[aria-label="Toggle menu"] {
+    display: flex !important;
+  }
 }

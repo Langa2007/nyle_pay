@@ -4,34 +4,34 @@ import MarketingNav from '../components/MarketingNav';
 
 const features = [
   {
-    title: 'Hosted checkout',
-    body: 'Send customers to a NylePay checkout page that supports M-Pesa, cards, NylePay wallet payments, and crypto without exposing your team to card data.',
-    details: ['Payment links with expiry controls', 'Redirect URLs after payment', 'Customer contact capture for receipts'],
+    title: 'Universal collections',
+    body: 'Businesses can accept M-Pesa, cards, wallet balances, bank transfers, and crypto without building a separate integration for every rail.',
+    details: ['Hosted checkout and API intents', 'M-Pesa-first Kenyan flows', 'Crypto and fiat support without removing either side'],
   },
   {
-    title: 'Direct API charges',
-    body: 'Use server-side API calls to initiate M-Pesa STK pushes, inspect balances, and trigger merchant payouts from your own backend.',
-    details: ['Secret-key authentication', 'JSON request and response payloads', 'Works with any HTTP client or language'],
+    title: 'Routing policies',
+    body: 'Decide where money should land by default, then define fallback paths for provider downtime, failed payouts, high fees, or customer preference.',
+    details: ['Primary and fallback destinations', 'Rail preference rules', 'Real-time route decisions'],
   },
   {
-    title: 'Settlement and payouts',
-    body: 'Track completed payments and settle funds to M-Pesa or bank accounts with a ledger designed for reconciliation.',
-    details: ['Available and pending balances', 'Payout references', 'Webhook events for payout status'],
+    title: 'Real-time settlement',
+    body: 'Move funds to the selected M-Pesa number, bank account, or NylePay wallet as soon as the route is confirmed and risk checks pass.',
+    details: ['Available and pending balances', 'Settlement references', 'Route-level reconciliation'],
   },
   {
-    title: 'Webhooks and reconciliation',
-    body: 'Receive signed webhook events for payment completion, failures, refunds, and payout updates.',
-    details: ['HMAC-SHA256 signatures', 'Retry-safe event handling', 'Reference fields for order matching'],
+    title: 'Route visibility',
+    body: 'Every transaction is shown as a route with source, destination, provider, fees, FX, status, and provider references.',
+    details: ['Leg-by-leg status tracking', 'Retryable failures', 'Exports for finance teams'],
   },
   {
-    title: 'Security and compliance',
-    body: 'NylePay combines JWT access, secret-key merchant APIs, encrypted credentials, AML checks, and audit trails.',
-    details: ['HMAC verified provider webhooks', 'Role-based admin flows', 'KYC and AML guardrails'],
+    title: 'Secure developer layer',
+    body: 'Use server-side secret keys, signed webhooks, sandbox credentials, audit trails, and encrypted provider credentials.',
+    details: ['HMAC-SHA256 webhooks', 'Secret keys stay server-side', 'Sandbox route simulation'],
   },
   {
-    title: 'Developer sandbox',
-    body: 'Test payment flows before production activation using sandbox credentials and predictable responses.',
-    details: ['Test key prefixes', 'No real money movement', 'Examples for multiple languages'],
+    title: 'Africa-ready expansion',
+    body: 'Start with Kenya and M-Pesa, then add country-specific mobile money rails without changing the business-facing API model.',
+    details: ['Country capability discovery', 'Provider abstraction', 'One API contract for many rails'],
   },
 ];
 
@@ -42,9 +42,9 @@ export default function Features() {
       <main>
         <section className="marketing-subhero">
           <div className="eyebrow">Features</div>
-          <h1>Payment infrastructure for serious merchant workflows</h1>
+          <h1>Business routing infrastructure for serious money movement</h1>
           <p>
-            NylePay gives merchants a single operational layer for checkout, API-driven payments, settlement, webhooks, and developer tooling.
+            NylePay Business gives companies one operational layer for collecting, converting, routing, settling, and reconciling value across fiat and crypto rails.
           </p>
         </section>
 
@@ -62,8 +62,8 @@ export default function Features() {
 
         <section className="cta-band">
           <div>
-            <h2>Ready to integrate NylePay?</h2>
-            <p>Start with hosted checkout, then move to direct API payments as your product grows.</p>
+            <h2>Build on the routing layer</h2>
+            <p>Start with checkout or route intents, then settle value to the destination your business chooses.</p>
           </div>
           <Link className="btn-primary" to="/docs">Read the API docs</Link>
         </section>
