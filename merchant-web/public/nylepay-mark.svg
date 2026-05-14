@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-labelledby="title desc">
+  <title id="title">NylePay mark</title>
+  <desc id="desc">A professional blue payment routing mark.</desc>
+  <defs>
+    <linearGradient id="bg" x1="18" y1="10" x2="80" y2="88" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2F80ED"/>
+      <stop offset="0.58" stop-color="#1769E0"/>
+      <stop offset="1" stop-color="#0F4FA8"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="25" y1="17" x2="74" y2="82" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#EAF4FF"/>
+      <stop offset="1" stop-color="#A7CBFF"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="7" stdDeviation="8" flood-color="#1769E0" flood-opacity="0.22"/>
+    </filter>
+  </defs>
+  <rect x="8" y="8" width="80" height="80" rx="22" fill="url(#bg)" filter="url(#shadow)"/>
+  <path d="M26 63V31.8c0-3.1 3.7-4.7 5.9-2.5l31.5 31.2c2.2 2.2.7 5.9-2.5 5.9h-2.2c-3.4 0-6.7-1.4-9.1-3.8L37.8 50.8V63c0 3.2-2.6 5.8-5.8 5.8S26 66.2 26 63Z" fill="#fff"/>
+  <path d="M70 33v30.8c0 3.1-3.7 4.7-5.9 2.5L32.6 35.1c-2.2-2.2-.7-5.9 2.5-5.9h2.2c3.4 0 6.7 1.4 9.1 3.8l11.8 11.8V33c0-3.2 2.6-5.8 5.8-5.8s6 2.6 6 5.8Z" fill="url(#edge)" opacity="0.96"/>
+  <circle cx="28" cy="28" r="4.2" fill="#fff" opacity="0.95"/>
+  <circle cx="68" cy="68" r="4.2" fill="#D9EBFF" opacity="0.95"/>
+</svg>

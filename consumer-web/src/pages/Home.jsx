@@ -1,6 +1,7 @@
 import React from 'react';
 
 const BUSINESS_URL = import.meta.env.VITE_NYLEPAY_BUSINESS_URL || 'http://localhost:5174';
+const FOOTER_IMAGE = 'https://images.unsplash.com/photo-1742239485258-dc3f1b044c16?auto=format&fit=crop&fm=jpg&q=80&w=1800';
 
 const rails = ['M-Pesa', 'Banks', 'Cards', 'NylePay Wallet', 'USDC', 'USDT', 'Paybill', 'Till', 'Future mobile money rails'];
 
@@ -23,7 +24,7 @@ const Home = () => (
     <section style={styles.hero}>
       <div style={styles.heroInner}>
         <div style={styles.heroCopy}>
-          <div className="pill pill-blue">Payment routing engine for Kenya first</div>
+          <div className="pill pill-blue">Africa fintech routing infrastructure</div>
           <h1 style={styles.heroTitle}>Move value from where it is to where it needs to be.</h1>
           <p style={styles.heroText}>
             NylePay connects M-Pesa, banks, cards, wallets, and crypto rails into one routing layer. Individuals use the app. Businesses and developers use NylePay Business and the routing API.
@@ -131,19 +132,14 @@ const Home = () => (
     </section>
 
     <footer style={styles.footer}>
-      <div style={styles.silhouette} aria-hidden="true">
-        <div style={styles.silhouetteRail} />
-        <div style={{ ...styles.tower, left: '6%', height: 80, width: 34 }} />
-        <div style={{ ...styles.tower, left: '12%', height: 112, width: 54 }} />
-        <div style={{ ...styles.tower, left: '20%', height: 64, width: 42 }} />
-        <div style={{ ...styles.tower, left: '30%', height: 96, width: 68 }} />
-        <div style={{ ...styles.tower, left: '43%', height: 72, width: 48 }} />
-        <div style={{ ...styles.tower, left: '54%', height: 128, width: 58 }} />
-        <div style={{ ...styles.tower, left: '64%', height: 76, width: 44 }} />
-        <div style={{ ...styles.tower, left: '73%', height: 104, width: 72 }} />
-        <div style={{ ...styles.tower, left: '86%', height: 68, width: 50 }} />
-        <div style={{ ...styles.signalLine, left: '11%', width: '34%', transform: 'rotate(-5deg)' }} />
-        <div style={{ ...styles.signalLine, right: '12%', width: '36%', transform: 'rotate(4deg)' }} />
+      <div style={{ ...styles.footerHero, backgroundImage: `linear-gradient(90deg, rgba(3, 18, 43, 0.92) 0%, rgba(8, 39, 89, 0.78) 48%, rgba(255, 255, 255, 0.16) 100%), url(${FOOTER_IMAGE})` }}>
+        <div style={styles.footerHeroContent}>
+          <span style={styles.footerKicker}>Unified rail intelligence</span>
+          <strong style={styles.footerDisplay}>Routing value across Africa's financial rails.</strong>
+          <p style={styles.footerSummary}>
+            One engine for M-Pesa, banks, cards, wallets, and stablecoin bridges. Quote the path, execute legally, settle clearly, and reconcile every movement.
+          </p>
+        </div>
       </div>
 
       <div style={styles.footerInner}>
@@ -158,7 +154,7 @@ const Home = () => (
           <a href="#account-policy">Account policy</a>
         </div>
         <div style={styles.footerMeta}>
-          <span>Kenya first. Africa next.</span>
+          <span>Africa fintech routing infrastructure.</span>
           <span>Routes execute only inside legal, verified, and auditable rails.</span>
         </div>
       </div>
@@ -247,11 +243,12 @@ const styles = {
   blockTitle: { fontSize: '1.3rem', marginBottom: '0.8rem' },
   blockText: { color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: '1.5rem' },
   blockButton: { width: 'fit-content' },
-  footer: { position: 'relative', marginTop: '2rem', overflow: 'hidden', borderTop: '1px solid var(--border-color)', background: 'linear-gradient(180deg, #ffffff 0%, #edf6ff 100%)' },
-  silhouette: { position: 'relative', height: 180, maxWidth: 1280, margin: '0 auto', opacity: 0.95 },
-  silhouetteRail: { position: 'absolute', left: '4%', right: '4%', bottom: 0, height: 18, borderRadius: '14px 14px 0 0', background: '#d9eaff', boxShadow: '0 -18px 60px rgba(23,105,224,0.14)' },
-  tower: { position: 'absolute', bottom: 0, borderRadius: '8px 8px 0 0', background: 'linear-gradient(180deg, #c9e0ff 0%, #b8d6fb 100%)', border: '1px solid rgba(23,105,224,0.10)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.8)' },
-  signalLine: { position: 'absolute', top: 66, height: 1, background: 'linear-gradient(90deg, transparent, rgba(23,105,224,0.42), rgba(47,128,237,0.28), transparent)' },
+  footer: { position: 'relative', marginTop: '2rem', overflow: 'hidden', borderTop: '1px solid var(--border-color)', background: '#f4f9ff' },
+  footerHero: { minHeight: 430, margin: '0 auto', backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'flex-end' },
+  footerHeroContent: { width: '100%', maxWidth: 1280, margin: '0 auto', padding: '4rem 5%', color: '#fff' },
+  footerKicker: { display: 'inline-flex', marginBottom: '1rem', padding: '0.35rem 0.85rem', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 999, background: 'rgba(255,255,255,0.12)', fontSize: '0.76rem', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 800 },
+  footerDisplay: { display: 'block', maxWidth: 900, fontFamily: 'var(--font-heading)', fontSize: 'clamp(3rem, 8vw, 7rem)', lineHeight: 0.94, letterSpacing: '-0.055em', fontWeight: 900 },
+  footerSummary: { maxWidth: 650, marginTop: '1.5rem', color: 'rgba(255,255,255,0.82)', fontSize: '1.05rem', lineHeight: 1.7 },
   footerInner: { maxWidth: 1280, margin: '0 auto', padding: '2rem 5% 2.4rem', display: 'grid', gridTemplateColumns: '1.2fr auto', gap: '1.5rem', alignItems: 'start', borderTop: '1px solid rgba(23,105,224,0.12)' },
   footerBrand: { display: 'grid', gap: '0.3rem', color: 'var(--text-secondary)' },
   footerLinks: { display: 'flex', gap: '1rem', flexWrap: 'wrap' },

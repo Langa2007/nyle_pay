@@ -23,15 +23,7 @@ const Navbar = () => {
     <nav style={{ ...styles.navbar, background: scrolled ? 'rgba(255, 255, 255, 0.96)' : 'rgba(255, 255, 255, 0.82)', borderBottom: scrolled ? '1px solid var(--border-color)' : '1px solid transparent', boxShadow: scrolled ? '0 8px 24px rgba(15, 23, 42, 0.06)' : 'none' }}>
       <a href="#top" style={styles.logoWrap} onClick={() => setMenuOpen(false)}>
         <div style={styles.logoIcon}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="url(#npy-logo)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            <defs>
-              <linearGradient id="npy-logo" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
-                <stop offset="0%" stopColor="#3b82f6" />
-                <stop offset="100%" stopColor="#10b981" />
-              </linearGradient>
-            </defs>
-          </svg>
+          <img src="/nylepay-mark.svg" alt="" style={styles.logoImage} />
         </div>
         <span className="text-gradient" style={styles.brand}>NylePay</span>
       </a>
@@ -71,16 +63,8 @@ const styles = {
     transition: 'all 0.3s ease',
   },
   logoWrap: { display: 'flex', alignItems: 'center', gap: '0.55rem', textDecoration: 'none' },
-  logoIcon: {
-    width: 34,
-    height: 34,
-    background: 'rgba(23,105,224,0.08)',
-    border: '1px solid rgba(23,105,224,0.22)',
-    borderRadius: 8,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  logoIcon: { width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  logoImage: { width: 36, height: 36, display: 'block' },
   brand: { fontWeight: 800, fontSize: '1.4rem', fontFamily: 'var(--font-heading)' },
   links: { display: 'flex', gap: '2rem', alignItems: 'center' },
   link: { color: 'var(--text-secondary)', fontWeight: 500, fontSize: '0.9rem' },
