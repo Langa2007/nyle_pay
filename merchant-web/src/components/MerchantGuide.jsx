@@ -4,8 +4,8 @@ const STEPS = [
   {
     num: 1,
     title: 'Confirm Business Email',
-    desc: 'Start with name and email. NylePay sends a confirmation link through Resend, then opens the Business dashboard after confirmation.',
-    detail: 'POST /api/auth/business-access/request\nRequired: fullName, email\nGET /api/auth/business-access/confirm?token=...',
+    desc: 'Start with name and email. NylePay sends a 6-digit code through Resend, then opens the Business dashboard after confirmation.',
+    detail: 'POST /api/auth/business-access/request\nRequired: fullName, email\nPOST /api/auth/business-access/confirm\nRequired: email, code',
   },
   {
     num: 2,

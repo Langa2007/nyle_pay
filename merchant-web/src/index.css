@@ -958,6 +958,27 @@ input, select, textarea { font-family: var(--font); }
   line-height: 1.65;
 }
 
+.code-input {
+  width: 100%;
+  margin: 1rem 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 1.8rem;
+  font-weight: 800;
+  letter-spacing: 0.42em;
+  text-align: center;
+}
+
+.code-input:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+}
+
 [data-theme='dark'] .terminal-form {
   background: rgba(15,23,42,0.35);
 }

@@ -9,7 +9,6 @@ import com.nyle.nylepay.services.UserService;
 import com.nyle.nylepay.models.User;
 import com.nyle.nylepay.exceptions.NylePayException;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.slf4j.Logger;
@@ -29,9 +28,6 @@ public class AuthController {
     private final org.springframework.security.core.userdetails.UserDetailsService userDetailsService;
     private final OtpService otpService;
     private final AuditLogService auditLogService;
-
-    @Value("${nylepay.business-web-url:https://nyle-pay.vercel.app}")
-    private String businessWebUrl;
 
     public AuthController(UserService userService,
             org.springframework.security.authentication.AuthenticationManager authenticationManager,
@@ -54,8 +50,7 @@ public class AuthController {
         try {
             Map<String, Object> result = userService.requestBusinessAccess(
                     request.get("fullName"),
-                    request.get("email"),
-                    businessWebUrl + "/confirm-email");
+                    request.get("email"));
             auditLogService.logEvent(null, "BUSINESS_ACCESS_REQUESTED",
                     "Business access requested for: " + request.get("email"), "SUCCESS", httpServletRequest, null);
             return ResponseEntity.ok(ApiResponse.success("Confirmation email sent", result));
@@ -65,12 +60,12 @@ public class AuthController {
         }
     }
 
-    @GetMapping("/business-access/confirm")
+    @PostMapping("/business-access/confirm")
     public ResponseEntity<ApiResponse<Map<String, Object>>> confirmBusinessAccess(
-            @RequestParam String token,
+            @RequestBody Map<String, String> request,
             jakarta.servlet.http.HttpServletRequest httpServletRequest) {
         try {
-            User user = userService.confirmBusinessAccess(token);
+            User user = userService.confirmBusinessAccess(request.get("email"), request.get("code"));
             var userDetails = userDetailsService.loadUserByUsername(user.getEmail());
             var jwtToken = jwtService.generateToken(userDetails);
             Map<String, Object> response = Map.of(

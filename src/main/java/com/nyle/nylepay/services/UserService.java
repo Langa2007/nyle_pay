@@ -107,7 +107,7 @@ public class UserService {
     }
 
     @Transactional
-    public Map<String, Object> requestBusinessAccess(String fullName, String email, String verificationBaseUrl) {
+    public Map<String, Object> requestBusinessAccess(String fullName, String email) {
         if (email == null || !email.matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
             throw new RuntimeException("Invalid email format");
         }
@@ -127,32 +127,34 @@ public class UserService {
         if (!user.isEmailVerified()) {
             user.setAccountStatus("PENDING_EMAIL");
         }
-        user.setEmailVerificationToken(UUID.randomUUID().toString().replace("-", ""));
-        user.setEmailVerificationExpiresAt(LocalDateTime.now().plusHours(24));
+        String code = String.format("%06d", java.util.concurrent.ThreadLocalRandom.current().nextInt(1_000_000));
+        user.setEmailVerificationToken(code);
+        user.setEmailVerificationExpiresAt(LocalDateTime.now().plusMinutes(10));
         userRepository.save(user);
 
         ensureWallet(user, "KE");
 
-        String separator = verificationBaseUrl.contains("?") ? "&" : "?";
-        String verificationUrl = verificationBaseUrl + separator + "token=" + user.getEmailVerificationToken();
-        emailService.sendBusinessAccessVerificationEmail(user, verificationUrl);
+        emailService.sendBusinessAccessVerificationEmail(user, code);
 
         return Map.of(
                 "email", user.getEmail(),
-                "expiresIn", "24 hours",
+                "expiresIn", "10 minutes",
                 "requiresEmailConfirmation", true);
     }
 
     @Transactional
-    public User confirmBusinessAccess(String token) {
-        if (token == null || token.isBlank()) {
-            throw new RuntimeException("Verification token is required");
+    public User confirmBusinessAccess(String email, String code) {
+        if (email == null || email.isBlank()) {
+            throw new RuntimeException("Email is required");
         }
-        User user = userRepository.findByEmailVerificationToken(token.trim())
-                .orElseThrow(() -> new RuntimeException("Invalid or expired verification link"));
+        if (code == null || !code.matches("\\d{6}")) {
+            throw new RuntimeException("A valid 6-digit verification code is required");
+        }
+        User user = userRepository.findByEmailAndEmailVerificationToken(email.trim().toLowerCase(), code.trim())
+                .orElseThrow(() -> new RuntimeException("Invalid or expired verification code"));
         if (user.getEmailVerificationExpiresAt() == null
                 || user.getEmailVerificationExpiresAt().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("Verification link has expired");
+            throw new RuntimeException("Verification code has expired");
         }
 
         user.setEmailVerified(true);

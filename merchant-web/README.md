@@ -71,7 +71,7 @@ npm run build
 Business access flow:
 
 - Public signup collects only full name and email.
-- NylePay sends a Resend confirmation email.
+- NylePay sends a 6-digit Resend confirmation code.
 - Confirming the email opens the Business dashboard.
 - Sandbox API keys are available in the dashboard for developer testing.
 - The dashboard sidebar contains Go Live for the full production requirements flow.

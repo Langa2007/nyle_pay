@@ -62,8 +62,12 @@ export function AuthProvider({ children }) {
     return json.data;
   };
 
-  const confirmBusinessAccess = async (token) => {
-    const res = await fetch(`${API}/api/auth/business-access/confirm?token=${encodeURIComponent(token)}`);
+  const confirmBusinessAccess = async ({ email, code }) => {
+    const res = await fetch(`${API}/api/auth/business-access/confirm`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, code }),
+    });
     const json = await res.json();
     if (!res.ok || !json.success) {
       throw new Error(json.message || 'Email confirmation failed');

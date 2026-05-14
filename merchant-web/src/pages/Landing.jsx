@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import MarketingNav from '../components/MarketingNav';
@@ -17,8 +17,32 @@ export default function Landing() {
   const [fullName, setFullName] = useState('');
   const [error, setError] = useState('');
   const [sentTo, setSentTo] = useState('');
+  const [code, setCode] = useState('');
+  const [verifying, setVerifying] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const { requestBusinessAccess } = useAuth();
+  const lastAutoVerified = useRef('');
+  const { requestBusinessAccess, confirmBusinessAccess } = useAuth();
+
+  const verifyCode = async (nextCode = code) => {
+    if (!sentTo || nextCode.length !== 6 || verifying) return;
+    setError('');
+    setVerifying(true);
+    try {
+      await confirmBusinessAccess({ email: sentTo, code: nextCode });
+      window.location.href = '/dashboard';
+    } catch (err) {
+      setError(err.message || 'Invalid verification code.');
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  useEffect(() => {
+    if (sentTo && code.length === 6 && lastAutoVerified.current !== code) {
+      lastAutoVerified.current = code;
+      verifyCode(code);
+    }
+  }, [code, sentTo]);
 
   const submit = async (event) => {
     event.preventDefault();
@@ -27,6 +51,8 @@ export default function Landing() {
     try {
       await requestBusinessAccess({ fullName: mode === 'signup' ? fullName : '', email });
       setSentTo(email);
+      setCode('');
+      lastAutoVerified.current = '';
     } catch (err) {
       setError(err.message || 'Unable to send confirmation email.');
     } finally {
@@ -81,8 +107,25 @@ export default function Landing() {
 
             {sentTo ? (
               <div className="terminal-form access-sent">
-                <h3>Check your email</h3>
-                <p>A confirmation link has been sent to {sentTo}. Confirm the email to open your NylePay Business workspace.</p>
+                <h3>Enter the 6-digit code</h3>
+                <p>A verification code has been sent to {sentTo}.</p>
+                <input
+                  className="code-input"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={code}
+                  onChange={(event) => {
+                    setCode(event.target.value.replace(/\D/g, '').slice(0, 6));
+                    setError('');
+                  }}
+                  placeholder="000000"
+                  autoFocus
+                />
+                {error && <div className="alert alert-error compact-alert">{error}</div>}
+                <button type="button" className="terminal-submit" disabled={verifying || code.length !== 6} onClick={() => verifyCode()}>
+                  <span>{verifying ? 'Verifying...' : 'Verify code'}</span>
+                  <small>Auto-checks after 6 digits</small>
+                </button>
               </div>
             ) : <form className="terminal-form" onSubmit={submit}>
               {mode === 'signup' && (

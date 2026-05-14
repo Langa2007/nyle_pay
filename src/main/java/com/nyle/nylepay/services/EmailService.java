@@ -127,30 +127,28 @@ public class EmailService {
         send(user.getEmail(), subject, html);
     }
 
-    public void sendBusinessAccessVerificationEmail(User user, String verificationUrl) {
-        String subject = "Confirm your NylePay Business email";
+    public void sendBusinessAccessVerificationEmail(User user, String verificationCode) {
+        String subject = "Your NylePay Business verification code";
         String html = """
             <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;background:#ffffff;border:1px solid #dbe7ff;border-radius:12px;overflow:hidden">
               <div style="background:#0f4fd8;padding:30px 28px">
-                <h1 style="color:#fff;margin:0;font-size:24px">Confirm NylePay Business access</h1>
+                <h1 style="color:#fff;margin:0;font-size:24px">NylePay Business verification</h1>
                 <p style="color:rgba(255,255,255,0.82);margin:8px 0 0;font-size:14px">Secure access for routing, sandbox keys, and business setup.</p>
               </div>
               <div style="padding:28px;color:#172033">
                 <p style="font-size:16px;margin:0 0 16px">Hi <strong>%s</strong>,</p>
                 <p style="line-height:1.7;margin:0 0 24px;color:#475569">
-                  Confirm this email address to open your NylePay Business workspace.
+                  Enter this code to open your NylePay Business workspace.
                 </p>
-                <div style="margin:28px 0">
-                  <a href="%s" style="display:inline-block;background:#1769e0;color:#fff;padding:13px 24px;border-radius:8px;text-decoration:none;font-weight:700">
-                    Confirm email
-                  </a>
+                <div style="margin:28px 0;padding:18px;border:1px solid #dbe7ff;border-radius:10px;background:#f8fbff;text-align:center">
+                  <div style="font-size:34px;letter-spacing:8px;font-weight:800;color:#0f4fd8">%s</div>
                 </div>
                 <p style="color:#64748b;font-size:13px;line-height:1.6;margin:0">
-                  This link expires in 24 hours. If you did not request NylePay Business access, you can ignore this email.
+                  This code expires in 10 minutes. If you did not request NylePay Business access, you can ignore this email.
                 </p>
               </div>
             </div>
-            """.formatted(user.getFullName(), verificationUrl);
+            """.formatted(user.getFullName(), verificationCode);
 
         send(user.getEmail(), subject, html);
     }
