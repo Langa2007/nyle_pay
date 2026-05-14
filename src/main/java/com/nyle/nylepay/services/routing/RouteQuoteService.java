@@ -63,7 +63,7 @@ public class RouteQuoteService {
         }
 
         List<String> supportedRails = List.of(
-                "NYLEPAY_WALLET", "MPESA", "BANK", "CARD", "ONCHAIN", "CEX",
+                "NYLEPAY_WALLET", "MPESA", "AIRTEL_MONEY", "PESALINK", "BANK", "CARD", "ONCHAIN", "CEX",
                 "TILL", "PAYBILL", "POCHI", "MERCHANT");
         if (!supportedRails.contains(sourceRail)) {
             throw new IllegalArgumentException("Unsupported sourceRail: " + sourceRail);
@@ -87,9 +87,13 @@ public class RouteQuoteService {
     }
 
     private BigDecimal estimateNetworkFee(String sourceRail, String destinationRail, String asset) {
-        if ("MPESA".equals(destinationRail) || "TILL".equals(destinationRail)
+        if ("MPESA".equals(destinationRail) || "AIRTEL_MONEY".equals(destinationRail)
+                || "TILL".equals(destinationRail)
                 || "PAYBILL".equals(destinationRail) || "POCHI".equals(destinationRail)) {
             return BigDecimal.valueOf(5);
+        }
+        if ("PESALINK".equals(destinationRail)) {
+            return BigDecimal.valueOf(25);
         }
         if ("BANK".equals(destinationRail)) {
             return BigDecimal.valueOf(30);
@@ -142,6 +146,12 @@ public class RouteQuoteService {
         if ("ONCHAIN".equals(sourceRail) || "ONCHAIN".equals(destinationRail)) {
             return "5-30 minutes after confirmations";
         }
+        if ("PESALINK".equals(destinationRail)) {
+            return "near real-time bank switch settlement";
+        }
+        if ("AIRTEL_MONEY".equals(sourceRail) || "AIRTEL_MONEY".equals(destinationRail)) {
+            return "near real-time after Airtel Money callback";
+        }
         if ("BANK".equals(destinationRail)) {
             return "minutes to T+1 depending on bank/provider";
         }
@@ -152,7 +162,9 @@ public class RouteQuoteService {
         if ("NYLEPAY_WALLET".equals(sourceRail)) {
             return "wallet-funded";
         }
-        if ("MPESA".equals(sourceRail) || "CARD".equals(sourceRail) || "ONCHAIN".equals(sourceRail)) {
+        if ("MPESA".equals(sourceRail) || "AIRTEL_MONEY".equals(sourceRail)
+                || "PESALINK".equals(sourceRail) || "BANK".equals(sourceRail)
+                || "CARD".equals(sourceRail) || "ONCHAIN".equals(sourceRail)) {
             return "inbound-confirmation-required";
         }
         if ("CEX".equals(sourceRail)) {
@@ -167,7 +179,16 @@ public class RouteQuoteService {
 
     public String normalizeRail(String rail) {
         String normalized = rail == null ? "" : rail.trim().toUpperCase();
-        return "WALLET".equals(normalized) ? "NYLEPAY_WALLET" : normalized;
+        if ("WALLET".equals(normalized)) {
+            return "NYLEPAY_WALLET";
+        }
+        if ("AIRTEL".equals(normalized) || "AIRTELMONEY".equals(normalized)) {
+            return "AIRTEL_MONEY";
+        }
+        if ("PESA_LINK".equals(normalized) || "IPSL".equals(normalized)) {
+            return "PESALINK";
+        }
+        return normalized;
     }
 
     public String normalizeAsset(String asset) {

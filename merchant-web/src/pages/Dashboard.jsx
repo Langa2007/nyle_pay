@@ -15,8 +15,8 @@ const NAV = [
 
 const sampleRoutes = [
   ['RT-KE-1001', 'M-Pesa', 'Business M-Pesa', 'KES 0.00', 'Ready', 'Realtime'],
-  ['RT-KE-1002', 'USDT', 'Bank account', 'KES 0.00', 'Sandbox', 'FX + settlement'],
-  ['RT-KE-1003', 'Card', 'NylePay Wallet', 'KES 0.00', 'Sandbox', 'Provider confirm'],
+  ['RT-KE-1002', 'Airtel Money', 'PesaLink bank account', 'KES 0.00', 'Ready', 'Bank switch'],
+  ['RT-KE-1003', 'USDT', 'Airtel Money', 'KES 0.00', 'Sandbox', 'FX + settlement'],
 ];
 
 function Icon({ name }) {
@@ -146,8 +146,8 @@ function OverviewTab({ biz, user, setTab }) {
             <h3 style={S.cardTitle}>Routing promise</h3>
             <p style={S.cardCopy}>NylePay Business should let a company collect from any supported rail and settle to the account it chooses in real time, subject to confirmation and risk checks.</p>
             <div style={S.routePreview}>
-              <span>Customer rail</span><strong>M-Pesa / Card / Crypto / Wallet</strong>
-              <span>Destination</span><strong>Business M-Pesa / Bank / Wallet</strong>
+              <span>Customer rail</span><strong>M-Pesa / Airtel Money / Card / Crypto / Wallet</strong>
+              <span>Destination</span><strong>M-Pesa / Airtel Money / PesaLink / Bank / Wallet</strong>
             </div>
           </div>
 
@@ -186,8 +186,8 @@ function RoutesTab() {
         <div className="card" style={{ marginBottom: '1.5rem' }}>
           <h3 style={S.cardTitle}>Route builder</h3>
           <div style={S.builderGrid}>
-            <select className="form-input"><option>From M-Pesa</option><option>From card</option><option>From USDT</option><option>From NylePay wallet</option></select>
-            <select className="form-input"><option>To business M-Pesa</option><option>To bank account</option><option>To NylePay wallet</option><option>To Paybill</option></select>
+            <select className="form-input"><option>From M-Pesa</option><option>From Airtel Money</option><option>From card</option><option>From USDT</option><option>From NylePay wallet</option></select>
+            <select className="form-input"><option>To business M-Pesa</option><option>To Airtel Money</option><option>To PesaLink bank account</option><option>To bank account</option><option>To NylePay wallet</option><option>To Paybill</option></select>
             <input className="form-input" placeholder="Amount, e.g. 1500" />
             <button className="btn-primary" style={{ justifyContent: 'center' }}>Quote route</button>
           </div>
@@ -224,7 +224,8 @@ function SettlementsTab() {
         <div style={S.operationGrid}>
           {[
             ['Primary destination', 'M-Pesa', '2547XXXXXXXX', 'Realtime'],
-            ['Fallback destination', 'Bank Account', 'Not configured', 'Manual review'],
+            ['Fallback destination', 'Airtel Money', '2547XXXXXXXX', 'Realtime'],
+            ['Bank-switch destination', 'PesaLink', 'Bank ****7890', 'Near real-time where supported'],
             ['Reserve wallet', 'NylePay Wallet', 'Active after onboarding', 'Instant internal ledger'],
           ].map(([title, rail, value, speed]) => (
             <div className="card" key={title}>
@@ -240,7 +241,7 @@ function SettlementsTab() {
           <h3 style={S.cardTitle}>Settlement policy</h3>
           <div style={S.builderGrid}>
             <select className="form-input"><option>Settle every successful route</option><option>Settle when balance reaches threshold</option><option>Settle on schedule</option></select>
-            <select className="form-input"><option>Prefer lowest fee</option><option>Prefer fastest route</option><option>Prefer M-Pesa first</option></select>
+            <select className="form-input"><option>Prefer lowest fee</option><option>Prefer fastest route</option><option>Prefer M-Pesa first</option><option>Prefer Airtel Money first</option><option>Prefer PesaLink for bank settlement</option></select>
             <input className="form-input" placeholder="Minimum threshold, e.g. 1000" />
             <button className="btn-primary" style={{ justifyContent: 'center' }}>Save policy</button>
           </div>

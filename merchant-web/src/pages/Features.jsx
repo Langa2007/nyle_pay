@@ -5,8 +5,8 @@ import MarketingNav from '../components/MarketingNav';
 const features = [
   {
     title: 'Universal collections',
-    body: 'Businesses can accept M-Pesa, cards, wallet balances, bank transfers, and crypto without building a separate integration for every rail.',
-    details: ['Hosted checkout and API intents', 'M-Pesa-first Kenyan flows', 'Crypto and fiat support without removing either side'],
+    body: 'Businesses can accept M-Pesa, Airtel Money, cards, wallet balances, bank transfers, and crypto without building a separate integration for every rail.',
+    details: ['Hosted checkout and API intents', 'M-Pesa and Airtel Money Kenyan flows', 'Crypto and fiat support without removing either side'],
   },
   {
     title: 'Routing policies',
@@ -15,7 +15,7 @@ const features = [
   },
   {
     title: 'Real-time settlement',
-    body: 'Move funds to the selected M-Pesa number, bank account, or NylePay wallet as soon as the route is confirmed and risk checks pass.',
+    body: 'Move funds to the selected M-Pesa number, Airtel Money number, PesaLink bank account, bank account, or NylePay wallet as soon as the route is confirmed and risk checks pass.',
     details: ['Available and pending balances', 'Settlement references', 'Route-level reconciliation'],
   },
   {
@@ -30,7 +30,7 @@ const features = [
   },
   {
     title: 'Africa-ready expansion',
-    body: 'Start with Kenya and M-Pesa, then add country-specific mobile money rails without changing the business-facing API model.',
+    body: 'Start with Kenya through M-Pesa, Airtel Money, and PesaLink, then add country-specific mobile money rails without changing the business-facing API model.',
     details: ['Country capability discovery', 'Provider abstraction', 'One API contract for many rails'],
   },
 ];

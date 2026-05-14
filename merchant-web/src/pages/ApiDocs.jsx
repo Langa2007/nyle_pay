@@ -30,7 +30,7 @@ const endpoints = [
     auth: 'JWT Bearer',
     title: 'Register a business',
     description: 'Creates a business profile, initial settlement policy, and API credentials. Secret credentials must stay server-side.',
-    body: { businessName: 'Acme Store', businessEmail: 'payments@acme.co.ke', settlementMethod: 'MPESA', settlementPhone: '254712345678', webhookUrl: 'https://example.com/nylepay/webhook' },
+    body: { businessName: 'Acme Store', businessEmail: 'payments@acme.co.ke', settlementMethod: 'MPESA', settlementPhone: '254712345678', fallbackSettlementMethod: 'AIRTEL_MONEY', webhookUrl: 'https://example.com/nylepay/webhook' },
   },
   {
     group: 'Routing',
@@ -48,14 +48,13 @@ const endpoints = [
     title: 'Quote a route',
     description: 'Prices a route before money moves, including rail, fee, estimated speed, FX, and fallback information.',
     body: {
-      sourceRail: 'MPESA',
-      destinationRail: 'BANK',
-      sourceCurrency: 'KES',
-      destinationCurrency: 'KES',
+      sourceRail: 'AIRTEL_MONEY',
+      destinationRail: 'PESALINK',
+      sourceAsset: 'KSH',
+      destinationAsset: 'KSH',
       amount: 1500,
-      customerPhone: '254712345678',
-      destination: { bankCode: '01', accountNumber: '1234567890' },
-      reference: 'ORDER-1001',
+      destination: { phone: '254733123456', bankCode: '01', accountNumber: '1234567890', accountName: 'Acme Store' },
+      idempotencyKey: 'ORDER-1001',
     },
   },
   {
@@ -65,7 +64,14 @@ const endpoints = [
     auth: 'Secret Key',
     title: 'Execute a route',
     description: 'Starts a quoted route. NylePay tracks each leg until the route is completed, failed, or awaiting customer/provider action.',
-    body: { quoteId: 'rtq_123', idempotencyKey: 'ORDER-1001' },
+    body: {
+      sourceRail: 'NYLEPAY_WALLET',
+      destinationRail: 'AIRTEL_MONEY',
+      sourceAsset: 'KSH',
+      amount: 750,
+      idempotencyKey: 'ORDER-1001',
+      destination: { phone: '254733123456' },
+    },
   },
   {
     group: 'Routing',
@@ -82,7 +88,7 @@ const endpoints = [
     auth: 'JWT Bearer',
     title: 'Create business checkout link',
     description: 'Creates a hosted checkout URL that resolves into a NylePay route after the customer selects a rail.',
-    body: { amount: 1500, currency: 'KES', description: 'Order #1001', destinationRail: 'MPESA', redirectUrl: 'https://example.com/thank-you', expiryMinutes: 60 },
+    body: { amount: 1500, currency: 'KES', description: 'Order #1001', destinationRail: 'AIRTEL_MONEY', redirectUrl: 'https://example.com/thank-you', expiryMinutes: 60 },
   },
   {
     group: 'Settlements',
@@ -91,7 +97,7 @@ const endpoints = [
     auth: 'Secret Key',
     title: 'Update settlement policy',
     description: 'Sets primary destination, fallback destination, settlement mode, and route preference.',
-    body: { mode: 'REALTIME', primaryRail: 'MPESA', primaryPhone: '254712345678', fallbackRail: 'BANK', preference: 'FASTEST' },
+    body: { mode: 'REALTIME', primaryRail: 'MPESA', primaryPhone: '254712345678', fallbackRail: 'AIRTEL_MONEY', bankSwitchRail: 'PESALINK', preference: 'FASTEST' },
   },
 ];
 
@@ -191,7 +197,7 @@ export default function ApiDocs({ embedded = false }) {
           <div className="eyebrow">API documentation</div>
           <h1>Route business money from any supported rail</h1>
           <p>
-            NylePay Business is a JSON over HTTP API for quoting, executing, settling, and reconciling routes across M-Pesa, banks, wallets, cards, and crypto rails.
+            NylePay Business is a JSON over HTTP API for quoting, executing, settling, and reconciling routes across M-Pesa, Airtel Money, PesaLink, banks, wallets, cards, and crypto rails.
           </p>
         </section>
       )}

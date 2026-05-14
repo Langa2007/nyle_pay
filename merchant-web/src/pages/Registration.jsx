@@ -95,12 +95,14 @@ export default function Registration() {
               <label className="form-label">Primary Settlement Rail</label>
               <select className="form-input" value={form.settlementMethod} onChange={(e) => set('settlementMethod', e.target.value)}>
                 <option value="MPESA">M-Pesa</option>
+                <option value="AIRTEL_MONEY">Airtel Money</option>
+                <option value="PESALINK">PesaLink</option>
                 <option value="BANK">Bank Account</option>
                 <option value="NYLEPAY_WALLET">NylePay Wallet</option>
               </select>
             </div>
             <div className="form-group">
-              <label className="form-label">Settlement M-Pesa Number</label>
+              <label className="form-label">Settlement Mobile Money Number</label>
               <input className="form-input" value={form.settlementPhone} onChange={(e) => set('settlementPhone', e.target.value)} placeholder="2547XXXXXXXX" />
             </div>
           </div>

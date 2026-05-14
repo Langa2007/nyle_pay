@@ -21,6 +21,8 @@ public class RouteExecutionService {
     private final TransactionService transactionService;
     private final WalletService walletService;
     private final MpesaService mpesaService;
+    private final AirtelMoneyRoutingService airtelMoneyRoutingService;
+    private final PesaLinkRoutingService pesaLinkRoutingService;
     private final CexRoutingService cexRoutingService;
     private final OnChainWithdrawalService onChainWithdrawalService;
 
@@ -28,12 +30,16 @@ public class RouteExecutionService {
             TransactionService transactionService,
             WalletService walletService,
             MpesaService mpesaService,
+            AirtelMoneyRoutingService airtelMoneyRoutingService,
+            PesaLinkRoutingService pesaLinkRoutingService,
             CexRoutingService cexRoutingService,
             OnChainWithdrawalService onChainWithdrawalService) {
         this.quoteService = quoteService;
         this.transactionService = transactionService;
         this.walletService = walletService;
         this.mpesaService = mpesaService;
+        this.airtelMoneyRoutingService = airtelMoneyRoutingService;
+        this.pesaLinkRoutingService = pesaLinkRoutingService;
         this.cexRoutingService = cexRoutingService;
         this.onChainWithdrawalService = onChainWithdrawalService;
     }
@@ -53,6 +59,9 @@ public class RouteExecutionService {
         }
         if ("MPESA".equals(sourceRail)) {
             return initiateMpesaInbound(userId, request, destinationRail, destinationAsset, quote);
+        }
+        if ("AIRTEL_MONEY".equals(sourceRail)) {
+            return initiateAirtelMoneyInbound(userId, request, destinationRail, destinationAsset, quote);
         }
         if ("ONCHAIN".equals(sourceRail)) {
             return initiateOnChainInbound(userId, request, destinationRail, destinationAsset, quote);
@@ -80,6 +89,10 @@ public class RouteExecutionService {
         switch (destinationRail) {
             case "MPESA":
                 return withdrawToMpesa(userId, request, sourceAsset, quote);
+            case "AIRTEL_MONEY":
+                return withdrawToAirtelMoney(userId, request, sourceAsset, quote);
+            case "PESALINK":
+                return withdrawToPesaLink(userId, request, sourceAsset, quote);
             case "BANK":
                 return withdrawToBank(userId, request, sourceAsset, quote);
             case "TILL":
@@ -113,9 +126,30 @@ public class RouteExecutionService {
                 "M-Pesa STK sent. NylePay will continue the route after Safaricom confirms payment.");
     }
 
+    private Map<String, Object> initiateAirtelMoneyInbound(Long userId, RouteRequest request,
+            String destinationRail, String destinationAsset, Map<String, Object> quote) {
+        if (!"NYLEPAY_WALLET".equals(destinationRail) && !"MERCHANT".equals(destinationRail)
+                && !"MPESA".equals(destinationRail) && !"AIRTEL_MONEY".equals(destinationRail)
+                && !"PESALINK".equals(destinationRail) && !"BANK".equals(destinationRail)) {
+            throw new IllegalArgumentException("Unsupported Airtel Money destination: " + destinationRail);
+        }
+        String phone = requiredDestination(request, "phone");
+        String reference = firstNonBlank(request.getIdempotencyKey(), "ROUTE_AIRTEL_" + System.currentTimeMillis());
+        Map<String, Object> airtelResponse = airtelMoneyRoutingService.collect(
+                phone, request.getAmount(), reference, destinationAsset);
+        Transaction tx = transactionService.createDeposit(
+                userId, "AIRTEL_MONEY", request.getAmount(), destinationAsset,
+                asString(airtelResponse.get("providerReference")), buildMetadata("AIRTEL_MONEY", destinationRail, request));
+        Map<String, Object> response = routeResult("INTAKE_INITIATED", tx, quote,
+                "Airtel Money collection initiated. NylePay will continue the route after Airtel confirms payment.");
+        response.put("providerResult", airtelResponse);
+        return response;
+    }
+
     private Map<String, Object> initiateOnChainInbound(Long userId, RouteRequest request,
             String destinationRail, String destinationAsset, Map<String, Object> quote) {
         if (!"NYLEPAY_WALLET".equals(destinationRail) && !"MPESA".equals(destinationRail)
+                && !"AIRTEL_MONEY".equals(destinationRail) && !"PESALINK".equals(destinationRail)
                 && !"BANK".equals(destinationRail) && !"MERCHANT".equals(destinationRail)) {
             throw new IllegalArgumentException("Unsupported on-chain destination: " + destinationRail);
         }
@@ -159,6 +193,35 @@ public class RouteExecutionService {
         Transaction tx = transactionService.createWithdrawal(userId, "MPESA", request.getAmount(), asset, phone);
         return routeResult("PROCESSING", tx, quote,
                 "Wallet debited and M-Pesa payout dispatched. Final status is updated by callback.");
+    }
+
+    private Map<String, Object> withdrawToAirtelMoney(Long userId, RouteRequest request,
+            String asset, Map<String, Object> quote) {
+        String phone = requiredDestination(request, "phone");
+        String reference = firstNonBlank(request.getIdempotencyKey(), "ROUTE_AIRTEL_OUT_" + System.currentTimeMillis());
+        Map<String, Object> airtelResponse = airtelMoneyRoutingService.payout(
+                phone, request.getAmount(), reference, asset);
+        Transaction tx = transactionService.createWithdrawal(userId, "AIRTEL_MONEY", request.getAmount(), asset, phone);
+        Map<String, Object> response = routeResult("PROCESSING", tx, quote,
+                "Wallet debited and Airtel Money payout dispatched. Final status is updated by callback.");
+        response.put("providerResult", airtelResponse);
+        return response;
+    }
+
+    private Map<String, Object> withdrawToPesaLink(Long userId, RouteRequest request,
+            String asset, Map<String, Object> quote) {
+        String accountNumber = requiredDestination(request, "accountNumber");
+        String bankCode = requiredDestination(request, "bankCode");
+        String accountName = firstNonBlank(request.getDestination().get("accountName"), "");
+        String reference = firstNonBlank(request.getIdempotencyKey(), "ROUTE_PESALINK_" + System.currentTimeMillis());
+        Map<String, Object> pesaLinkResponse = pesaLinkRoutingService.payout(
+                accountNumber, bankCode, accountName, request.getAmount(), reference, asset);
+        String destination = accountNumber + "|" + bankCode + "|" + accountName;
+        Transaction tx = transactionService.createWithdrawal(userId, "PESALINK", request.getAmount(), asset, destination);
+        Map<String, Object> response = routeResult("PROCESSING", tx, quote,
+                "Wallet debited and PesaLink bank-switch payout dispatched. Final status is updated by callback.");
+        response.put("providerResult", pesaLinkResponse);
+        return response;
     }
 
     private Map<String, Object> withdrawToBank(Long userId, RouteRequest request,

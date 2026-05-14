@@ -3,12 +3,13 @@ import React from 'react';
 const BUSINESS_URL = import.meta.env.VITE_NYLEPAY_BUSINESS_URL || 'http://localhost:5174';
 const FOOTER_IMAGE = 'https://images.unsplash.com/photo-1742239485258-dc3f1b044c16?auto=format&fit=crop&fm=jpg&q=80&w=1800';
 
-const rails = ['M-Pesa', 'Banks', 'Cards', 'NylePay Wallet', 'USDC', 'USDT', 'Paybill', 'Till', 'Future mobile money rails'];
+const rails = ['M-Pesa', 'Airtel Money', 'PesaLink', 'Banks', 'Cards', 'NylePay Wallet', 'USDC', 'USDT', 'Paybill', 'Till'];
 
 const routeExamples = [
   ['M-Pesa customer', 'Business bank account', 'Collect locally, settle to bank in real time where supported.'],
-  ['Card payment', 'Business M-Pesa', 'Use card acceptance while the business receives Kenyan shillings.'],
-  ['USDT or USDC', 'M-Pesa or bank', 'Bridge digital assets into local business rails without exposing users to the plumbing.'],
+  ['Airtel Money customer', 'Business PesaLink account', 'Collect from Airtel Money and settle through the bank switch when that route is best.'],
+  ['Card payment', 'Business M-Pesa or Airtel Money', 'Use card acceptance while the business receives Kenyan shillings on the rail it prefers.'],
+  ['USDT or USDC', 'M-Pesa, Airtel Money, PesaLink, or bank', 'Bridge digital assets into local business rails without exposing users to the plumbing.'],
   ['Wallet balance', 'Paybill or Till', 'Move value from NylePay balance into familiar Kenyan payment destinations.'],
 ];
 
@@ -27,7 +28,7 @@ const Home = () => (
           <div className="pill pill-blue">Africa fintech routing infrastructure</div>
           <h1 style={styles.heroTitle}>Move value from where it is to where it needs to be.</h1>
           <p style={styles.heroText}>
-            NylePay connects M-Pesa, banks, cards, wallets, and crypto rails into one routing layer. Individuals use the app. Businesses and developers use NylePay Business and the routing API.
+            NylePay connects M-Pesa, Airtel Money, PesaLink, banks, cards, wallets, and crypto rails into one routing layer. Individuals use the app. Businesses and developers use NylePay Business and the routing API.
           </p>
           <div style={styles.heroActions}>
             <a href={`${BUSINESS_URL}`} className="btn-primary">Explore NylePay Business</a>
@@ -35,7 +36,7 @@ const Home = () => (
           </div>
           <div style={styles.heroStats}>
             <Stat value="Any source" label="Supported rails become route inputs" />
-            <Stat value="Any destination" label="M-Pesa, bank, wallet, Paybill, and more" />
+            <Stat value="Any destination" label="M-Pesa, Airtel Money, PesaLink, bank, wallet, and more" />
             <Stat value="One action" label="Quote, execute, track, reconcile" />
           </div>
         </div>
@@ -47,7 +48,7 @@ const Home = () => (
           </div>
           <RouteLine label="Source" value="USDC on supported network" />
           <RouteLine label="Bridge" value="Stablecoin to KES liquidity" />
-          <RouteLine label="Destination" value="Business M-Pesa account" />
+          <RouteLine label="Destination" value="Business Airtel Money or PesaLink account" />
           <div style={styles.quoteBox}>
             <div><span>Estimated speed</span><strong>Real time where rail allows</strong></div>
             <div><span>Controls</span><strong>KYC, AML, limits, audit log</strong></div>
@@ -58,10 +59,10 @@ const Home = () => (
     </section>
 
     <section id="overview" style={styles.section}>
-      <SectionHeader eyebrow="What NylePay is" title="Not a wallet. Not a crypto app. A routing layer." body="Wallets, M-Pesa, cards, banks, and stablecoins are rails. NylePay's job is to choose, price, execute, and reconcile the best legal route between them." />
+      <SectionHeader eyebrow="What NylePay is" title="Not a wallet. Not a crypto app. A routing layer." body="Wallets, M-Pesa, Airtel Money, PesaLink, cards, banks, and stablecoins are rails. NylePay's job is to choose, price, execute, and reconcile the best legal route between them." />
       <div style={styles.cardGrid}>
         <InfoCard title="For individuals" body="The consumer experience lives in the app. Users can hold a NylePay account, fund it, and route money to supported destinations without needing to understand every provider behind the scenes." />
-        <InfoCard title="For businesses" body="Businesses use NylePay Business to accept from many rails and settle to the account they choose: M-Pesa, bank, wallet, Paybill, or future mobile money destinations." />
+        <InfoCard title="For businesses" body="Businesses use NylePay Business to accept from many rails and settle to the account they choose: M-Pesa, Airtel Money, PesaLink, bank, wallet, Paybill, or supported mobile money destinations." />
         <InfoCard title="For developers" body="Developers integrate once, quote routes, execute routes idempotently, receive signed webhooks, and reconcile every movement through a single API contract." />
       </div>
     </section>
@@ -70,7 +71,7 @@ const Home = () => (
       <SectionHeader eyebrow="Funds flow" title="How a route moves through NylePay" body="Every movement should be quoted, authorized, executed, tracked by leg, and settled with a verifiable record." />
       <div style={styles.flowGrid}>
         {[
-          ['1', 'Source selected', 'The user or business chooses where value starts: M-Pesa, card, bank, wallet, or supported crypto.'],
+          ['1', 'Source selected', 'The user or business chooses where value starts: M-Pesa, Airtel Money, card, bank, wallet, or supported crypto.'],
           ['2', 'Route quoted', 'NylePay returns available rails, fees, FX, estimated speed, limits, and fallback options.'],
           ['3', 'Compliance checked', 'KYC level, AML screening, account limits, provider rules, and licensing scope are checked before execution.'],
           ['4', 'Route executed', 'NylePay sends the instruction to the selected provider path and records each leg in the ledger.'],
@@ -137,7 +138,7 @@ const Home = () => (
           <span style={styles.footerKicker}>Unified rail intelligence</span>
           <strong style={styles.footerDisplay}>Routing value across Africa's financial rails.</strong>
           <p style={styles.footerSummary}>
-            One engine for M-Pesa, banks, cards, wallets, and stablecoin bridges. Quote the path, execute legally, settle clearly, and reconcile every movement.
+            One engine for M-Pesa, Airtel Money, PesaLink, banks, cards, wallets, and stablecoin bridges. Quote the path, execute legally, settle clearly, and reconcile every movement.
           </p>
         </div>
       </div>

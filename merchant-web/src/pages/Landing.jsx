@@ -4,8 +4,8 @@ import { useAuth } from '../context/useAuth';
 import MarketingNav from '../components/MarketingNav';
 
 const featurePreview = [
-  ['Route any collection', 'Accept M-Pesa, cards, wallets, bank transfers, and crypto through one business API.'],
-  ['Settle in real time', 'Send value to the M-Pesa number, bank account, or wallet your business chooses.'],
+  ['Route any collection', 'Accept M-Pesa, Airtel Money, cards, wallets, bank transfers, and crypto through one business API.'],
+  ['Settle in real time', 'Send value to the M-Pesa number, Airtel Money number, PesaLink account, bank account, or wallet your business chooses.'],
   ['Control fallback rails', 'Define what happens when a provider is slow, down, rejected, or too expensive.'],
   ['Reconcile every leg', 'See source, destination, fees, FX, provider references, and webhook status in one place.'],
 ];
@@ -49,7 +49,7 @@ export default function Landing() {
             <div className="eyebrow">Business money routing for Kenya first, Africa next</div>
             <h1>NylePay Business</h1>
             <p className="hero-lede">
-              Let customers pay from the rail they trust, then route the money to the account your business wants in real time. M-Pesa, bank, wallet, card, and crypto rails become one programmable business layer.
+              Let customers pay from the rail they trust, then route the money to the account your business wants in real time. M-Pesa, Airtel Money, PesaLink, bank, wallet, card, and crypto rails become one programmable business layer.
             </p>
             <div className="hero-actions">
               <Link className="btn-primary" to="/register-business">Open business account</Link>
@@ -93,7 +93,7 @@ export default function Landing() {
 
               {mode === 'signup' && (
                 <div className="form-group">
-                  <label className="form-label" htmlFor="mpesa">M-Pesa number</label>
+                  <label className="form-label" htmlFor="mpesa">Mobile money number</label>
                   <input id="mpesa" className="form-input" type="text" required value={mpesa} onChange={(event) => setMpesa(event.target.value)} placeholder="2547XXXXXXXX" />
                   <p className="form-hint">Used for account verification and first settlement destination.</p>
                 </div>

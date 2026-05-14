@@ -4,7 +4,7 @@ const STEPS = [
   {
     num: 1,
     title: 'Create a NylePay Account',
-    desc: 'Sign up with your email, password, and M-Pesa number. This creates the identity used for NylePay Business access.',
+    desc: 'Sign up with your email, password, and primary mobile money number. This creates the identity used for NylePay Business access.',
     detail: 'POST /api/auth/register\nRequired: email, password, fullName, mpesaNumber, countryCode',
   },
   {
@@ -17,7 +17,7 @@ const STEPS = [
     num: 3,
     title: 'Quote the Route',
     desc: 'Ask NylePay for the best path before money moves. The quote shows rail, destination, fee, speed, FX, and fallback information.',
-    detail: 'POST /api/routes/quote\nExample: MPESA -> BANK, USDT -> MPESA, CARD -> NYLEPAY_WALLET',
+    detail: 'POST /api/routes/quote\nExample: MPESA -> BANK, AIRTEL_MONEY -> PESALINK, USDT -> MPESA, CARD -> NYLEPAY_WALLET',
   },
   {
     num: 4,
@@ -47,18 +47,17 @@ const CODE = {
     'Content-Type': 'application/json',
   },
   body: JSON.stringify({
-    sourceRail: 'MPESA',
-    destinationRail: 'BANK',
-    sourceCurrency: 'KES',
-    destinationCurrency: 'KES',
+    sourceRail: 'AIRTEL_MONEY',
+    destinationRail: 'PESALINK',
+    sourceAsset: 'KSH',
+    destinationAsset: 'KSH',
     amount: 1500,
-    customerPhone: '254712345678',
-    destination: { bankCode: '01', accountNumber: '1234567890' },
-    reference: 'ORDER-1234',
+    destination: { phone: '254733123456', bankCode: '01', accountNumber: '1234567890', accountName: 'Acme Store' },
+    idempotencyKey: 'ORDER-1234',
   }),
 });
 
-const { data } = await quote.json();
+await quote.json();
 
 await fetch('https://api.nylepay.com/api/routes/execute', {
   method: 'POST',
@@ -66,7 +65,14 @@ await fetch('https://api.nylepay.com/api/routes/execute', {
     Authorization: \`Bearer \${process.env.NYLEPAY_SECRET_KEY}\`,
     'Content-Type': 'application/json',
   },
-  body: JSON.stringify({ quoteId: data.quoteId, idempotencyKey: 'ORDER-1234' }),
+  body: JSON.stringify({
+    sourceRail: 'NYLEPAY_WALLET',
+    destinationRail: 'AIRTEL_MONEY',
+    sourceAsset: 'KSH',
+    amount: 750,
+    destination: { phone: '254733123456' },
+    idempotencyKey: 'ORDER-1234-PAYOUT',
+  }),
 });`,
   Python: `import os
 import requests
@@ -77,19 +83,22 @@ headers = {
 }
 
 quote = requests.post('https://api.nylepay.com/api/routes/quote', headers=headers, json={
-    'sourceRail': 'MPESA',
-    'destinationRail': 'BANK',
-    'sourceCurrency': 'KES',
-    'destinationCurrency': 'KES',
+    'sourceRail': 'AIRTEL_MONEY',
+    'destinationRail': 'PESALINK',
+    'sourceAsset': 'KSH',
+    'destinationAsset': 'KSH',
     'amount': 1500,
-    'customerPhone': '254712345678',
-    'destination': {'bankCode': '01', 'accountNumber': '1234567890'},
-    'reference': 'ORDER-1234',
+    'destination': {'phone': '254733123456', 'bankCode': '01', 'accountNumber': '1234567890', 'accountName': 'Acme Store'},
+    'idempotencyKey': 'ORDER-1234',
 }).json()['data']
 
 requests.post('https://api.nylepay.com/api/routes/execute', headers=headers, json={
-    'quoteId': quote['quoteId'],
-    'idempotencyKey': 'ORDER-1234',
+    'sourceRail': 'NYLEPAY_WALLET',
+    'destinationRail': 'AIRTEL_MONEY',
+    'sourceAsset': 'KSH',
+    'amount': 750,
+    'destination': {'phone': '254733123456'},
+    'idempotencyKey': 'ORDER-1234-PAYOUT',
 })`,
 };
 

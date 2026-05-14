@@ -4,7 +4,7 @@ NylePay is a Kenya-first financial routing platform built around one simple prom
 
 > Tell us where the money is and where it needs to go. NylePay handles the route.
 
-It is designed for a market where money does not live in one place. A Kenyan user may hold value in M-Pesa, a bank account, a card, a crypto wallet, a stablecoin balance, a merchant till, or an exchange account. A merchant may want to accept payments from all of those places but settle only to M-Pesa or a bank account.
+It is designed for a market where money does not live in one place. A Kenyan user may hold value in M-Pesa, Airtel Money, a bank account, a card, a crypto wallet, a stablecoin balance, a merchant till, or an exchange account. A merchant may want to accept payments from all of those places but settle only to M-Pesa, Airtel Money, PesaLink, or a bank account.
 
 NylePay turns that fragmented reality into one routing layer.
 
@@ -13,6 +13,8 @@ NylePay turns that fragmented reality into one routing layer.
 Kenya already has strong financial rails, but they are scattered:
 
 - M-Pesa dominates daily payments.
+- Airtel Money gives users and businesses another mobile-money path.
+- PesaLink connects Kenyan bank accounts through a faster bank-switch route.
 - Banks still matter for businesses, salaries, suppliers, and settlement.
 - Cards are useful for online and international payments.
 - Stablecoins and crypto are increasingly used for cross-border value movement.
@@ -25,7 +27,8 @@ Most products solve only one part:
 - A crypto off-ramp helps users convert crypto to local currency.
 - A wallet helps users hold balances.
 - A bank transfer provider moves money between accounts.
-- A mobile money integration handles M-Pesa.
+- Mobile money integrations handle M-Pesa and Airtel Money.
+- PesaLink handles bank-switch settlement where it is the better route.
 
 NylePay's opportunity is to connect these worlds into a single routing experience.
 
@@ -45,7 +48,10 @@ NylePay then quotes, executes, tracks, and reconciles the route.
 Example routes:
 
 - M-Pesa to NylePay wallet
+- Airtel Money to NylePay wallet
 - NylePay wallet to M-Pesa
+- NylePay wallet to Airtel Money
+- NylePay wallet to PesaLink
 - NylePay wallet to Till
 - NylePay wallet to Paybill
 - NylePay wallet to Pochi la Biashara
@@ -53,12 +59,14 @@ Example routes:
 - Wallet to bank
 - Card to merchant
 - Stablecoin to M-Pesa
+- Stablecoin to Airtel Money
+- Card or M-Pesa collection to PesaLink settlement
 - Stablecoin to bank
 - Crypto wallet to merchant settlement
 - CEX balance to M-Pesa
 - Customer payment from any supported rail to merchant bank settlement
 
-The product is not "crypto only" and not "M-Pesa only." Crypto is one rail. M-Pesa is one rail. Banks are one rail. Cards are one rail. NylePay is the routing brain above them.
+The product is not "crypto only" and not "M-Pesa only." Crypto is one rail. M-Pesa is one rail. Airtel Money is one rail. PesaLink is one rail. Banks are one rail. Cards are one rail. NylePay is the routing brain above them.
 
 ## Why Kenya First
 
@@ -74,7 +82,7 @@ Kenya is the right first market because it has:
 
 Winning Kenya first gives NylePay a strong operating template for Africa. The expansion model is not to copy-paste M-Pesa everywhere, but to adapt the destination rail per country:
 
-- Kenya: M-Pesa, banks, Till, Paybill, Pochi
+- Kenya: M-Pesa, Airtel Money, PesaLink, banks, Till, Paybill, Pochi
 - Ghana: MTN MoMo, Vodafone Cash, banks
 - Uganda: MTN MoMo, Airtel Money, banks
 - Tanzania: M-Pesa, Tigo Pesa, Airtel Money, banks
@@ -92,6 +100,8 @@ For merchants, NylePay should feel like:
 A merchant should be able to accept:
 
 - M-Pesa
+- Airtel Money
+- PesaLink
 - card
 - NylePay wallet
 - bank transfer
@@ -101,6 +111,8 @@ A merchant should be able to accept:
 Then settle to:
 
 - M-Pesa
+- Airtel Money
+- PesaLink
 - bank account
 - NylePay merchant balance
 - another supported business rail
@@ -117,7 +129,7 @@ For users, NylePay should feel like:
 
 A user should be able to:
 
-- receive crypto and cash out to M-Pesa
+- receive crypto and cash out to M-Pesa or Airtel Money
 - top up from M-Pesa and pay a Paybill
 - hold funds in a NylePay wallet
 - send to another NylePay account
@@ -133,7 +145,7 @@ For developers, NylePay should be:
 
 > One API for financial routing in Kenya, then Africa.
 
-Instead of integrating M-Pesa, card providers, bank payout APIs, crypto webhooks, checkout pages, settlement webhooks, fraud rules, and reconciliation separately, developers integrate one routing layer.
+Instead of integrating M-Pesa, Airtel Money, PesaLink, card providers, bank payout APIs, crypto webhooks, checkout pages, settlement webhooks, fraud rules, and reconciliation separately, developers integrate one routing layer.
 
 The developer asks for a quote, starts a route, listens for status changes, and receives a final event when the money reaches the destination or fails safely.
 
@@ -165,7 +177,7 @@ NylePay should answer a bigger question:
 
 > How do I move value from anywhere to anywhere useful?
 
-That means crypto-to-M-Pesa is just one route among many. A merchant should be able to receive stablecoin value and settle to bank. A user should be able to move M-Pesa to wallet, wallet to Paybill, crypto to bank, or wallet to another user.
+That means crypto-to-M-Pesa is just one route among many. A merchant should be able to receive stablecoin value and settle to bank, PesaLink, M-Pesa, or Airtel Money. A user should be able to move M-Pesa to wallet, Airtel Money to wallet, wallet to Paybill, wallet to PesaLink, crypto to bank, or wallet to another user.
 
 This broader utility makes NylePay less dependent on crypto market cycles.
 
@@ -173,7 +185,7 @@ This broader utility makes NylePay less dependent on crypto market cycles.
 
 Traditional gateways focus on collection. NylePay should focus on collection plus routing plus settlement.
 
-A normal gateway may help a merchant accept card or M-Pesa. NylePay should help a merchant accept many value sources and decide where the resulting value should land.
+A normal gateway may help a merchant accept card or M-Pesa. NylePay should help a merchant accept many value sources and decide whether the resulting value should land in M-Pesa, Airtel Money, PesaLink, bank, wallet, Paybill, Till, or a supported digital asset rail.
 
 That matters because African merchants are practical. They do not only want "payments accepted." They want:
 
@@ -215,7 +227,7 @@ Crypto should be described as supported digital asset routing, not as a casino-l
    Initiating a transfer is not the same as completing it.
 
 4. **Keep local rails first-class**
-   M-Pesa, Till, Paybill, Pochi, and Kenyan banks are not side features. They are the foundation.
+   M-Pesa, Airtel Money, PesaLink, Till, Paybill, Pochi, and Kenyan banks are not side features. They are the foundation.
 
 5. **Make crypto useful**
    Crypto should become spendable, withdrawable, and settleable value.
@@ -232,10 +244,12 @@ The strongest launch wedge is:
 
 - NylePay wallet
 - M-Pesa in and out
+- Airtel Money in and out
+- PesaLink bank-switch payouts
 - Paybill, Till, and Pochi payments
 - merchant checkout
-- merchant settlement to M-Pesa or bank
-- crypto/stablecoin to M-Pesa or bank for verified users
+- merchant settlement to M-Pesa, Airtel Money, PesaLink, or bank
+- crypto/stablecoin to M-Pesa, Airtel Money, PesaLink, or bank for verified users
 - developer routing API
 
 This gives NylePay both consumer and merchant value.
@@ -267,7 +281,7 @@ The ambition is to become the financial switchboard for practical African money 
 
 ## Short Pitch
 
-NylePay is a Kenya-first money routing platform for users, merchants, and developers. It connects M-Pesa, banks, cards, wallets, and crypto into one routing layer, allowing value to be collected from many sources and settled to the destination that matters: M-Pesa, bank, merchant balance, Paybill, Till, Pochi, or supported digital asset rails.
+NylePay is a Kenya-first money routing platform for users, merchants, and developers. It connects M-Pesa, Airtel Money, PesaLink, banks, cards, wallets, and crypto into one routing layer, allowing value to be collected from many sources and settled to the destination that matters: M-Pesa, Airtel Money, PesaLink, bank, merchant balance, Paybill, Till, Pochi, or supported digital asset rails.
 
 ## North Star
 

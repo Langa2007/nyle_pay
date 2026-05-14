@@ -4,7 +4,7 @@ import MarketingNav from '../components/MarketingNav';
 
 const included = [
   'Hosted checkout, payment links, and route intents',
-  'M-Pesa, card, wallet, bank, and crypto routing options',
+  'M-Pesa, Airtel Money, PesaLink, card, wallet, bank, and crypto routing options',
   'Business dashboard with exports and reconciliation',
   'Signed webhook delivery and retry visibility',
   'Sandbox credentials and route simulation',
@@ -12,10 +12,10 @@ const included = [
 ];
 
 const rows = [
-  ['M-Pesa and wallet collections', '1.5%', 'Charged on successful routed payments only'],
+  ['M-Pesa, Airtel Money, and wallet collections', '1.5%', 'Charged on successful routed payments only'],
   ['Card and international payments', 'Provider cost + NylePay margin', 'Shown before production activation'],
   ['Crypto intake and conversion', 'Network/provider cost + spread', 'Depends on asset, chain, and liquidity partner'],
-  ['Bank or M-Pesa settlement', 'Rail fee applies', 'Depends on destination and payout method'],
+  ['Bank, PesaLink, Airtel Money, or M-Pesa settlement', 'Rail fee applies', 'Depends on destination and payout method'],
   ['Refunds and reversals', 'No NylePay platform fee', 'Provider fees may be non-refundable'],
 ];
 

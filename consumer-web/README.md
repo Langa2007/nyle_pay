@@ -6,8 +6,8 @@ This site is the public explainer for NylePay. It does not handle login, signup,
 
 The site explains NylePay as a payment routing engine:
 
-- Money can start from M-Pesa, bank, card, wallet, or supported crypto rails.
-- Money can land in M-Pesa, bank, wallet, Paybill, Till, or future country-specific mobile money rails.
+- Money can start from M-Pesa, Airtel Money, bank, card, wallet, or supported crypto rails.
+- Money can land in M-Pesa, Airtel Money, PesaLink, bank, wallet, Paybill, Till, or future country-specific mobile money rails.
 - NylePay quotes the route, checks policy, executes the route, tracks every leg, and reconciles the result.
 - Businesses and developers use NylePay Business and the API documentation.
 - Individuals use the app, not the marketing website, for account access.

@@ -2,13 +2,14 @@
 
 NylePay Business is the business-facing web console for NylePay's routing engine. It is designed for Kenyan businesses first: collect money from the rail a customer wants to use, then route and settle it to the account the business chooses in real time.
 
-The product direction is simple: one business account, many financial rails. A business should be able to accept M-Pesa, cards, wallets, bank transfers, and crypto, then settle to M-Pesa, bank, wallet, Paybill, or future country-specific mobile money rails as NylePay expands across Africa.
+The product direction is simple: one business account, many financial rails. A business should be able to accept M-Pesa, Airtel Money, cards, wallets, bank transfers, and crypto, then settle to M-Pesa, Airtel Money, PesaLink, bank, wallet, Paybill, or future country-specific mobile money rails as NylePay expands across Africa.
 
 ## Gap It Fills
 
 Businesses in Kenya often deal with fragmented payment operations:
 
-- M-Pesa collections live in one workflow.
+- M-Pesa and Airtel Money collections live in one workflow.
+- PesaLink bank-switch settlement lives in another provider workflow.
 - Bank settlement and reconciliation live somewhere else.
 - Card payments need another provider.
 - Crypto liquidity and fiat conversion are disconnected from ordinary business accounts.
@@ -71,7 +72,9 @@ The sandbox tester in the docs is intended to cover:
 - Business registration.
 - Route capabilities.
 - M-Pesa to bank quotes.
-- Crypto to M-Pesa quotes.
+- Airtel Money to PesaLink quotes.
+- Wallet to Airtel Money quotes.
+- Crypto to M-Pesa or Airtel Money quotes.
 - Route execution.
 - Route status inspection.
 
