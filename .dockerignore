@@ -3,3 +3,17 @@ target/
 .gitignore
 node_modules
 .env
+**/node_modules
+**/dist
+**/build
+**/.vite
+**/.next
+**/coverage
+merchant-web/
+consumer-web/
+admin-dashboard/
+admin-frontend/
+nyle-frontend/
+*.log
+README.md
+API_KEYS.md
