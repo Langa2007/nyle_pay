@@ -149,6 +149,14 @@ Instead of integrating M-Pesa, Airtel Money, PesaLink, card providers, bank payo
 
 The developer asks for a quote, starts a route, listens for status changes, and receives a final event when the money reaches the destination or fails safely.
 
+For NylePay Business, access should stay light until production activation:
+
+- public signup collects full name and email only
+- Resend sends the confirmation email
+- email confirmation opens the Business dashboard
+- sandbox API keys are available for testing
+- the Go Live dashboard section collects business documents, beneficial ownership, settlement details, risk information, and production activation requirements
+
 ## Competitive Position
 
 NylePay should not compete by claiming to have every rail first. That is expensive and easy to copy.

@@ -9,6 +9,7 @@ import com.nyle.nylepay.services.UserService;
 import com.nyle.nylepay.models.User;
 import com.nyle.nylepay.exceptions.NylePayException;
 import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.slf4j.Logger;
@@ -29,6 +30,9 @@ public class AuthController {
     private final OtpService otpService;
     private final AuditLogService auditLogService;
 
+    @Value("${nylepay.business-web-url:http://localhost:5174}")
+    private String businessWebUrl;
+
     public AuthController(UserService userService,
             org.springframework.security.authentication.AuthenticationManager authenticationManager,
             com.nyle.nylepay.services.JwtService jwtService,
@@ -41,6 +45,48 @@ public class AuthController {
         this.userDetailsService = userDetailsService;
         this.otpService = otpService;
         this.auditLogService = auditLogService;
+    }
+
+    @PostMapping("/business-access/request")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> requestBusinessAccess(
+            @RequestBody Map<String, String> request,
+            jakarta.servlet.http.HttpServletRequest httpServletRequest) {
+        try {
+            Map<String, Object> result = userService.requestBusinessAccess(
+                    request.get("fullName"),
+                    request.get("email"),
+                    businessWebUrl + "/confirm-email");
+            auditLogService.logEvent(null, "BUSINESS_ACCESS_REQUESTED",
+                    "Business access requested for: " + request.get("email"), "SUCCESS", httpServletRequest, null);
+            return ResponseEntity.ok(ApiResponse.success("Confirmation email sent", result));
+        } catch (Exception e) {
+            logger.error("Business access request failed: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @GetMapping("/business-access/confirm")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> confirmBusinessAccess(
+            @RequestParam String token,
+            jakarta.servlet.http.HttpServletRequest httpServletRequest) {
+        try {
+            User user = userService.confirmBusinessAccess(token);
+            var userDetails = userDetailsService.loadUserByUsername(user.getEmail());
+            var jwtToken = jwtService.generateToken(userDetails);
+            Map<String, Object> response = Map.of(
+                    "userId", user.getId(),
+                    "email", user.getEmail(),
+                    "fullName", user.getFullName(),
+                    "token", jwtToken,
+                    "accountNumber", user.getAccountNumber() != null ? user.getAccountNumber() : "",
+                    "emailVerified", user.isEmailVerified());
+            auditLogService.logEvent(user.getId(), "BUSINESS_EMAIL_VERIFIED",
+                    "Business email verified", "SUCCESS", httpServletRequest, null);
+            return ResponseEntity.ok(ApiResponse.success("Email confirmed", response));
+        } catch (Exception e) {
+            logger.error("Business email confirmation failed: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
     }
 
     @PostMapping("/register")

@@ -31,8 +31,10 @@ NylePay Business turns that into a routing problem. The business tells NylePay w
 
 The web app is meant to provide:
 
-- Business onboarding and initial settlement setup.
-- API key management with secret keys shown once.
+- Email-confirmed Business access using Resend.
+- Sandbox API keys immediately after email confirmation.
+- A Go Live workflow for production activation, business documents, settlement rails, and live API keys.
+- API key management with production secret keys shown once after approval.
 - Route creation and quote testing.
 - Route history with source, destination, fee, FX, provider reference, and status.
 - Settlement policy management.
@@ -65,6 +67,14 @@ npm install
 npm run dev
 npm run build
 ```
+
+Business access flow:
+
+- Public signup collects only full name and email.
+- NylePay sends a Resend confirmation email.
+- Confirming the email opens the Business dashboard.
+- Sandbox API keys are available in the dashboard for developer testing.
+- The dashboard sidebar contains Go Live for the full production requirements flow.
 
 The sandbox tester in the docs is intended to cover:
 

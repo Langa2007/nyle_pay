@@ -9,9 +9,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -102,6 +104,75 @@ public class UserService {
 
     public Optional<User> getUserByEmail(String email) {
         return userRepository.findByEmail(email);
+    }
+
+    @Transactional
+    public Map<String, Object> requestBusinessAccess(String fullName, String email, String verificationBaseUrl) {
+        if (email == null || !email.matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
+            throw new RuntimeException("Invalid email format");
+        }
+
+        String normalizedEmail = email.trim().toLowerCase();
+        Optional<User> existing = userRepository.findByEmail(normalizedEmail);
+        if (existing.isEmpty() && (fullName == null || fullName.isBlank())) {
+            throw new RuntimeException("Full name is required");
+        }
+
+        User user = existing.orElseGet(User::new);
+        user.setFullName(fullName == null || fullName.isBlank() ? user.getFullName() : fullName.trim());
+        user.setEmail(normalizedEmail);
+        if (user.getPassword() == null || user.getPassword().isBlank()) {
+            user.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
+        }
+        if (!user.isEmailVerified()) {
+            user.setAccountStatus("PENDING_EMAIL");
+        }
+        user.setEmailVerificationToken(UUID.randomUUID().toString().replace("-", ""));
+        user.setEmailVerificationExpiresAt(LocalDateTime.now().plusHours(24));
+        userRepository.save(user);
+
+        ensureWallet(user, "KE");
+
+        String separator = verificationBaseUrl.contains("?") ? "&" : "?";
+        String verificationUrl = verificationBaseUrl + separator + "token=" + user.getEmailVerificationToken();
+        emailService.sendBusinessAccessVerificationEmail(user, verificationUrl);
+
+        return Map.of(
+                "email", user.getEmail(),
+                "expiresIn", "24 hours",
+                "requiresEmailConfirmation", true);
+    }
+
+    @Transactional
+    public User confirmBusinessAccess(String token) {
+        if (token == null || token.isBlank()) {
+            throw new RuntimeException("Verification token is required");
+        }
+        User user = userRepository.findByEmailVerificationToken(token.trim())
+                .orElseThrow(() -> new RuntimeException("Invalid or expired verification link"));
+        if (user.getEmailVerificationExpiresAt() == null
+                || user.getEmailVerificationExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("Verification link has expired");
+        }
+
+        user.setEmailVerified(true);
+        user.setEmailVerificationToken(null);
+        user.setEmailVerificationExpiresAt(null);
+        user.setAccountStatus("ACTIVE");
+        return userRepository.save(user);
+    }
+
+    private void ensureWallet(User user, String countryCode) {
+        if (walletRepository.findByUserId(user.getId()).isPresent()) {
+            return;
+        }
+        Wallet wallet = new Wallet();
+        wallet.setUserId(user.getId());
+        if ("KE".equals(countryCode)) {
+            wallet.getBalances().put("KSH", new Wallet.Balance(BigDecimal.ZERO));
+        }
+        wallet.getBalances().put("USD", new Wallet.Balance(BigDecimal.ZERO));
+        walletRepository.save(wallet);
     }
 
     public boolean isLocked(User user) {

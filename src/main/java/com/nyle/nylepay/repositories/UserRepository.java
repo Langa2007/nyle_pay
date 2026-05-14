@@ -14,4 +14,5 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByCryptoAddress(String cryptoAddress);
     Optional<User> findByKycReference(String kycReference);
     Optional<User> findByAccountNumber(String accountNumber);
+    Optional<User> findByEmailVerificationToken(String emailVerificationToken);
 }

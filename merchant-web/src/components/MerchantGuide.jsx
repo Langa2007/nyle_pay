@@ -3,9 +3,9 @@ import React, { useState } from 'react';
 const STEPS = [
   {
     num: 1,
-    title: 'Create a NylePay Account',
-    desc: 'Sign up with your email, password, and primary mobile money number. This creates the identity used for NylePay Business access.',
-    detail: 'POST /api/auth/register\nRequired: email, password, fullName, mpesaNumber, countryCode',
+    title: 'Confirm Business Email',
+    desc: 'Start with name and email. NylePay sends a confirmation link through Resend, then opens the Business dashboard after confirmation.',
+    detail: 'POST /api/auth/business-access/request\nRequired: fullName, email\nGET /api/auth/business-access/confirm?token=...',
   },
   {
     num: 2,

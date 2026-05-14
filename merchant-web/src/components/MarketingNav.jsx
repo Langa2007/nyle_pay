@@ -3,8 +3,10 @@ import { Link, NavLink } from 'react-router-dom';
 import ThemeToggle from './ThemeToggle';
 
 const navItems = [
+  { label: 'Home', to: '/' },
   { label: 'Features', to: '/features' },
   { label: 'Pricing', to: '/pricing' },
+  { label: 'Requirements', to: '/requirements' },
   { label: 'API Docs', to: '/docs' },
 ];
 

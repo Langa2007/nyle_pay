@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import MarketingNav from '../components/MarketingNav';
 
@@ -14,27 +14,21 @@ export default function Landing() {
   const currentYear = new Date().getFullYear();
   const [mode, setMode] = useState('signin');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [mpesa, setMpesa] = useState('');
   const [error, setError] = useState('');
+  const [sentTo, setSentTo] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const { login, signup } = useAuth();
-  const navigate = useNavigate();
+  const { requestBusinessAccess } = useAuth();
 
   const submit = async (event) => {
     event.preventDefault();
     setError('');
     setSubmitting(true);
     try {
-      if (mode === 'signup') {
-        await signup(email, password, fullName, mpesa, 'KE');
-      } else {
-        await login(email, password);
-      }
-      navigate('/dashboard');
+      await requestBusinessAccess({ fullName: mode === 'signup' ? fullName : '', email });
+      setSentTo(email);
     } catch (err) {
-      setError(err.message || 'Authentication failed. Please check your credentials.');
+      setError(err.message || 'Unable to send confirmation email.');
     } finally {
       setSubmitting(false);
     }
@@ -63,18 +57,34 @@ export default function Landing() {
             </div>
           </div>
 
-          <aside className="auth-panel" aria-label="Business sign in">
-            <div className="auth-panel-header">
-              <h2>{mode === 'signin' ? 'Sign in to Business' : 'Create business access'}</h2>
-              <p>{mode === 'signin' ? 'Manage routes, keys, settlements, and webhooks.' : 'Create your access account before business onboarding.'}</p>
+          <aside className="access-terminal" aria-label="Business access console">
+            <div className="terminal-head">
+              <div>
+                <span className="terminal-kicker">Email access</span>
+                <h2>{mode === 'signin' ? 'Send access email' : 'Create business access'}</h2>
+              </div>
+              <span className="terminal-state">Sandbox ready</span>
             </div>
 
-            <div className="segmented-control">
-              <button type="button" className={mode === 'signin' ? 'active' : ''} onClick={() => { setMode('signin'); setError(''); }}>Sign in</button>
-              <button type="button" className={mode === 'signup' ? 'active' : ''} onClick={() => { setMode('signup'); setError(''); }}>Sign up</button>
+            <div className="route-access-strip" aria-hidden="true">
+              <span>Identity</span>
+              <strong>{mode === 'signin' ? 'Known operator' : 'New operator'}</strong>
+              <i />
+              <span>Workspace</span>
+              <strong>NylePay Business</strong>
             </div>
 
-            <form onSubmit={submit}>
+            <div className="access-switch" role="tablist" aria-label="Access mode">
+              <button type="button" className={mode === 'signin' ? 'active' : ''} onClick={() => { setMode('signin'); setError(''); setSentTo(''); }}>Existing operator</button>
+              <button type="button" className={mode === 'signup' ? 'active' : ''} onClick={() => { setMode('signup'); setError(''); setSentTo(''); }}>New access</button>
+            </div>
+
+            {sentTo ? (
+              <div className="terminal-form access-sent">
+                <h3>Check your email</h3>
+                <p>A confirmation link has been sent to {sentTo}. Confirm the email to open your NylePay Business workspace.</p>
+              </div>
+            ) : <form className="terminal-form" onSubmit={submit}>
               {mode === 'signup' && (
                 <div className="form-group">
                   <label className="form-label" htmlFor="fullName">Full name</label>
@@ -87,25 +97,19 @@ export default function Landing() {
                 <input id="email" className="form-input" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="payments@company.com" autoComplete="email" />
               </div>
 
-              <div className="form-group">
-                <label className="form-label" htmlFor="password">Password</label>
-                <input id="password" className="form-input" type="password" required minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="At least 8 characters" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} />
-              </div>
-
-              {mode === 'signup' && (
-                <div className="form-group">
-                  <label className="form-label" htmlFor="mpesa">Mobile money number</label>
-                  <input id="mpesa" className="form-input" type="text" required value={mpesa} onChange={(event) => setMpesa(event.target.value)} placeholder="2547XXXXXXXX" />
-                  <p className="form-hint">Used for account verification and first settlement destination.</p>
-                </div>
-              )}
-
               {error && <div className="alert alert-error compact-alert">{error}</div>}
 
-              <button type="submit" className="btn-primary auth-submit" disabled={submitting}>
-                {submitting ? 'Please wait...' : mode === 'signup' ? 'Create account' : 'Sign in'}
+              <button type="submit" className="terminal-submit" disabled={submitting}>
+                <span>{submitting ? 'Sending email...' : mode === 'signup' ? 'Send confirmation email' : 'Send access email'}</span>
+                <small>Confirm email to continue</small>
               </button>
-            </form>
+            </form>}
+
+            <div className="terminal-policy">
+              <span>JWT secured</span>
+              <span>HMAC webhooks</span>
+              <span>Rail policy enforced</span>
+            </div>
           </aside>
         </section>
 
@@ -124,25 +128,19 @@ export default function Landing() {
           </div>
         </section>
       </main>
-      <footer style={styles.footer}>
+
+      <footer className="business-footer">
+        <div>
+          <strong>NylePay Business</strong>
+          <span>Payment routing infrastructure for African commerce.</span>
+        </div>
+        <nav aria-label="Footer navigation">
+          <Link to="/">Home</Link>
+          <Link to="/requirements">Requirements</Link>
+          <Link to="/docs">API Docs</Link>
+        </nav>
         <span>Copyright © {currentYear} NylePay Business. All rights reserved.</span>
-        <span>Payment routing infrastructure for African commerce.</span>
       </footer>
     </div>
   );
 }
-
-const styles = {
-  footer: {
-    maxWidth: 1180,
-    margin: '0 auto',
-    padding: '1.5rem 1.25rem 2rem',
-    display: 'flex',
-    justifyContent: 'space-between',
-    gap: '1rem',
-    flexWrap: 'wrap',
-    color: 'var(--text-secondary)',
-    fontSize: '0.85rem',
-    borderTop: '1px solid var(--border)',
-  },
-};

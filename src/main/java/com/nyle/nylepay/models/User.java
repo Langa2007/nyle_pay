@@ -13,6 +13,10 @@ public class User {
     private String fullName;
     private String email;
     private String password;
+    @Column(columnDefinition = "boolean default false")
+    private boolean emailVerified = false;
+    private String emailVerificationToken;
+    private LocalDateTime emailVerificationExpiresAt;
 
     // Role-Based Access Control
     @Column(nullable = false)
@@ -72,6 +76,12 @@ public class User {
     public void setEmail(String email) { this.email = email; }
     public String getPassword() { return password; }
     public void setPassword(String password) { this.password = password; }
+    public boolean isEmailVerified() { return emailVerified; }
+    public void setEmailVerified(boolean emailVerified) { this.emailVerified = emailVerified; }
+    public String getEmailVerificationToken() { return emailVerificationToken; }
+    public void setEmailVerificationToken(String emailVerificationToken) { this.emailVerificationToken = emailVerificationToken; }
+    public LocalDateTime getEmailVerificationExpiresAt() { return emailVerificationExpiresAt; }
+    public void setEmailVerificationExpiresAt(LocalDateTime emailVerificationExpiresAt) { this.emailVerificationExpiresAt = emailVerificationExpiresAt; }
     public String getRole() { return role; }
     public void setRole(String role) { this.role = role; }
     public String getMpesaNumber() { return mpesaNumber; }

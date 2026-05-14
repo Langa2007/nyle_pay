@@ -6,6 +6,8 @@ import Landing from './pages/Landing';
 import Features from './pages/Features';
 import Pricing from './pages/Pricing';
 import ApiDocs from './pages/ApiDocs';
+import Requirements from './pages/Requirements';
+import ConfirmEmail from './pages/ConfirmEmail';
 import Registration from './pages/Registration';
 import Dashboard from './pages/Dashboard';
 import './index.css';
@@ -19,6 +21,8 @@ function App() {
           <Route path="/features" element={<Features />} />
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/docs" element={<ApiDocs />} />
+          <Route path="/requirements" element={<Requirements />} />
+          <Route path="/confirm-email" element={<ConfirmEmail />} />
           <Route path="/register-business" element={
             <ProtectedRoute>
               <Registration />

@@ -15,6 +15,23 @@ export function AuthProvider({ children }) {
     setLoading(false);
   }, []);
 
+  const storeSession = (data) => {
+    const session = {
+      token: data.token,
+      userId: data.userId,
+      email: data.email,
+      fullName: data.fullName,
+      accountNumber: data.accountNumber,
+      emailVerified: data.emailVerified,
+      businessId: null,
+      businessName: null,
+      apiKeys: null,
+    };
+    localStorage.setItem('npy_business_session', JSON.stringify(session));
+    setUser(session);
+    return session;
+  };
+
   /**
    * Sign in with email + password against the real NylePay backend.
    * On success stores the JWT and user profile in localStorage.
@@ -29,20 +46,29 @@ export function AuthProvider({ children }) {
     if (!res.ok || !json.success) {
       throw new Error(json.message || 'Invalid credentials');
     }
-    const { token, userId, email: userEmail, fullName, accountNumber } = json.data;
-    const session = {
-      token,
-      userId,
-      email: userEmail,
-      fullName,
-      accountNumber,
-      businessId: null,
-      businessName: null,
-      apiKeys: null,
-    };
-    localStorage.setItem('npy_business_session', JSON.stringify(session));
-    setUser(session);
-    return session;
+    return storeSession(json.data);
+  };
+
+  const requestBusinessAccess = async ({ fullName, email }) => {
+    const res = await fetch(`${API}/api/auth/business-access/request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fullName, email }),
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json.message || 'Unable to send confirmation email');
+    }
+    return json.data;
+  };
+
+  const confirmBusinessAccess = async (token) => {
+    const res = await fetch(`${API}/api/auth/business-access/confirm?token=${encodeURIComponent(token)}`);
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json.message || 'Email confirmation failed');
+    }
+    return storeSession(json.data);
   };
 
   /**
@@ -75,7 +101,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, logout, updateBusinessInfo }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, requestBusinessAccess, confirmBusinessAccess, logout, updateBusinessInfo }}>
       {children}
     </AuthContext.Provider>
   );

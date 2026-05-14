@@ -9,6 +9,7 @@ const NAV = [
   { id: 'routes', label: 'Routes', icon: 'route' },
   { id: 'settlements', label: 'Settlements', icon: 'wallet' },
   { id: 'api', label: 'API Keys', icon: 'key' },
+  { id: 'live', label: 'Go Live', icon: 'shield' },
   { id: 'docs', label: 'API Docs', icon: 'docs' },
   { id: 'settings', label: 'Settings', icon: 'settings' },
 ];
@@ -27,6 +28,7 @@ function Icon({ name }) {
     wallet: <><path d="M20 7H5a2 2 0 00-2 2v9a2 2 0 002 2h15a2 2 0 002-2V9a2 2 0 00-2-2z" /><path d="M16 12h4v4h-4a2 2 0 010-4z" /><path d="M18 7V5a2 2 0 00-2-2H6a2 2 0 00-2 2v2" /></>,
     key: <><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" /></>,
     docs: <><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></>,
+    shield: <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="M9 12l2 2 4-5" /></>,
     settings: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09A1.65 1.65 0 0019.4 15z" /></>,
   };
   return <svg {...props}>{paths[name]}</svg>;
@@ -91,7 +93,8 @@ export default function Dashboard() {
         {tab === 'overview' && <OverviewTab biz={biz} user={user} setTab={setTab} />}
         {tab === 'routes' && <RoutesTab />}
         {tab === 'settlements' && <SettlementsTab />}
-        {tab === 'api' && <ApiKeysTab user={user} />}
+        {tab === 'api' && <ApiKeysTab user={user} setTab={setTab} />}
+        {tab === 'live' && <GoLiveTab />}
         {tab === 'docs' && <div style={{ padding: '2rem' }}><ApiDocs embedded /></div>}
         {tab === 'settings' && <SettingsTab user={user} />}
       </div>
@@ -126,10 +129,11 @@ function OverviewTab({ biz, user, setTab }) {
           <div style={S.onboarding}>
             <div style={S.onboardingIcon}><Icon name="key" /></div>
             <div style={{ flex: 1 }}>
-              <div style={S.onboardingTitle}>Complete business setup</div>
-              <div style={S.onboardingText}>Register your business to receive API keys, configure settlement, and start sandbox route testing.</div>
+              <div style={S.onboardingTitle}>Sandbox workspace ready</div>
+              <div style={S.onboardingText}>Use sandbox API keys for route testing. Use Go Live when the business is ready for production activation.</div>
             </div>
-            <a href="/register-business" className="btn-primary" style={S.smallPrimary}>Register business</a>
+            <button className="btn-primary" style={S.smallPrimary} onClick={() => setTab('api')}>View sandbox keys</button>
+            <button className="btn-outline" style={S.smallPrimary} onClick={() => setTab('live')}>Go Live</button>
           </div>
         )}
 
@@ -253,10 +257,12 @@ function SettlementsTab() {
   );
 }
 
-function ApiKeysTab({ user }) {
+function ApiKeysTab({ user, setTab }) {
   const [show, setShow] = useState({});
   const [copied, setCopied] = useState('');
   const keys = user?.apiKeys;
+  const sandboxPublicKey = `npy_test_pk_${String(user?.userId || 'user').padStart(6, '0')}`;
+  const sandboxSecretKey = `npy_test_sk_${btoa(user?.email || 'sandbox').replace(/=+$/, '').slice(0, 18)}`;
 
   const copy = (value, key) => {
     if (!value) return;
@@ -290,7 +296,13 @@ function ApiKeysTab({ user }) {
       </div>
       <div className="dash-content">
         <div className="card" style={{ marginBottom: '1.5rem' }}>
-          <h2 style={S.cardTitle}>Live Keys</h2>
+          <h2 style={S.cardTitle}>Sandbox Keys</h2>
+          <KeyRow label="Sandbox Public Key" hint="Use in local checkout and sandbox route simulations." value={sandboxPublicKey} id="sandboxPub" />
+          <KeyRow label="Sandbox Secret Key" hint="Use only in test backend calls. No real money movement is enabled." value={sandboxSecretKey} id="sandboxSec" />
+        </div>
+
+        <div className="card" style={{ marginBottom: '1.5rem' }}>
+          <h2 style={S.cardTitle}>Production Keys</h2>
           {keys ? (
             <>
               <KeyRow label="Public Key" hint="Safe for client-side checkout initialization." value={keys.publicKey} id="pub" />
@@ -300,8 +312,8 @@ function ApiKeysTab({ user }) {
           ) : (
             <div style={S.emptyState}>
               <Icon name="key" />
-              <p>Complete business registration to receive API keys.</p>
-              <a href="/register-business" className="btn-primary" style={{ marginTop: '1rem' }}>Register business</a>
+              <p>Production keys are issued after Go Live approval.</p>
+              <button className="btn-primary" style={{ marginTop: '1rem' }} onClick={() => setTab('live')}>Request production activation</button>
             </div>
           )}
         </div>
@@ -310,6 +322,50 @@ function ApiKeysTab({ user }) {
           <h3 style={{ ...S.cardTitle, color: 'var(--danger)' }}>Key rotation</h3>
           <p style={S.cardCopy}>Regenerating keys must be a backend action that invalidates old credentials and creates an audit event. This button is intentionally not local-only.</p>
           <button className="btn-danger">Request key rotation</button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function GoLiveTab() {
+  const sections = [
+    ['Business identity', 'Business registration or incorporation certificate, current company search or CR12, business KRA PIN, permits or sector licences, business address, and business activity description.'],
+    ['Owners and operators', 'Director, owner, partner, and signatory IDs, KRA PINs, contact details, address proof, passport photos where required, and authority to operate.'],
+    ['Beneficial ownership', 'Beneficial owner details, ownership percentages, voting/control structure, BO filing where applicable, share register or ownership chart.'],
+    ['Settlement setup', 'Bank account evidence, M-PESA Till or Paybill details, Airtel Money merchant details where enabled, PesaLink bank destination, webhook URL, and reconciliation email.'],
+    ['Risk and compliance', 'Expected volumes, average ticket size, source of funds, countries served, regulated-sector evidence, AML screening consent, and acceptable-use declaration.'],
+  ];
+
+  return (
+    <>
+      <div className="dash-header">
+        <div>
+          <h1 style={S.pageTitle}>Go Live</h1>
+          <p style={S.pageSub}>Submit production activation information for live collections, payouts, settlement rails, and production API keys.</p>
+        </div>
+      </div>
+      <div className="dash-content">
+        <div className="card" style={{ marginBottom: '1.5rem' }}>
+          <h2 style={S.cardTitle}>Live activation request</h2>
+          <div style={S.builderGrid}>
+            <input className="form-input" placeholder="Registered business name" />
+            <input className="form-input" placeholder="Business KRA PIN" />
+            <input className="form-input" placeholder="Expected monthly volume, e.g. KES 500,000" />
+            <select className="form-input"><option>Primary rail: M-Pesa</option><option>Airtel Money</option><option>PesaLink</option><option>Bank settlement</option></select>
+            <input className="form-input" placeholder="Compliance contact email" />
+            <button className="btn-primary" style={{ justifyContent: 'center' }}>Save live request</button>
+          </div>
+        </div>
+
+        <div style={S.operationGrid}>
+          {sections.map(([title, body]) => (
+            <div className="card" key={title}>
+              <h3 style={S.cardTitle}>{title}</h3>
+              <p style={S.cardCopy}>{body}</p>
+              <input className="form-input" type="file" />
+            </div>
+          ))}
         </div>
       </div>
     </>
