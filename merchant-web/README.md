@@ -57,7 +57,7 @@ NylePay should not compete only as another checkout provider. The stronger posit
 Set the backend base URL with:
 
 ```bash
-VITE_API_BASE_URL=http://localhost:8080
+VITE_API_BASE_URL=https://nyle-pay.onrender.com
 ```
 
 Common commands:

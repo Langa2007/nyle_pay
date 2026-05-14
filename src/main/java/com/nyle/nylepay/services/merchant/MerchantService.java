@@ -30,7 +30,7 @@ public class MerchantService {
 
     private static final Logger log = LoggerFactory.getLogger(MerchantService.class);
 
-    @Value("${nylepay.checkout.domain:http://localhost:8080}")
+    @Value("${nylepay.checkout.domain:https://nyle-pay.onrender.com}")
     private String checkoutDomain;
 
     private final MerchantRepository merchantRepository;

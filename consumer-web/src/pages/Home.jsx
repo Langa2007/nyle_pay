@@ -1,6 +1,6 @@
 import React from 'react';
 
-const BUSINESS_URL = import.meta.env.VITE_NYLEPAY_BUSINESS_URL || 'http://localhost:5174';
+const BUSINESS_URL = import.meta.env.VITE_NYLEPAY_BUSINESS_URL || 'https://nyle-pay.vercel.app';
 const FOOTER_IMAGE = 'https://images.unsplash.com/photo-1742239485258-dc3f1b044c16?auto=format&fit=crop&fm=jpg&q=80&w=1800';
 
 const rails = ['M-Pesa', 'Airtel Money', 'PesaLink', 'Banks', 'Cards', 'NylePay Wallet', 'USDC', 'USDT', 'Paybill', 'Till'];

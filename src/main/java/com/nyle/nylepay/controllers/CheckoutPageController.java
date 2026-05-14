@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.PathVariable;
  * The URL that MerchantService generates is:
  *   https://pay.nylepay.com/checkout/{reference}
  * or in development:
- *   http://localhost:8080/checkout/{reference}
+ *   https://nyle-pay.onrender.com/checkout/{reference}
  *
  * Spring Boot serves static files from /static automatically.
  * This controller only exists to forward the path-variable URL to the static page.

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AuthContext } from './authContextValue';
 
-const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+const API = import.meta.env.VITE_API_BASE_URL || 'https://nyle-pay.onrender.com';
 
 export function AuthProvider({ children }) {
   const [user, setUser]     = useState(null);

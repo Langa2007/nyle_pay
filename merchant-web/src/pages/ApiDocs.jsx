@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import MarketingNav from '../components/MarketingNav';
 import SandboxTester from '../components/SandboxTester';
 
-const BASE_URL = 'https://api.nylepay.com';
+const BASE_URL = 'https://nyle-pay.onrender.com';
 
 const endpoints = [
   {

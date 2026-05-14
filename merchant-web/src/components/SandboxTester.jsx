@@ -14,7 +14,7 @@ const ENDPOINTS = [
 ];
 
 export default function SandboxTester() {
-  const [base, setBase] = useState(import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080');
+  const [base, setBase] = useState(import.meta.env.VITE_API_BASE_URL || 'https://nyle-pay.onrender.com');
   const [jwt, setJwt] = useState('');
   const [secretKey, setSecretKey] = useState('');
   const [active, setActive] = useState(ENDPOINTS[0]);
@@ -58,7 +58,7 @@ export default function SandboxTester() {
         <label style={S.urlLabel}>API Base URL</label>
         <div style={S.urlControls}>
           <input style={S.urlInput} value={base} onChange={(event) => setBase(event.target.value.replace(/\/$/, ''))} placeholder="https://api.yourdomain.com" />
-          {['http://localhost:8080', 'https://api.nylepay.com'].map((url) => (
+          {['https://nyle-pay.onrender.com', 'https://api.nylepay.com'].map((url) => (
             <button key={url} onClick={() => setBase(url)} style={{ ...S.urlChip, ...(base === url ? S.urlChipActive : {}) }}>{url.replace(/https?:\/\//, '')}</button>
           ))}
         </div>

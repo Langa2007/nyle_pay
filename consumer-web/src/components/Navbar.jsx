@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
-const BUSINESS_URL = import.meta.env.VITE_NYLEPAY_BUSINESS_URL || 'http://localhost:5174';
+const BUSINESS_URL = import.meta.env.VITE_NYLEPAY_BUSINESS_URL || 'https://nyle-pay.vercel.app';
 
 const links = [
   ['What it does', '#overview'],

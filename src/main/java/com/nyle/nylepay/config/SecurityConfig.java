@@ -70,12 +70,8 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(Arrays.asList(
-                "http://localhost:3000",
-                "http://localhost:5173",   // Consumer web (Vite)
-                "http://localhost:5174",   // Merchant web (Vite)
-                "http://localhost:8080",
-                "http://localhost:5500",
-                "http://127.0.0.1:5500",
+                "https://nyle-pay.vercel.app",
+                "https://nyle-pay.onrender.com",
                 "https://nylepay.com"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));

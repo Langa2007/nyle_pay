@@ -30,7 +30,7 @@ public class AuthController {
     private final OtpService otpService;
     private final AuditLogService auditLogService;
 
-    @Value("${nylepay.business-web-url:http://localhost:5174}")
+    @Value("${nylepay.business-web-url:https://nyle-pay.vercel.app}")
     private String businessWebUrl;
 
     public AuthController(UserService userService,

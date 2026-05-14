@@ -26,10 +26,10 @@ The site explains NylePay as a payment routing engine:
 The public site links to the business console using:
 
 ```bash
-VITE_NYLEPAY_BUSINESS_URL=http://localhost:5174
+VITE_NYLEPAY_BUSINESS_URL=https://nyle-pay.vercel.app
 ```
 
-If the variable is not set, the site defaults to `http://localhost:5174`.
+If the variable is not set, the site defaults to `https://nyle-pay.vercel.app`.
 
 ## Commands
 
