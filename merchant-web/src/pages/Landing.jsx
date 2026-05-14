@@ -11,6 +11,7 @@ const featurePreview = [
 ];
 
 export default function Landing() {
+  const currentYear = new Date().getFullYear();
   const [mode, setMode] = useState('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -123,6 +124,25 @@ export default function Landing() {
           </div>
         </section>
       </main>
+      <footer style={styles.footer}>
+        <span>Copyright © {currentYear} NylePay Business. All rights reserved.</span>
+        <span>Payment routing infrastructure for African commerce.</span>
+      </footer>
     </div>
   );
 }
+
+const styles = {
+  footer: {
+    maxWidth: 1180,
+    margin: '0 auto',
+    padding: '1.5rem 1.25rem 2rem',
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: '1rem',
+    flexWrap: 'wrap',
+    color: 'var(--text-secondary)',
+    fontSize: '0.85rem',
+    borderTop: '1px solid var(--border)',
+  },
+};

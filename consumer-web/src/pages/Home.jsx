@@ -20,7 +20,10 @@ const policies = [
   ['Transparent execution', 'Quotes should show amount, fees, FX, estimated speed, provider rail, and final destination before a route is executed.'],
 ];
 
-const Home = () => (
+const Home = () => {
+  const currentYear = new Date().getFullYear();
+
+  return (
   <div id="top">
     <section style={styles.hero}>
       <div style={styles.heroInner}>
@@ -157,11 +160,13 @@ const Home = () => (
         <div style={styles.footerMeta}>
           <span>Africa fintech routing infrastructure.</span>
           <span>Routes execute only inside legal, verified, and auditable rails.</span>
+          <span>Copyright © {currentYear} NylePay. All rights reserved.</span>
         </div>
       </div>
     </footer>
   </div>
-);
+  );
+};
 
 function SectionHeader({ eyebrow, title, body }) {
   return (

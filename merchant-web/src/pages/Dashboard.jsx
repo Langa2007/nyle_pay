@@ -36,6 +36,7 @@ export default function Dashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState('overview');
+  const currentYear = new Date().getFullYear();
   const biz = user?.businessName || 'Your Business';
   const initial = biz.charAt(0).toUpperCase();
 
@@ -82,6 +83,7 @@ export default function Dashboard() {
           <button className="btn-ghost" style={S.signOut} onClick={() => { logout(); navigate('/'); }}>
             Sign out
           </button>
+          <div style={S.copyright}>Copyright © {currentYear} NylePay Business.</div>
         </div>
       </aside>
 
@@ -358,6 +360,7 @@ const S = {
   sandboxTitle: { fontSize: '0.75rem', fontWeight: 700, color: '#92400e' },
   sandboxSub: { fontSize: '0.68rem', color: '#b45309' },
   sidebarFooter: { padding: '0.75rem', borderTop: '1px solid var(--border)' },
+  copyright: { marginTop: '0.75rem', color: 'var(--text-muted)', fontSize: '0.72rem', lineHeight: 1.5 },
   userRow: { display: 'flex', alignItems: 'center', gap: '0.5rem' },
   avatar: { width: 32, height: 32, borderRadius: 8, background: 'var(--brand)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.875rem', flexShrink: 0 },
   userName: { fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
