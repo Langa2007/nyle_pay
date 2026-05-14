@@ -20,7 +20,7 @@ const Navbar = () => {
   }, []);
 
   return (
-    <nav style={{ ...styles.navbar, background: scrolled ? 'rgba(6, 9, 16, 0.94)' : 'rgba(6, 9, 16, 0.74)', borderBottom: scrolled ? '1px solid rgba(255,255,255,0.08)' : '1px solid transparent' }}>
+    <nav style={{ ...styles.navbar, background: scrolled ? 'rgba(255, 255, 255, 0.96)' : 'rgba(255, 255, 255, 0.82)', borderBottom: scrolled ? '1px solid var(--border-color)' : '1px solid transparent', boxShadow: scrolled ? '0 8px 24px rgba(15, 23, 42, 0.06)' : 'none' }}>
       <a href="#top" style={styles.logoWrap} onClick={() => setMenuOpen(false)}>
         <div style={styles.logoIcon}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
@@ -74,8 +74,8 @@ const styles = {
   logoIcon: {
     width: 34,
     height: 34,
-    background: 'rgba(59,130,246,0.15)',
-    border: '1px solid rgba(59,130,246,0.3)',
+    background: 'rgba(23,105,224,0.08)',
+    border: '1px solid rgba(23,105,224,0.22)',
     borderRadius: 8,
     display: 'flex',
     alignItems: 'center',

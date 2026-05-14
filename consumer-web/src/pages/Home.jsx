@@ -131,15 +131,36 @@ const Home = () => (
     </section>
 
     <footer style={styles.footer}>
-      <div style={styles.footerBrand}>
-        <strong>NylePay</strong>
-        <span>Payment routing for African commerce.</span>
+      <div style={styles.silhouette} aria-hidden="true">
+        <div style={styles.silhouetteRail} />
+        <div style={{ ...styles.tower, left: '6%', height: 80, width: 34 }} />
+        <div style={{ ...styles.tower, left: '12%', height: 112, width: 54 }} />
+        <div style={{ ...styles.tower, left: '20%', height: 64, width: 42 }} />
+        <div style={{ ...styles.tower, left: '30%', height: 96, width: 68 }} />
+        <div style={{ ...styles.tower, left: '43%', height: 72, width: 48 }} />
+        <div style={{ ...styles.tower, left: '54%', height: 128, width: 58 }} />
+        <div style={{ ...styles.tower, left: '64%', height: 76, width: 44 }} />
+        <div style={{ ...styles.tower, left: '73%', height: 104, width: 72 }} />
+        <div style={{ ...styles.tower, left: '86%', height: 68, width: 50 }} />
+        <div style={{ ...styles.signalLine, left: '11%', width: '34%', transform: 'rotate(-5deg)' }} />
+        <div style={{ ...styles.signalLine, right: '12%', width: '36%', transform: 'rotate(4deg)' }} />
       </div>
-      <div style={styles.footerLinks}>
-        <a href={`${BUSINESS_URL}`}>NylePay Business</a>
-        <a href={`${BUSINESS_URL}/docs`}>API docs</a>
-        <a href="#funds-flow">Funds flow</a>
-        <a href="#account-policy">Account policy</a>
+
+      <div style={styles.footerInner}>
+        <div style={styles.footerBrand}>
+          <strong>NylePay</strong>
+          <span>Payment routing for African commerce.</span>
+        </div>
+        <div style={styles.footerLinks}>
+          <a href={`${BUSINESS_URL}`}>NylePay Business</a>
+          <a href={`${BUSINESS_URL}/docs`}>API docs</a>
+          <a href="#funds-flow">Funds flow</a>
+          <a href="#account-policy">Account policy</a>
+        </div>
+        <div style={styles.footerMeta}>
+          <span>Kenya first. Africa next.</span>
+          <span>Routes execute only inside legal, verified, and auditable rails.</span>
+        </div>
       </div>
     </footer>
   </div>
@@ -206,7 +227,7 @@ const styles = {
   routeLine: { display: 'grid', gridTemplateColumns: '110px 1fr', gap: '1rem', padding: '1rem 0', borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)', fontSize: '0.9rem' },
   quoteBox: { display: 'grid', gap: '0.75rem', marginTop: '1rem', padding: '1rem', borderRadius: 12, background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.14)' },
   section: { padding: '6rem 5%', position: 'relative', zIndex: 10 },
-  sectionAlt: { padding: '6rem 5%', position: 'relative', zIndex: 10, background: 'linear-gradient(180deg, transparent 0%, rgba(59,130,246,0.035) 45%, transparent 100%)' },
+  sectionAlt: { padding: '6rem 5%', position: 'relative', zIndex: 10, background: 'linear-gradient(180deg, #ffffff 0%, #f4f9ff 45%, #ffffff 100%)' },
   sectionHeader: { maxWidth: 780, margin: '0 auto 3rem', textAlign: 'center' },
   cardGrid: { maxWidth: 1280, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '1.25rem' },
   policyGrid: { maxWidth: 1280, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '1.25rem' },
@@ -217,18 +238,24 @@ const styles = {
   flowStep: { padding: '1.25rem' },
   tableWrap: { maxWidth: 1080, margin: '0 auto', overflowX: 'auto', border: '1px solid var(--border-color)', borderRadius: 16, background: 'var(--card-bg)' },
   table: { width: '100%', borderCollapse: 'collapse' },
-  railsBar: { maxWidth: 1080, margin: '1.25rem auto 0', background: 'rgba(20,31,51,0.6)', border: '1px solid var(--border-color)', borderRadius: 16, padding: '1.25rem', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' },
+  railsBar: { maxWidth: 1080, margin: '1.25rem auto 0', background: '#ffffff', border: '1px solid var(--border-color)', borderRadius: 16, padding: '1.25rem', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', boxShadow: 'var(--shadow-sm)' },
   railsLabel: { color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '0.76rem', fontWeight: 700 },
   rails: { display: 'flex', flexWrap: 'wrap', gap: '0.5rem' },
-  rail: { padding: '0.3rem 0.8rem', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.15)', borderRadius: 999, color: 'var(--text-secondary)', fontSize: '0.82rem' },
+  rail: { padding: '0.3rem 0.8rem', background: '#f1f7ff', border: '1px solid rgba(23,105,224,0.16)', borderRadius: 999, color: 'var(--brand-blue)', fontSize: '0.82rem', fontWeight: 600 },
   split: { maxWidth: 1080, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' },
   block: { padding: '2rem' },
   blockTitle: { fontSize: '1.3rem', marginBottom: '0.8rem' },
   blockText: { color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: '1.5rem' },
   blockButton: { width: 'fit-content' },
-  footer: { maxWidth: 1280, margin: '0 auto', padding: '3rem 5%', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', gap: '2rem', flexWrap: 'wrap' },
+  footer: { position: 'relative', marginTop: '2rem', overflow: 'hidden', borderTop: '1px solid var(--border-color)', background: 'linear-gradient(180deg, #ffffff 0%, #edf6ff 100%)' },
+  silhouette: { position: 'relative', height: 180, maxWidth: 1280, margin: '0 auto', opacity: 0.95 },
+  silhouetteRail: { position: 'absolute', left: '4%', right: '4%', bottom: 0, height: 18, borderRadius: '14px 14px 0 0', background: '#d9eaff', boxShadow: '0 -18px 60px rgba(23,105,224,0.14)' },
+  tower: { position: 'absolute', bottom: 0, borderRadius: '8px 8px 0 0', background: 'linear-gradient(180deg, #c9e0ff 0%, #b8d6fb 100%)', border: '1px solid rgba(23,105,224,0.10)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.8)' },
+  signalLine: { position: 'absolute', top: 66, height: 1, background: 'linear-gradient(90deg, transparent, rgba(23,105,224,0.42), rgba(47,128,237,0.28), transparent)' },
+  footerInner: { maxWidth: 1280, margin: '0 auto', padding: '2rem 5% 2.4rem', display: 'grid', gridTemplateColumns: '1.2fr auto', gap: '1.5rem', alignItems: 'start', borderTop: '1px solid rgba(23,105,224,0.12)' },
   footerBrand: { display: 'grid', gap: '0.3rem', color: 'var(--text-secondary)' },
   footerLinks: { display: 'flex', gap: '1rem', flexWrap: 'wrap' },
+  footerMeta: { gridColumn: '1 / -1', display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', color: 'var(--text-muted)', fontSize: '0.82rem', paddingTop: '1rem', borderTop: '1px solid rgba(23,105,224,0.12)' },
 };
 
 export default Home;
