@@ -87,14 +87,14 @@ export default function Landing() {
             <div className="terminal-head">
               <div>
                 <span className="terminal-kicker">Email access</span>
-                <h2>{mode === 'signin' ? 'Get 6-digit code' : 'Create business access'}</h2>
+                <h2>{mode === 'signin' ? 'Login with email code' : 'Create business access'}</h2>
               </div>
               <span className="terminal-state">Sandbox ready</span>
             </div>
 
             <div className="route-access-strip" aria-hidden="true">
               <span>Identity</span>
-              <strong>{mode === 'signin' ? 'Known operator' : 'New operator'}</strong>
+              <strong>{mode === 'signin' ? 'Email code login' : 'New operator'}</strong>
               <i />
               <span>Workspace</span>
               <strong>NylePay Business</strong>
@@ -143,7 +143,7 @@ export default function Landing() {
               {error && <div className="alert alert-error compact-alert">{error}</div>}
 
               <button type="submit" className="terminal-submit" disabled={submitting}>
-                <span>{submitting ? 'Sending code...' : mode === 'signup' ? 'Send 6-digit code' : 'Send 6-digit code'}</span>
+                <span>{submitting ? 'Sending code...' : mode === 'signup' ? 'Send 6-digit code' : 'Send login code'}</span>
                 <small>Enter the code to continue</small>
               </button>
             </form>}

@@ -150,8 +150,18 @@ public class UserService {
         if (code == null || !code.matches("\\d{6}")) {
             throw new RuntimeException("A valid 6-digit verification code is required");
         }
-        User user = userRepository.findByEmailAndEmailVerificationToken(email.trim().toLowerCase(), code.trim())
-                .orElseThrow(() -> new RuntimeException("Invalid or expired verification code"));
+        String normalizedEmail = email.trim().toLowerCase();
+        String trimmedCode = code.trim();
+        User user = userRepository.findByEmailAndEmailVerificationToken(normalizedEmail, trimmedCode)
+                .orElseGet(() -> userRepository.findByEmail(normalizedEmail)
+                        .filter(existing -> existing.isEmailVerified())
+                        .orElseThrow(() -> new RuntimeException("Invalid or expired verification code")));
+
+        if (user.isEmailVerified() && user.getEmailVerificationToken() == null) {
+            user.setAccountStatus("ACTIVE");
+            return userRepository.save(user);
+        }
+
         if (user.getEmailVerificationExpiresAt() == null
                 || user.getEmailVerificationExpiresAt().isBefore(LocalDateTime.now())) {
             throw new RuntimeException("Verification code has expired");
