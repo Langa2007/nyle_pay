@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import ThemeToggle from '../components/ThemeToggle';
@@ -13,6 +13,8 @@ const NAV = [
   { id: 'docs', label: 'API Docs', icon: 'docs' },
   { id: 'settings', label: 'Settings', icon: 'settings' },
 ];
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://nyle-pay.onrender.com';
 
 const sampleRoutes = [
   ['RT-KE-1001', 'M-Pesa', 'Business M-Pesa', 'KES 0.00', 'Ready', 'Realtime'],
@@ -39,8 +41,8 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [tab, setTab] = useState('overview');
   const currentYear = new Date().getFullYear();
-  const biz = user?.businessName || 'Your Business';
-  const initial = biz.charAt(0).toUpperCase();
+  const workspaceName = 'Sandbox Workspace';
+  const initial = (user?.fullName || user?.email || 'N').charAt(0).toUpperCase();
 
   return (
     <div className="dash-layout">
@@ -50,7 +52,7 @@ export default function Dashboard() {
             <div style={S.logoMark}><Icon name="route" /></div>
             <div>
               <div style={S.sidebarBrand}>NylePay</div>
-              <div style={S.sidebarSub}>Business Dashboard</div>
+              <div style={S.sidebarSub}>Developer Dashboard</div>
             </div>
           </div>
         </div>
@@ -69,7 +71,7 @@ export default function Dashboard() {
           <div style={S.sandboxDot} />
           <div>
             <div style={S.sandboxTitle}>Sandbox Ready</div>
-            <div style={S.sandboxSub}>Route tests use no real money</div>
+            <div style={S.sandboxSub}>Real API, simulated money</div>
           </div>
         </div>
 
@@ -77,7 +79,7 @@ export default function Dashboard() {
           <div style={S.userRow}>
             <div style={S.avatar}>{initial}</div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={S.userName}>{biz}</div>
+              <div style={S.userName}>{workspaceName}</div>
               <div style={S.userEmail}>{user?.email || '-'}</div>
             </div>
             <ThemeToggle />
@@ -85,12 +87,12 @@ export default function Dashboard() {
           <button className="btn-ghost" style={S.signOut} onClick={() => { logout(); navigate('/'); }}>
             Sign out
           </button>
-          <div style={S.copyright}>Copyright © {currentYear} NylePay Business.</div>
+          <div style={S.copyright}>Copyright (c) {currentYear} NylePay Business.</div>
         </div>
       </aside>
 
       <div className="dash-main">
-        {tab === 'overview' && <OverviewTab biz={biz} user={user} setTab={setTab} />}
+        {tab === 'overview' && <OverviewTab workspaceName={workspaceName} user={user} setTab={setTab} />}
         {tab === 'routes' && <RoutesTab />}
         {tab === 'settlements' && <SettlementsTab />}
         {tab === 'api' && <ApiKeysTab user={user} setTab={setTab} />}
@@ -102,13 +104,13 @@ export default function Dashboard() {
   );
 }
 
-function OverviewTab({ biz, user, setTab }) {
+function OverviewTab({ workspaceName, user, setTab }) {
   const hasKeys = !!user?.apiKeys;
   const metrics = [
-    { label: 'Routed Today', value: 'KES 0.00', sub: '0 completed routes', color: '#0f172a' },
-    { label: 'Available Balance', value: 'KES 0.00', sub: 'Ready for real-time settlement', color: '#059669' },
-    { label: 'Pending Routes', value: '0', sub: 'Awaiting provider confirmation', color: '#0f172a' },
-    { label: 'Success Rate', value: '-', sub: 'No live volume yet', color: '#0f172a' },
+    { label: 'Sandbox Routes', value: '0', sub: 'Ready for API tests', color: '#0f172a' },
+    { label: 'Test Balance', value: 'KES 250K', sub: 'Simulated settlement float', color: '#059669' },
+    { label: 'Live Status', value: 'Off', sub: 'Use Go Live for activation', color: '#0f172a' },
+    { label: 'Sandbox Limit', value: 'KES 100K', sub: 'Per simulated movement', color: '#0f172a' },
   ];
 
   return (
@@ -116,11 +118,11 @@ function OverviewTab({ biz, user, setTab }) {
       <div className="dash-header">
         <div>
           <h1 style={S.pageTitle}>Overview</h1>
-          <p style={S.pageSub}>Welcome back, {biz}</p>
+          <p style={S.pageSub}>{workspaceName} for testing routes before production activation</p>
         </div>
         <button className="btn-primary" onClick={() => setTab('routes')}>
           <Icon name="route" />
-          Create Route
+          Test Route
         </button>
       </div>
 
@@ -130,10 +132,10 @@ function OverviewTab({ biz, user, setTab }) {
             <div style={S.onboardingIcon}><Icon name="key" /></div>
             <div style={{ flex: 1 }}>
               <div style={S.onboardingTitle}>Sandbox workspace ready</div>
-              <div style={S.onboardingText}>Use sandbox API keys for route testing. Use Go Live when the business is ready for production activation.</div>
+              <div style={S.onboardingText}>Use real sandbox API keys against the live backend. Sandbox calls are capped and never move real money.</div>
             </div>
             <button className="btn-primary" style={S.smallPrimary} onClick={() => setTab('api')}>View sandbox keys</button>
-            <button className="btn-outline" style={S.smallPrimary} onClick={() => setTab('live')}>Go Live</button>
+            <button className="btn-outline" style={S.smallPrimary} onClick={() => setTab('live')}>Go Live / Higher Limits</button>
           </div>
         )}
 
@@ -260,9 +262,33 @@ function SettlementsTab() {
 function ApiKeysTab({ user, setTab }) {
   const [show, setShow] = useState({});
   const [copied, setCopied] = useState('');
+  const [sandboxKeys, setSandboxKeys] = useState(null);
+  const [loadingKeys, setLoadingKeys] = useState(true);
+  const [keyError, setKeyError] = useState('');
   const keys = user?.apiKeys;
-  const sandboxPublicKey = `npy_test_pk_${String(user?.userId || 'user').padStart(6, '0')}`;
-  const sandboxSecretKey = `npy_test_sk_${btoa(user?.email || 'sandbox').replace(/=+$/, '').slice(0, 18)}`;
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadSandboxKeys = async () => {
+      if (!user?.token) return;
+      setLoadingKeys(true);
+      setKeyError('');
+      try {
+        const res = await fetch(`${API_BASE}/api/business/sandbox-keys`, {
+          headers: { Authorization: `Bearer ${user.token}` },
+        });
+        const json = await res.json();
+        if (!res.ok || !json.success) throw new Error(json.message || 'Could not load sandbox keys');
+        if (!cancelled) setSandboxKeys(json.data);
+      } catch (err) {
+        if (!cancelled) setKeyError(err.message || 'Could not load sandbox keys');
+      } finally {
+        if (!cancelled) setLoadingKeys(false);
+      }
+    };
+    loadSandboxKeys();
+    return () => { cancelled = true; };
+  }, [user?.token]);
 
   const copy = (value, key) => {
     if (!value) return;
@@ -291,14 +317,24 @@ function ApiKeysTab({ user, setTab }) {
       <div className="dash-header">
         <div>
           <h1 style={S.pageTitle}>API Keys & Webhooks</h1>
-          <p style={S.pageSub}>Credentials for routing money through NylePay Business</p>
+          <p style={S.pageSub}>Real credentials for sandbox testing and production routing</p>
         </div>
       </div>
       <div className="dash-content">
         <div className="card" style={{ marginBottom: '1.5rem' }}>
           <h2 style={S.cardTitle}>Sandbox Keys</h2>
-          <KeyRow label="Sandbox Public Key" hint="Use in local checkout and sandbox route simulations." value={sandboxPublicKey} id="sandboxPub" />
-          <KeyRow label="Sandbox Secret Key" hint="Use only in test backend calls. No real money movement is enabled." value={sandboxSecretKey} id="sandboxSec" />
+          {loadingKeys && <p style={S.cardCopy}>Loading sandbox credentials from the NylePay API...</p>}
+          {keyError && <div className="alert alert-error" style={{ marginBottom: '1rem' }}>{keyError}</div>}
+          {sandboxKeys && (
+            <>
+              <KeyRow label="Sandbox Public Key" hint="Use in checkout initialization and sandbox route simulations." value={sandboxKeys.publicKey} id="sandboxPub" />
+              <KeyRow label="Sandbox Secret Key" hint="Use in server-to-server test calls. Sandbox calls are real API calls but simulated money movement." value={sandboxKeys.secretKey} id="sandboxSec" />
+              <KeyRow label="Sandbox Webhook Secret" hint="Use to verify signed sandbox webhooks." value={sandboxKeys.webhookSecret} id="sandboxHook" />
+              <div className="alert alert-info">
+                Sandbox requests authenticate against the same API as production. Amounts above KES 100,000 are blocked in sandbox.
+              </div>
+            </>
+          )}
         </div>
 
         <div className="card" style={{ marginBottom: '1.5rem' }}>
@@ -342,7 +378,7 @@ function GoLiveTab() {
       <div className="dash-header">
         <div>
           <h1 style={S.pageTitle}>Go Live</h1>
-          <p style={S.pageSub}>Submit production activation information for live collections, payouts, settlement rails, and production API keys.</p>
+          <p style={S.pageSub}>Submit production activation information for real-money routing, higher limits, settlement rails, and production API keys.</p>
         </div>
       </div>
       <div className="dash-content">
@@ -380,11 +416,11 @@ function SettingsTab({ user }) {
       </div>
       <div className="dash-content">
         <div className="card" style={{ marginBottom: '1.5rem' }}>
-          <h3 style={S.cardTitle}>Business Profile</h3>
+          <h3 style={S.cardTitle}>Workspace Profile</h3>
           <div style={S.builderGrid}>
-            <input className="form-input" defaultValue={user?.businessName || ''} placeholder="Business name" />
-            <input className="form-input" type="email" defaultValue={user?.email || ''} placeholder="payments@company.com" />
-            <select className="form-input"><option>Kenya</option><option>Uganda - planned</option><option>Tanzania - planned</option></select>
+            <input className="form-input" defaultValue={user?.fullName || ''} placeholder="Operator name" />
+            <input className="form-input" type="email" defaultValue={user?.email || ''} placeholder="developer@example.com" />
+            <select className="form-input"><option>Kenya sandbox</option><option>Uganda sandbox - planned</option><option>Tanzania sandbox - planned</option></select>
             <button className="btn-primary" style={{ justifyContent: 'center' }}>Save changes</button>
           </div>
         </div>

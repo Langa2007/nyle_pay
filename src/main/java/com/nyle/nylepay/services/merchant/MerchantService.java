@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -88,6 +89,109 @@ public class MerchantService {
             "status",        "PENDING",
             "message",       "Keep your secretKey safe. It will not be shown again."
         );
+    }
+
+    /**
+     * Issues a real sandbox API credential set for the signed-in developer.
+     * Sandbox merchants authenticate against the same /api/v1/merchant endpoints,
+     * but controllers must simulate money movement while status remains SANDBOX.
+     */
+    @Transactional
+    public Map<String, Object> getOrCreateSandboxWorkspace(Long userId, String email) {
+        return merchantRepository.findByUserId(userId)
+                .map(merchant -> merchantKeyPayload(merchant, "SANDBOX".equalsIgnoreCase(merchant.getStatus())))
+                .orElseGet(() -> {
+                    String publicKey = "npy_test_pk_" + UUID.randomUUID().toString().replace("-", "");
+                    String rawSecretKey = "npy_test_sk_" + UUID.randomUUID().toString().replace("-", "");
+                    String webhookSecret = "npy_test_whsec_" + UUID.randomUUID().toString().replace("-", "");
+
+                    Merchant merchant = new Merchant();
+                    merchant.setUserId(userId);
+                    merchant.setBusinessName("Sandbox Workspace");
+                    merchant.setBusinessEmail(email);
+                    merchant.setPublicKey(publicKey);
+                    merchant.setEncryptedSecretKey(encryptionUtils.encrypt(rawSecretKey));
+                    merchant.setWebhookSecret(webhookSecret);
+                    merchant.setStatus("SANDBOX");
+                    merchant.setKycStatus("NONE");
+                    merchantRepository.save(merchant);
+
+                    log.info("Sandbox merchant workspace created: userId={}", userId);
+                    return merchantKeyPayload(merchant, true);
+                });
+    }
+
+    /**
+     * Upgrades an existing sandbox workspace into a pending production profile,
+     * or creates a pending merchant profile for users who skipped sandbox first.
+     */
+    @Transactional
+    public Map<String, Object> registerOrUpdateBusiness(Long userId, String businessName,
+                                                        String businessEmail, String webhookUrl,
+                                                        String settlementMethod,
+                                                        String settlementPhone,
+                                                        String bankName,
+                                                        String bankAccount) {
+        if (businessName == null || businessName.isBlank()) {
+            throw new RuntimeException("businessName is required");
+        }
+
+        Merchant merchant = merchantRepository.findByUserId(userId).orElse(null);
+        String rawSecretKey = null;
+
+        if (merchant == null) {
+            rawSecretKey = "npy_sec_" + UUID.randomUUID().toString().replace("-", "");
+            merchant = new Merchant();
+            merchant.setUserId(userId);
+            merchant.setPublicKey("npy_pub_" + UUID.randomUUID().toString().replace("-", ""));
+            merchant.setEncryptedSecretKey(encryptionUtils.encrypt(rawSecretKey));
+            merchant.setWebhookSecret(UUID.randomUUID().toString().replace("-", ""));
+        } else if (merchant.getPublicKey() != null && merchant.getPublicKey().startsWith("npy_test_pk_")) {
+            rawSecretKey = "npy_sec_" + UUID.randomUUID().toString().replace("-", "");
+            merchant.setPublicKey("npy_pub_" + UUID.randomUUID().toString().replace("-", ""));
+            merchant.setEncryptedSecretKey(encryptionUtils.encrypt(rawSecretKey));
+            merchant.setWebhookSecret(UUID.randomUUID().toString().replace("-", ""));
+        }
+
+        merchant.setBusinessName(businessName);
+        merchant.setBusinessEmail(businessEmail);
+        merchant.setWebhookUrl(webhookUrl);
+        merchant.setStatus("PENDING");
+        merchant.setKycStatus("PENDING");
+        if (settlementPhone != null && !settlementPhone.isBlank()) {
+            merchant.setSettlementPhone(settlementPhone);
+        }
+        if (bankName != null && !bankName.isBlank()) {
+            merchant.setSettlementBankName(bankName);
+        }
+        if (bankAccount != null && !bankAccount.isBlank()) {
+            merchant.setSettlementBankAccount(bankAccount);
+        }
+        merchantRepository.save(merchant);
+
+        Map<String, Object> payload = merchantKeyPayload(merchant, rawSecretKey != null);
+        payload.put("settlementMethod", settlementMethod != null ? settlementMethod : "MPESA");
+        payload.put("message", rawSecretKey != null
+                ? "Production credentials generated. Keep the secret key safe."
+                : "Production activation profile updated.");
+        return payload;
+    }
+
+    private Map<String, Object> merchantKeyPayload(Merchant merchant, boolean secretVisible) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("merchantId", merchant.getId());
+        payload.put("businessId", merchant.getId());
+        payload.put("publicKey", merchant.getPublicKey());
+        payload.put("status", merchant.getStatus());
+        payload.put("kycStatus", merchant.getKycStatus());
+        payload.put("mode", "SANDBOX".equalsIgnoreCase(merchant.getStatus()) ? "SANDBOX" : "LIVE");
+        payload.put("hasSecretKey", merchant.getEncryptedSecretKey() != null);
+        payload.put("hasWebhookSecret", merchant.getWebhookSecret() != null);
+        if (secretVisible) {
+            payload.put("secretKey", encryptionUtils.decrypt(merchant.getEncryptedSecretKey()));
+            payload.put("webhookSecret", merchant.getWebhookSecret());
+        }
+        return payload;
     }
 
     /**

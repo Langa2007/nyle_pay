@@ -41,9 +41,10 @@ public class MerchantAuthFilter extends OncePerRequestFilter {
         }
 
         String authHeader = request.getHeader("Authorization");
-        if (authHeader == null || !authHeader.startsWith("Bearer npy_sec_")) {
+        if (authHeader == null
+                || !(authHeader.startsWith("Bearer npy_sec_") || authHeader.startsWith("Bearer npy_test_sk_"))) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.getWriter().write("{\"error\": \"Missing or invalid Authorization header. Expected Bearer npy_sec_...\"}");
+            response.getWriter().write("{\"error\": \"Missing or invalid Authorization header. Expected Bearer npy_sec_... or Bearer npy_test_sk_...\"}");
             return;
         }
 
@@ -53,7 +54,7 @@ public class MerchantAuthFilter extends OncePerRequestFilter {
         // or store a deterministic SHA-256 hash of the secret key in the database for O(1) lookups.
         List<Merchant> merchants = merchantRepository.findAll();
         Optional<Merchant> authenticatedMerchant = merchants.stream()
-                .filter(m -> "ACTIVE".equals(m.getStatus()))
+                .filter(m -> "ACTIVE".equals(m.getStatus()) || "SANDBOX".equals(m.getStatus()))
                 .filter(m -> rawSecretKey.equals(encryptionUtils.decrypt(m.getEncryptedSecretKey())))
                 .findFirst();
 

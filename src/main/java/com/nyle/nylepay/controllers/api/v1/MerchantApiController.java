@@ -22,6 +22,8 @@ import java.util.UUID;
 @RequestMapping("/api/v1/merchant")
 public class MerchantApiController {
 
+    private static final BigDecimal SANDBOX_MAX_AMOUNT = new BigDecimal("100000");
+
     private final MpesaService mpesaService;
     private final SettlementService settlementService;
     private final com.nyle.nylepay.repositories.MerchantRepository merchantRepository;
@@ -40,8 +42,11 @@ public class MerchantApiController {
         Merchant merchant = (Merchant) auth.getPrincipal();
         return ResponseEntity.ok(ApiResponse.success("Balance retrieved", Map.of(
                 "merchantId", merchant.getId(),
+                "mode", isSandbox(merchant) ? "SANDBOX" : "LIVE",
                 "currency", merchant.getSettlementCurrency(),
-                "pendingSettlement", merchant.getPendingSettlement() != null ? merchant.getPendingSettlement() : BigDecimal.ZERO
+                "pendingSettlement", isSandbox(merchant)
+                        ? new BigDecimal("250000.00")
+                        : merchant.getPendingSettlement() != null ? merchant.getPendingSettlement() : BigDecimal.ZERO
         )));
     }
 
@@ -62,6 +67,21 @@ public class MerchantApiController {
         
         try {
             BigDecimal amount = new BigDecimal(req.get("amount").toString());
+
+            if (isSandbox(merchant)) {
+                validateSandboxAmount(amount);
+                return ResponseEntity.ok(ApiResponse.success("Sandbox charge simulated", Map.of(
+                        "reference", reference,
+                        "status", "SUCCEEDED",
+                        "mode", "SANDBOX",
+                        "method", method,
+                        "amount", amount,
+                        "providerData", Map.of(
+                                "providerReference", "SBX-" + UUID.randomUUID().toString().replace("-", "").substring(0, 16).toUpperCase(),
+                                "message", "No real money moved"
+                        )
+                )));
+            }
 
             if ("MPESA".equalsIgnoreCase(method)) {
                 if (phone == null || !phone.matches("^2547[0-9]{8}$")) {
@@ -101,6 +121,19 @@ public class MerchantApiController {
             BigDecimal amount = new BigDecimal(req.get("amount").toString());
             String destinationType = (String) req.getOrDefault("destinationType", "MPESA");
             String destinationId = (String) req.get("destinationId");
+
+            if (isSandbox(merchant)) {
+                validateSandboxAmount(amount);
+                return ResponseEntity.ok(ApiResponse.success("Sandbox transfer simulated", Map.of(
+                        "status", "COMPLETED",
+                        "mode", "SANDBOX",
+                        "amount", amount,
+                        "destinationType", destinationType,
+                        "destination", destinationId != null ? destinationId : "sandbox-destination",
+                        "reference", "SBX-TRF-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase(),
+                        "message", "No real money moved"
+                )));
+            }
             
             // Check balance
             BigDecimal balance = merchant.getPendingSettlement() != null ? merchant.getPendingSettlement() : BigDecimal.ZERO;
@@ -135,6 +168,19 @@ public class MerchantApiController {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(ApiResponse.error("Failed to execute transfer."));
+        }
+    }
+
+    private boolean isSandbox(Merchant merchant) {
+        return merchant != null && "SANDBOX".equalsIgnoreCase(merchant.getStatus());
+    }
+
+    private void validateSandboxAmount(BigDecimal amount) {
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new NylePayException("Amount must be greater than zero.");
+        }
+        if (amount.compareTo(SANDBOX_MAX_AMOUNT) > 0) {
+            throw new NylePayException("Sandbox amount limit is KES " + SANDBOX_MAX_AMOUNT + ".");
         }
     }
 }
