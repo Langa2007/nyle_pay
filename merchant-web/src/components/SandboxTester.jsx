@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 
 const ENDPOINTS = [
   { id: 'health', label: 'Health Check', method: 'GET', path: '/api/sandbox/health', auth: false, body: null, desc: 'Verify the API is reachable and sandbox mode is active.' },
-  { id: 'login', label: 'Authenticate', method: 'POST', path: '/api/auth/login', auth: false, body: { email: 'business@example.com', password: 'Password123' }, desc: 'Obtain a JWT token for dashboard and onboarding requests.' },
-  { id: 'reg', label: 'Register Business', method: 'POST', path: '/api/business/register', auth: 'jwt', body: { businessName: 'Test Business', businessEmail: 'biz@test.com', settlementMethod: 'MPESA', settlementPhone: '254712345678', webhookUrl: 'https://example.com/webhook' }, desc: 'Create a business profile and receive API credentials.' },
+  { id: 'login', label: 'Request Login Code', method: 'POST', path: '/api/auth/business-access/request', auth: false, body: { mode: 'signin', email: 'developer@example.com', password: 'Strong#2026' }, desc: 'Validate email and password, then send a 6-digit login code.' },
+  { id: 'reg', label: 'Create Sandbox Access', method: 'POST', path: '/api/auth/business-access/request', auth: false, body: { mode: 'signup', fullName: 'Jane Wanjiru', email: 'developer@example.com', password: 'Strong#2026' }, desc: 'Create a sandbox operator account and send a 6-digit email code.' },
+  { id: 'confirm', label: 'Confirm Email Code', method: 'POST', path: '/api/auth/business-access/confirm', auth: false, body: { email: 'developer@example.com', code: '123456' }, desc: 'Verify the 6-digit code and receive a JWT session.' },
+  { id: 'sandbox-keys', label: 'Get Sandbox Keys', method: 'GET', path: '/api/business/sandbox-keys', auth: 'jwt', body: null, desc: 'Issue real sandbox API keys after email-code login.' },
   { id: 'caps', label: 'Capabilities', method: 'GET', path: '/api/routes/capabilities?country=KE', auth: 'secret', body: null, desc: 'Discover supported Kenyan source and destination rails.' },
   { id: 'quote-mpesa-bank', label: 'Quote M-Pesa to Bank', method: 'POST', path: '/api/routes/quote', auth: 'secret', body: { sourceRail: 'MPESA', destinationRail: 'BANK', sourceAsset: 'KSH', destinationAsset: 'KSH', amount: 1500, destination: { phone: '254712345678', bankCode: '01', accountNumber: '1234567890' }, idempotencyKey: 'TEST-ROUTE-001' }, desc: 'Quote a customer M-Pesa payment settling to a business bank account.' },
   { id: 'quote-airtel-pesalink', label: 'Quote Airtel to PesaLink', method: 'POST', path: '/api/routes/quote', auth: 'secret', body: { sourceRail: 'AIRTEL_MONEY', destinationRail: 'PESALINK', sourceAsset: 'KSH', destinationAsset: 'KSH', amount: 2500, destination: { phone: '254733123456', bankCode: '01', accountNumber: '1234567890', accountName: 'Test Business' }, idempotencyKey: 'TEST-ROUTE-PSL-001' }, desc: 'Quote Airtel Money collection settling through the PesaLink bank switch.' },
@@ -16,7 +18,7 @@ const ENDPOINTS = [
 ];
 
 export default function SandboxTester() {
-  const [base, setBase] = useState(import.meta.env.VITE_API_BASE_URL || 'https://nyle-pay.onrender.com');
+  const [base, setBase] = useState(import.meta.env.VITE_API_BASE_URL || 'https://api.nylepay.com');
   const [jwt, setJwt] = useState('');
   const [secretKey, setSecretKey] = useState('');
   const [active, setActive] = useState(ENDPOINTS[0]);
@@ -42,8 +44,8 @@ export default function SandboxTester() {
     try {
       const res = await fetch(`${base}${active.path}`, { method: active.method, headers, body: active.method !== 'GET' && body ? body : undefined });
       const data = await res.json();
-      if (active.id === 'login' && data?.data?.token) setJwt(data.data.token);
-      if (active.id === 'reg' && data?.data?.secretKey) setSecretKey(data.data.secretKey);
+      if (active.id === 'confirm' && data?.data?.token) setJwt(data.data.token);
+      if (active.id === 'sandbox-keys' && data?.data?.secretKey) setSecretKey(data.data.secretKey);
       setResult({ status: res.status, ok: res.ok, data });
     } catch {
       setErr(`Cannot reach ${base}. Ensure your NylePay API server is running and accepting connections.`);
@@ -60,7 +62,7 @@ export default function SandboxTester() {
         <label style={S.urlLabel}>API Base URL</label>
         <div style={S.urlControls}>
           <input style={S.urlInput} value={base} onChange={(event) => setBase(event.target.value.replace(/\/$/, ''))} placeholder="https://api.yourdomain.com" />
-          {['https://nyle-pay.onrender.com', 'https://api.nylepay.com'].map((url) => (
+          {['https://api.nylepay.com', 'http://localhost:8080'].map((url) => (
             <button key={url} onClick={() => setBase(url)} style={{ ...S.urlChip, ...(base === url ? S.urlChipActive : {}) }}>{url.replace(/https?:\/\//, '')}</button>
           ))}
         </div>

@@ -49,17 +49,40 @@ export function AuthProvider({ children }) {
     return storeSession(json.data);
   };
 
-  const requestBusinessAccess = async ({ fullName, email }) => {
+  const requestBusinessAccess = async ({ fullName, email, password, mode }) => {
     const res = await fetch(`${API}/api/auth/business-access/request`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fullName, email }),
+      body: JSON.stringify({ fullName, email, password, mode }),
     });
     const json = await res.json();
     if (!res.ok || !json.success) {
       throw new Error(json.message || 'Unable to send confirmation email');
     }
     return json.data;
+  };
+
+  const requestPasswordReset = async (email) => {
+    const res = await fetch(`${API}/api/auth/forgot-password?email=${encodeURIComponent(email)}`, {
+      method: 'POST',
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json.message || 'Unable to send password reset email');
+    }
+    return json;
+  };
+
+  const resetPassword = async ({ token, password }) => {
+    const params = new URLSearchParams({ token, newPassword: password });
+    const res = await fetch(`${API}/api/auth/reset-password?${params.toString()}`, {
+      method: 'POST',
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json.message || 'Unable to reset password');
+    }
+    return json;
   };
 
   const confirmBusinessAccess = async ({ email, code }) => {
@@ -105,7 +128,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, requestBusinessAccess, confirmBusinessAccess, logout, updateBusinessInfo }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, requestBusinessAccess, confirmBusinessAccess, requestPasswordReset, resetPassword, logout, updateBusinessInfo }}>
       {children}
     </AuthContext.Provider>
   );

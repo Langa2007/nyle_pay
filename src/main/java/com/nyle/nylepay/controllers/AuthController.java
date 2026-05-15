@@ -50,7 +50,9 @@ public class AuthController {
         try {
             Map<String, Object> result = userService.requestBusinessAccess(
                     request.get("fullName"),
-                    request.get("email"));
+                    request.get("email"),
+                    request.get("password"),
+                    request.get("mode"));
             auditLogService.logEvent(null, "BUSINESS_ACCESS_REQUESTED",
                     "Business access requested for: " + request.get("email"), "SUCCESS", httpServletRequest, null);
             return ResponseEntity.ok(ApiResponse.success("Confirmation email sent", result));

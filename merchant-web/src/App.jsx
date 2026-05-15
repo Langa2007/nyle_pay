@@ -9,6 +9,7 @@ import ApiDocs from './pages/ApiDocs';
 import Requirements from './pages/Requirements';
 import Registration from './pages/Registration';
 import Dashboard from './pages/Dashboard';
+import ResetPassword from './pages/ResetPassword';
 import './index.css';
 
 function App() {
@@ -21,6 +22,7 @@ function App() {
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/docs" element={<ApiDocs />} />
           <Route path="/requirements" element={<Requirements />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/register-business" element={
             <ProtectedRoute>
               <Registration />

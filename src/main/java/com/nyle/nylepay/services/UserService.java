@@ -107,22 +107,37 @@ public class UserService {
     }
 
     @Transactional
-    public Map<String, Object> requestBusinessAccess(String fullName, String email) {
+    public Map<String, Object> requestBusinessAccess(String fullName, String email, String password, String mode) {
         if (email == null || !email.matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
             throw new RuntimeException("Invalid email format");
         }
 
         String normalizedEmail = email.trim().toLowerCase();
+        boolean signup = "signup".equalsIgnoreCase(mode);
         Optional<User> existing = userRepository.findByEmail(normalizedEmail);
-        if (existing.isEmpty() && (fullName == null || fullName.isBlank())) {
-            throw new RuntimeException("Full name is required");
+
+        if (signup) {
+            if (existing.isPresent()) {
+                throw new RuntimeException("Email already exists. Sign in instead.");
+            }
+            if (fullName == null || fullName.isBlank()) {
+                throw new RuntimeException("Full name is required");
+            }
+            validateBusinessPassword(password, fullName);
+        } else {
+            User user = existing.orElseThrow(() -> new RuntimeException("Email or password is wrong. Try again or change password."));
+            if (password == null || password.isBlank() || !passwordEncoder.matches(password, user.getPassword())) {
+                throw new RuntimeException("Email or password is wrong. Try again or change password.");
+            }
         }
 
         User user = existing.orElseGet(User::new);
         user.setFullName(fullName == null || fullName.isBlank() ? user.getFullName() : fullName.trim());
         user.setEmail(normalizedEmail);
-        if (user.getPassword() == null || user.getPassword().isBlank()) {
-            user.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
+        if (signup) {
+            user.setPassword(passwordEncoder.encode(password));
+        } else if (user.getPassword() == null || user.getPassword().isBlank()) {
+            throw new RuntimeException("Password setup required. Use change password to continue.");
         }
         if (!user.isEmailVerified()) {
             user.setAccountStatus("PENDING_EMAIL");
@@ -140,6 +155,20 @@ public class UserService {
                 "email", user.getEmail(),
                 "expiresIn", "10 minutes",
                 "requiresEmailConfirmation", true);
+    }
+
+    private void validateBusinessPassword(String password, String fullName) {
+        if (password == null || password.length() < 8) {
+            throw new RuntimeException("Password must be at least 8 characters long");
+        }
+        if (!password.matches(".*[A-Z].*") || !password.matches(".*[a-z].*")
+                || !password.matches(".*\\d.*") || !password.matches(".*[^A-Za-z0-9].*")) {
+            throw new RuntimeException("Password must include uppercase, lowercase, number, and special symbol");
+        }
+        String firstName = fullName == null ? "" : fullName.trim().split("\\s+")[0].toLowerCase();
+        if (!firstName.isBlank() && password.toLowerCase().contains(firstName)) {
+            throw new RuntimeException("Password must not contain your first name");
+        }
     }
 
     @Transactional
@@ -446,13 +475,18 @@ public class UserService {
     }
 
     public boolean requestPasswordReset(String email) {
-        Optional<User> userOpt = userRepository.findByEmail(email);
+        if (email == null || email.isBlank()) {
+            return false;
+        }
+        Optional<User> userOpt = userRepository.findByEmail(email.trim().toLowerCase());
 
         if (userOpt.isPresent()) {
             User user = userOpt.get();
 
             String resetToken = generateResetToken();
-
+            user.setEmailVerificationToken(resetToken);
+            user.setEmailVerificationExpiresAt(LocalDateTime.now().plusMinutes(20));
+            userRepository.save(user);
 
             emailService.sendPasswordResetEmail(user, resetToken);
 
@@ -463,7 +497,21 @@ public class UserService {
     }
 
     public boolean resetPassword(String token, String newPassword) {
-        return false;
+        if (token == null || token.isBlank()) {
+            return false;
+        }
+        User user = userRepository.findByEmailVerificationToken(token.trim()).orElse(null);
+        if (user == null || user.getEmailVerificationExpiresAt() == null
+                || user.getEmailVerificationExpiresAt().isBefore(LocalDateTime.now())) {
+            return false;
+        }
+        validateBusinessPassword(newPassword, user.getFullName() != null ? user.getFullName() : "");
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setEmailVerificationToken(null);
+        user.setEmailVerificationExpiresAt(null);
+        user.setAccountStatus("ACTIVE");
+        userRepository.save(user);
+        return true;
     }
 
     private String generateResetToken() {

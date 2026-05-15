@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import MarketingNav from '../components/MarketingNav';
 import SandboxTester from '../components/SandboxTester';
 
-const BASE_URL = 'https://nyle-pay.onrender.com';
+const BASE_URL = 'https://api.nylepay.com';
 
 const endpoints = [
   {
@@ -11,8 +11,8 @@ const endpoints = [
     path: '/api/auth/business-access/request',
     auth: 'Public',
     title: 'Request business access',
-    description: 'Sends a 6-digit Resend email verification code for NylePay Business access.',
-    body: { fullName: 'Jane Wanjiru', email: 'payments@example.com' },
+    description: 'Creates sandbox access or validates an existing operator password, then sends a 6-digit Resend email verification code.',
+    body: { mode: 'signup', fullName: 'Jane Wanjiru', email: 'developer@example.com', password: 'Strong#2026' },
   },
   {
     group: 'Authentication',
@@ -20,8 +20,8 @@ const endpoints = [
     path: '/api/auth/business-access/confirm',
     auth: 'Public',
     title: 'Confirm business email',
-    description: 'Verifies the 6-digit email code and returns a JWT for the Business dashboard.',
-    body: { email: 'payments@example.com', code: '123456' },
+    description: 'Verifies the 6-digit email code after password validation and returns a JWT for the Business dashboard.',
+    body: { email: 'developer@example.com', code: '123456' },
   },
   {
     group: 'Business setup',

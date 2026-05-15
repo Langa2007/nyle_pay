@@ -15,13 +15,31 @@ export default function Landing() {
   const [mode, setMode] = useState('signin');
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [sentTo, setSentTo] = useState('');
   const [code, setCode] = useState('');
   const [verifying, setVerifying] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const lastAutoVerified = useRef('');
-  const { requestBusinessAccess, confirmBusinessAccess } = useAuth();
+  const lastPasswordCheck = useRef('');
+  const { requestBusinessAccess, confirmBusinessAccess, requestPasswordReset } = useAuth();
+
+  const firstName = fullName.trim().split(/\s+/)[0] || '';
+
+  const passwordError = () => {
+    if (password.length < 8) return 'Password must be at least 8 characters.';
+    if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/\d/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
+      return 'Use uppercase, lowercase, number, and special symbol.';
+    }
+    if (mode === 'signup' && firstName && password.toLowerCase().includes(firstName.toLowerCase())) {
+      return 'Password must not contain your first name.';
+    }
+    if (mode === 'signup' && password !== confirmPassword) return 'Passwords do not match.';
+    return '';
+  };
 
   const verifyCode = async (nextCode = code) => {
     if (!sentTo || nextCode.length !== 6 || verifying) return;
@@ -44,17 +62,65 @@ export default function Landing() {
     }
   }, [code, sentTo]);
 
+  useEffect(() => {
+    if (mode !== 'signin' || sentTo || submitting) return;
+    if (!email.includes('@') || password.length < 8) return;
+    const fingerprint = `${email.trim().toLowerCase()}::${password}`;
+    if (lastPasswordCheck.current === fingerprint) return;
+    const timer = setTimeout(async () => {
+      lastPasswordCheck.current = fingerprint;
+      setError('');
+      setNotice('');
+      setSubmitting(true);
+      try {
+        await requestBusinessAccess({ email, password, mode: 'signin' });
+        setSentTo(email);
+        setCode('');
+        lastAutoVerified.current = '';
+      } catch {
+        setError('Email or password is wrong. Try again or change password.');
+      } finally {
+        setSubmitting(false);
+      }
+    }, 750);
+    return () => clearTimeout(timer);
+  }, [email, password, mode, sentTo, submitting]);
+
   const submit = async (event) => {
     event.preventDefault();
     setError('');
+    setNotice('');
+    const localPasswordError = passwordError();
+    if (localPasswordError) {
+      setError(localPasswordError);
+      return;
+    }
     setSubmitting(true);
     try {
-      await requestBusinessAccess({ fullName: mode === 'signup' ? fullName : '', email });
+      await requestBusinessAccess({ fullName: mode === 'signup' ? fullName : '', email, password, mode });
       setSentTo(email);
       setCode('');
       lastAutoVerified.current = '';
     } catch (err) {
       setError(err.message || 'Unable to send verification code.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const forgotPassword = async () => {
+    setError('');
+    setNotice('');
+    if (!email || !email.includes('@')) {
+      setError('Enter your email first, then request password reset.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await requestPasswordReset(email);
+      setNotice('Password reset instructions have been sent to your email.');
+    } catch (err) {
+      setError(err.message || 'Unable to send password reset email.');
     } finally {
       setSubmitting(false);
     }
@@ -87,22 +153,22 @@ export default function Landing() {
             <div className="terminal-head">
               <div>
                 <span className="terminal-kicker">Email access</span>
-                <h2>{mode === 'signin' ? 'Login with email code' : 'Create business access'}</h2>
+                <h2>{mode === 'signin' ? 'Login with password + code' : 'Create sandbox access'}</h2>
               </div>
               <span className="terminal-state">Sandbox ready</span>
             </div>
 
             <div className="route-access-strip" aria-hidden="true">
               <span>Identity</span>
-              <strong>{mode === 'signin' ? 'Email code login' : 'New operator'}</strong>
+              <strong>{mode === 'signin' ? 'Password check' : 'New operator'}</strong>
               <i />
               <span>Workspace</span>
               <strong>NylePay Business</strong>
             </div>
 
             <div className="access-switch" role="tablist" aria-label="Access mode">
-              <button type="button" className={mode === 'signin' ? 'active' : ''} onClick={() => { setMode('signin'); setError(''); setSentTo(''); }}>Existing operator</button>
-              <button type="button" className={mode === 'signup' ? 'active' : ''} onClick={() => { setMode('signup'); setError(''); setSentTo(''); }}>New access</button>
+              <button type="button" className={mode === 'signin' ? 'active' : ''} onClick={() => { setMode('signin'); setError(''); setNotice(''); setSentTo(''); }}>Existing operator</button>
+              <button type="button" className={mode === 'signup' ? 'active' : ''} onClick={() => { setMode('signup'); setError(''); setNotice(''); setSentTo(''); }}>New access</button>
             </div>
 
             {sentTo ? (
@@ -136,16 +202,35 @@ export default function Landing() {
               )}
 
               <div className="form-group">
-                <label className="form-label" htmlFor="email">Business email</label>
-                <input id="email" className="form-input" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="payments@company.com" autoComplete="email" />
+                <label className="form-label" htmlFor="email">Email</label>
+                <input id="email" className="form-input" type="email" required value={email} onChange={(event) => { setEmail(event.target.value); setError(''); setNotice(''); }} placeholder="developer@example.com" autoComplete="email" />
               </div>
 
+              <div className="form-group">
+                <label className="form-label" htmlFor="password">Password</label>
+                <input id="password" className="form-input" type="password" required value={password} onChange={(event) => { setPassword(event.target.value); setError(''); setNotice(''); }} placeholder="Minimum 8 characters" autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} />
+                {mode === 'signup' && <p className="form-hint">Use at least 8 characters with uppercase, lowercase, number, and symbol. Do not use your first name.</p>}
+              </div>
+
+              {mode === 'signup' && (
+                <div className="form-group">
+                  <label className="form-label" htmlFor="confirmPassword">Confirm password</label>
+                  <input id="confirmPassword" className="form-input" type="password" required value={confirmPassword} onChange={(event) => { setConfirmPassword(event.target.value); setError(''); }} placeholder="Re-enter password" autoComplete="new-password" />
+                </div>
+              )}
+
               {error && <div className="alert alert-error compact-alert">{error}</div>}
+              {notice && <div className="alert alert-success compact-alert">{notice}</div>}
 
               <button type="submit" className="terminal-submit" disabled={submitting}>
-                <span>{submitting ? 'Sending code...' : mode === 'signup' ? 'Send 6-digit code' : 'Send login code'}</span>
-                <small>Enter the code to continue</small>
+                <span>{submitting ? 'Checking...' : mode === 'signup' ? 'Create access and send code' : 'Get login code'}</span>
+                <small>{mode === 'signin' ? 'Auto-sends when password is correct' : 'Password is hidden and encrypted'}</small>
               </button>
+              {mode === 'signin' && (
+                <button type="button" className="btn-ghost" style={{ width: '100%', justifyContent: 'center', marginTop: '0.65rem' }} onClick={forgotPassword} disabled={submitting}>
+                  Change password
+                </button>
+              )}
             </form>}
 
             <div className="terminal-policy">

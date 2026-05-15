@@ -40,7 +40,7 @@ const STEPS = [
 ];
 
 const CODE = {
-  'Node.js': `const quote = await fetch('https://nyle-pay.onrender.com/api/routes/quote', {
+  'Node.js': `const quote = await fetch('https://api.nylepay.com/api/routes/quote', {
   method: 'POST',
   headers: {
     Authorization: \`Bearer \${process.env.NYLEPAY_SECRET_KEY}\`,
@@ -59,7 +59,7 @@ const CODE = {
 
 await quote.json();
 
-await fetch('https://nyle-pay.onrender.com/api/routes/execute', {
+await fetch('https://api.nylepay.com/api/routes/execute', {
   method: 'POST',
   headers: {
     Authorization: \`Bearer \${process.env.NYLEPAY_SECRET_KEY}\`,
@@ -82,7 +82,7 @@ headers = {
     'Content-Type': 'application/json',
 }
 
-quote = requests.post('https://nyle-pay.onrender.com/api/routes/quote', headers=headers, json={
+quote = requests.post('https://api.nylepay.com/api/routes/quote', headers=headers, json={
     'sourceRail': 'AIRTEL_MONEY',
     'destinationRail': 'PESALINK',
     'sourceAsset': 'KSH',
@@ -92,7 +92,7 @@ quote = requests.post('https://nyle-pay.onrender.com/api/routes/quote', headers=
     'idempotencyKey': 'ORDER-1234',
 }).json()['data']
 
-requests.post('https://nyle-pay.onrender.com/api/routes/execute', headers=headers, json={
+requests.post('https://api.nylepay.com/api/routes/execute', headers=headers, json={
     'sourceRail': 'NYLEPAY_WALLET',
     'destinationRail': 'AIRTEL_MONEY',
     'sourceAsset': 'KSH',

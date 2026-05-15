@@ -25,6 +25,9 @@ public class EmailService {
     @Value("${resend.from-email:onboarding@resend.dev}")
     private String fromEmail;
 
+    @Value("${nylepay.business-web-url:https://nyle-pay.vercel.app}")
+    private String businessWebUrl;
+
     private final RestTemplate restTemplate = new RestTemplate();
 
     // WELCOME EMAIL
@@ -99,7 +102,7 @@ public class EmailService {
 
     // PASSWORD RESET
     public void sendPasswordResetEmail(User user, String resetToken) {
-        String resetUrl = "https://nylepay.com/reset-password?token=" + resetToken;
+        String resetUrl = businessWebUrl + "/reset-password?token=" + resetToken;
         String subject = "NylePay — Reset Your Password";
         String html = """
             <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;background:#0f172a;border-radius:16px;overflow:hidden">
@@ -110,7 +113,7 @@ public class EmailService {
                 <p style="font-size:16px;margin:0 0 16px">Hi <strong>%s</strong>,</p>
                 <p style="line-height:1.7;margin:0 0 24px">
                   We received a request to reset your NylePay password. Click the button below to set a new password.
-                  This link expires in 1 hour.
+                  This link expires in 20 minutes.
                 </p>
                 <div style="text-align:center;margin:32px 0">
                   <a href="%s" style="background:#2563eb;color:#fff;padding:14px 32px;border-radius:9999px;text-decoration:none;font-weight:600;font-size:15px">
