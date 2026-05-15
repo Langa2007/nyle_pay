@@ -152,8 +152,8 @@ The developer asks for a quote, starts a route, listens for status changes, and 
 For NylePay Business, access should stay light until production activation:
 
 - public signup collects full name and email only
-- Resend sends the 6-digit confirmation code
-- email confirmation opens the Business dashboard
+- Resend sends the 6-digit verification code
+- code verification opens the Business dashboard
 - sandbox API keys are available for testing
 - the Go Live dashboard section collects business documents, beneficial ownership, settlement details, risk information, and production activation requirements
 

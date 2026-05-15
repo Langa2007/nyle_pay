@@ -32,7 +32,7 @@ NylePay Business turns that into a routing problem. The business tells NylePay w
 The web app is meant to provide:
 
 - Email-confirmed Business access using Resend.
-- Sandbox API keys immediately after email confirmation.
+- Sandbox API keys immediately after 6-digit email code verification.
 - A Go Live workflow for production activation, business documents, settlement rails, and live API keys.
 - API key management with production secret keys shown once after approval.
 - Route creation and quote testing.
@@ -71,7 +71,7 @@ npm run build
 Business access flow:
 
 - Public signup collects only full name and email.
-- NylePay sends a 6-digit Resend confirmation code.
+- NylePay sends a 6-digit Resend verification code.
 - Confirming the email opens the Business dashboard.
 - Sandbox API keys are available in the dashboard for developer testing.
 - The dashboard sidebar contains Go Live for the full production requirements flow.

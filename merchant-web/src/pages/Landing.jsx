@@ -54,7 +54,7 @@ export default function Landing() {
       setCode('');
       lastAutoVerified.current = '';
     } catch (err) {
-      setError(err.message || 'Unable to send confirmation email.');
+      setError(err.message || 'Unable to send verification code.');
     } finally {
       setSubmitting(false);
     }
@@ -87,7 +87,7 @@ export default function Landing() {
             <div className="terminal-head">
               <div>
                 <span className="terminal-kicker">Email access</span>
-                <h2>{mode === 'signin' ? 'Send access email' : 'Create business access'}</h2>
+                <h2>{mode === 'signin' ? 'Get 6-digit code' : 'Create business access'}</h2>
               </div>
               <span className="terminal-state">Sandbox ready</span>
             </div>
@@ -143,8 +143,8 @@ export default function Landing() {
               {error && <div className="alert alert-error compact-alert">{error}</div>}
 
               <button type="submit" className="terminal-submit" disabled={submitting}>
-                <span>{submitting ? 'Sending email...' : mode === 'signup' ? 'Send confirmation email' : 'Send access email'}</span>
-                <small>Confirm email to continue</small>
+                <span>{submitting ? 'Sending code...' : mode === 'signup' ? 'Send 6-digit code' : 'Send 6-digit code'}</span>
+                <small>Enter the code to continue</small>
               </button>
             </form>}
 
