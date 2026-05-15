@@ -64,7 +64,7 @@ public class RouteQuoteService {
 
         List<String> supportedRails = List.of(
                 "NYLEPAY_WALLET", "MPESA", "AIRTEL_MONEY", "PESALINK", "BANK", "CARD", "ONCHAIN", "CEX",
-                "TILL", "PAYBILL", "POCHI", "MERCHANT");
+                "PAYPAL", "TILL", "PAYBILL", "POCHI", "MERCHANT");
         if (!supportedRails.contains(sourceRail)) {
             throw new IllegalArgumentException("Unsupported sourceRail: " + sourceRail);
         }
@@ -83,6 +83,9 @@ public class RouteQuoteService {
         if ("ONCHAIN".equals(sourceRail) || "ONCHAIN".equals(destinationRail) || "CEX".equals(sourceRail)) {
             percent = BigDecimal.valueOf(1.5);
         }
+        if ("PAYPAL".equals(sourceRail) || "PAYPAL".equals(destinationRail)) {
+            percent = BigDecimal.valueOf(2.5);
+        }
         return amount.multiply(percent).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
     }
 
@@ -97,6 +100,10 @@ public class RouteQuoteService {
         }
         if ("BANK".equals(destinationRail)) {
             return BigDecimal.valueOf(30);
+        }
+        if ("CARD".equals(sourceRail) || "CARD".equals(destinationRail) || "PAYPAL".equals(sourceRail)
+                || "PAYPAL".equals(destinationRail)) {
+            return BigDecimal.valueOf(45);
         }
         if ("ONCHAIN".equals(destinationRail) || "ONCHAIN".equals(sourceRail)) {
             return "KSH".equals(asset) || "KES".equals(asset) ? BigDecimal.valueOf(150) : BigDecimal.valueOf(1);
@@ -146,6 +153,12 @@ public class RouteQuoteService {
         if ("ONCHAIN".equals(sourceRail) || "ONCHAIN".equals(destinationRail)) {
             return "5-30 minutes after confirmations";
         }
+        if ("PAYPAL".equals(sourceRail)) {
+            return "after PayPal checkout capture and risk review";
+        }
+        if ("PAYPAL".equals(destinationRail)) {
+            return "provider-dependent after PayPal payout submission";
+        }
         if ("PESALINK".equals(destinationRail)) {
             return "near real-time bank switch settlement";
         }
@@ -164,7 +177,8 @@ public class RouteQuoteService {
         }
         if ("MPESA".equals(sourceRail) || "AIRTEL_MONEY".equals(sourceRail)
                 || "PESALINK".equals(sourceRail) || "BANK".equals(sourceRail)
-                || "CARD".equals(sourceRail) || "ONCHAIN".equals(sourceRail)) {
+                || "CARD".equals(sourceRail) || "ONCHAIN".equals(sourceRail)
+                || "PAYPAL".equals(sourceRail)) {
             return "inbound-confirmation-required";
         }
         if ("CEX".equals(sourceRail)) {

@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class RouteExecutionService {
@@ -23,6 +24,7 @@ public class RouteExecutionService {
     private final MpesaService mpesaService;
     private final AirtelMoneyRoutingService airtelMoneyRoutingService;
     private final PesaLinkRoutingService pesaLinkRoutingService;
+    private final PayPalRoutingService payPalRoutingService;
     private final CexRoutingService cexRoutingService;
     private final OnChainWithdrawalService onChainWithdrawalService;
 
@@ -32,6 +34,7 @@ public class RouteExecutionService {
             MpesaService mpesaService,
             AirtelMoneyRoutingService airtelMoneyRoutingService,
             PesaLinkRoutingService pesaLinkRoutingService,
+            PayPalRoutingService payPalRoutingService,
             CexRoutingService cexRoutingService,
             OnChainWithdrawalService onChainWithdrawalService) {
         this.quoteService = quoteService;
@@ -40,6 +43,7 @@ public class RouteExecutionService {
         this.mpesaService = mpesaService;
         this.airtelMoneyRoutingService = airtelMoneyRoutingService;
         this.pesaLinkRoutingService = pesaLinkRoutingService;
+        this.payPalRoutingService = payPalRoutingService;
         this.cexRoutingService = cexRoutingService;
         this.onChainWithdrawalService = onChainWithdrawalService;
     }
@@ -63,8 +67,14 @@ public class RouteExecutionService {
         if ("AIRTEL_MONEY".equals(sourceRail)) {
             return initiateAirtelMoneyInbound(userId, request, destinationRail, destinationAsset, quote);
         }
+        if ("CARD".equals(sourceRail)) {
+            return initiateCardInbound(userId, request, destinationRail, destinationAsset, quote);
+        }
         if ("ONCHAIN".equals(sourceRail)) {
             return initiateOnChainInbound(userId, request, destinationRail, destinationAsset, quote);
+        }
+        if ("PAYPAL".equals(sourceRail)) {
+            return initiatePayPalInbound(userId, request, destinationRail, destinationAsset, quote);
         }
         if ("CEX".equals(sourceRail)) {
             return executeCexRoute(userId, request, destinationRail, quote);
@@ -103,6 +113,8 @@ public class RouteExecutionService {
                 return transferToNylePayAccount(userId, request, sourceAsset, quote);
             case "ONCHAIN":
                 return withdrawOnChain(userId, request, sourceAsset, quote);
+            case "PAYPAL":
+                return withdrawToPayPal(userId, request, sourceAsset, quote);
             default:
                 return Map.of(
                         "status", "ROUTE_NOT_AUTOMATED",
@@ -166,6 +178,53 @@ public class RouteExecutionService {
         } catch (Exception e) {
             throw new RuntimeException("Unable to prepare custody address: " + e.getMessage(), e);
         }
+    }
+
+    private Map<String, Object> initiateCardInbound(Long userId, RouteRequest request,
+            String destinationRail, String destinationAsset, Map<String, Object> quote) {
+        if (!"NYLEPAY_WALLET".equals(destinationRail) && !"MERCHANT".equals(destinationRail)
+                && !"MPESA".equals(destinationRail) && !"AIRTEL_MONEY".equals(destinationRail)
+                && !"PESALINK".equals(destinationRail) && !"BANK".equals(destinationRail)) {
+            throw new IllegalArgumentException("Unsupported card destination: " + destinationRail);
+        }
+        String reference = firstNonBlank(request.getIdempotencyKey(), "ROUTE_CARD_" + System.currentTimeMillis());
+        String providerReference = "CARD_SANDBOX_" + UUID.randomUUID().toString().replace("-", "").substring(0, 18);
+        Transaction tx = transactionService.createDeposit(
+                userId, "CARD", request.getAmount(), destinationAsset,
+                providerReference, buildMetadata("CARD", destinationRail, request));
+        Map<String, Object> response = routeResult("INTAKE_REQUIRED", tx, quote,
+                "Card checkout prepared. NylePay continues the route after card authorization and provider settlement confirmation.");
+        response.put("providerResult", Map.of(
+                "provider", "CARD",
+                "status", "CARD_CHECKOUT_CREATED",
+                "providerReference", providerReference,
+                "checkoutUrl", "https://nyle-pay.onrender.com/checkout/card/sandbox/" + reference,
+                "cardNetworks", java.util.List.of("VISA", "MASTERCARD"),
+                "message", "Sandbox card checkout created. No raw card data is handled by NylePay."));
+        return response;
+    }
+
+    private Map<String, Object> initiatePayPalInbound(Long userId, RouteRequest request,
+            String destinationRail, String destinationAsset, Map<String, Object> quote) {
+        if (!"NYLEPAY_WALLET".equals(destinationRail) && !"MERCHANT".equals(destinationRail)
+                && !"MPESA".equals(destinationRail) && !"AIRTEL_MONEY".equals(destinationRail)
+                && !"PESALINK".equals(destinationRail) && !"BANK".equals(destinationRail)) {
+            throw new IllegalArgumentException("Unsupported PayPal destination: " + destinationRail);
+        }
+        String reference = firstNonBlank(request.getIdempotencyKey(), "ROUTE_PAYPAL_" + System.currentTimeMillis());
+        Map<String, Object> paypalResponse = payPalRoutingService.createCheckoutOrder(
+                request.getAmount(),
+                quoteService.normalizeAsset(request.getSourceAsset()),
+                reference,
+                request.getDestination().get("returnUrl"),
+                request.getDestination().get("cancelUrl"));
+        Transaction tx = transactionService.createDeposit(
+                userId, "PAYPAL", request.getAmount(), destinationAsset,
+                asString(paypalResponse.get("providerReference")), buildMetadata("PAYPAL", destinationRail, request));
+        Map<String, Object> response = routeResult("INTAKE_REQUIRED", tx, quote,
+                "PayPal checkout order created. NylePay continues the route after PayPal capture confirmation.");
+        response.put("providerResult", paypalResponse);
+        return response;
     }
 
     private Map<String, Object> executeCexRoute(Long userId, RouteRequest request,
@@ -278,6 +337,18 @@ public class RouteExecutionService {
                 userId, asset, request.getAmount(), chain, "WALLET", address);
         return routeResult("PENDING_APPROVAL", tx, quote,
                 "On-chain withdrawal reserved. Call the on-chain confirmation flow to broadcast.");
+    }
+
+    private Map<String, Object> withdrawToPayPal(Long userId, RouteRequest request,
+            String asset, Map<String, Object> quote) {
+        String email = requiredDestination(request, "email");
+        String reference = firstNonBlank(request.getIdempotencyKey(), "ROUTE_PAYPAL_OUT_" + System.currentTimeMillis());
+        Map<String, Object> paypalResponse = payPalRoutingService.payout(email, request.getAmount(), asset, reference);
+        Transaction tx = transactionService.createWithdrawal(userId, "PAYPAL", request.getAmount(), asset, email);
+        Map<String, Object> response = routeResult("PROCESSING", tx, quote,
+                "Wallet debited and PayPal payout prepared. Final status depends on PayPal payout confirmation.");
+        response.put("providerResult", paypalResponse);
+        return response;
     }
 
     private Map<String, Object> routeResult(String status, Transaction tx,

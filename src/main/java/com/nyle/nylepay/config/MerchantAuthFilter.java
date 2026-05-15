@@ -34,8 +34,8 @@ public class MerchantAuthFilter extends OncePerRequestFilter {
 
         String path = request.getRequestURI();
 
-        // Only intercept Headless Merchant API calls
-        if (!path.startsWith("/api/v1/merchant")) {
+        // Intercept headless merchant API and route-engine calls.
+        if (!path.startsWith("/api/v1/merchant") && !path.startsWith("/api/routes")) {
             filterChain.doFilter(request, response);
             return;
         }

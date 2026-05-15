@@ -2,6 +2,7 @@ package com.nyle.nylepay.controllers;
 
 import com.nyle.nylepay.dto.ApiResponse;
 import com.nyle.nylepay.dto.RouteRequest;
+import com.nyle.nylepay.models.Merchant;
 import com.nyle.nylepay.models.User;
 import com.nyle.nylepay.repositories.UserRepository;
 import com.nyle.nylepay.services.routing.RouteExecutionService;
@@ -56,10 +57,10 @@ public class RouteController {
     public ResponseEntity<ApiResponse<Map<String, Object>>> capabilities() {
         return ResponseEntity.ok(ApiResponse.success("Kenya-first routing capabilities", Map.of(
                 "country", "KE",
-                "sourceRails", java.util.List.of("NYLEPAY_WALLET", "MPESA", "AIRTEL_MONEY", "PESALINK", "BANK", "CARD", "ONCHAIN", "CEX"),
-                "destinationRails", java.util.List.of("NYLEPAY_WALLET", "MPESA", "AIRTEL_MONEY", "PESALINK", "BANK", "TILL", "PAYBILL", "POCHI", "ONCHAIN", "MERCHANT"),
+                "sourceRails", java.util.List.of("NYLEPAY_WALLET", "MPESA", "AIRTEL_MONEY", "PESALINK", "BANK", "CARD", "PAYPAL", "ONCHAIN", "CEX"),
+                "destinationRails", java.util.List.of("NYLEPAY_WALLET", "MPESA", "AIRTEL_MONEY", "PESALINK", "BANK", "PAYPAL", "TILL", "PAYBILL", "POCHI", "ONCHAIN", "MERCHANT"),
                 "assets", java.util.List.of("KSH", "USD", "USDT", "USDC", "DAI", "ETH", "BTC"),
-                "exampleRoutes", java.util.List.of("MPESA_TO_PESALINK", "AIRTEL_MONEY_TO_NYLEPAY_WALLET", "NYLEPAY_WALLET_TO_AIRTEL_MONEY", "USDT_TO_AIRTEL_MONEY"),
+                "exampleRoutes", java.util.List.of("MPESA_TO_PESALINK", "AIRTEL_MONEY_TO_NYLEPAY_WALLET", "NYLEPAY_WALLET_TO_AIRTEL_MONEY", "USDT_TO_AIRTEL_MONEY", "PAYPAL_TO_NYLEPAY_WALLET"),
                 "accountNumberFormat", "NPYXXXXXXXX",
                 "message", "NylePay routes money by intent: where it is, where it should go, and the rail policy in between.")));
     }
@@ -69,6 +70,9 @@ public class RouteController {
             throw new IllegalArgumentException("Authentication required");
         }
         String email = authentication.getName();
+        if (authentication.getPrincipal() instanceof Merchant merchant) {
+            return merchant.getUserId();
+        }
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("Authenticated user profile not found"));
         return user.getId();

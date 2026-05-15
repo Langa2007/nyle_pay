@@ -110,6 +110,163 @@ const webhookEvents = [
   ['webhook.retry', 'A webhook delivery failed and has been scheduled for retry.'],
 ];
 
+const routePlaybooks = [
+  {
+    rail: 'M-Pesa',
+    summary: 'Collect from a customer M-Pesa number, then route the confirmed value into a NylePay wallet, merchant balance, bank, PesaLink, Airtel Money, or another allowed destination.',
+    note: 'M-Pesa source routes start with STK Push. NylePay continues the next leg only after Safaricom confirms payment.',
+    quote: {
+      sourceRail: 'MPESA',
+      destinationRail: 'PESALINK',
+      sourceAsset: 'KSH',
+      destinationAsset: 'KSH',
+      amount: 1500,
+      destination: { phone: '254712345678', bankCode: '01', accountNumber: '1234567890', accountName: 'Acme Store' },
+      idempotencyKey: 'ORDER-MPESA-1001',
+    },
+    execute: {
+      sourceRail: 'MPESA',
+      destinationRail: 'PESALINK',
+      sourceAsset: 'KSH',
+      destinationAsset: 'KSH',
+      amount: 1500,
+      destination: { phone: '254712345678', bankCode: '01', accountNumber: '1234567890', accountName: 'Acme Store' },
+      idempotencyKey: 'ORDER-MPESA-1001',
+    },
+  },
+  {
+    rail: 'Airtel Money',
+    summary: 'Collect from Airtel Money or settle wallet funds to an Airtel Money number as a first-class Kenyan mobile-money rail.',
+    note: 'Airtel Money routes wait for provider confirmation before settlement or onward routing.',
+    quote: {
+      sourceRail: 'AIRTEL_MONEY',
+      destinationRail: 'NYLEPAY_WALLET',
+      sourceAsset: 'KSH',
+      destinationAsset: 'KSH',
+      amount: 1200,
+      destination: { phone: '254733123456' },
+      idempotencyKey: 'ORDER-AIRTEL-1001',
+    },
+    execute: {
+      sourceRail: 'NYLEPAY_WALLET',
+      destinationRail: 'AIRTEL_MONEY',
+      sourceAsset: 'KSH',
+      amount: 750,
+      destination: { phone: '254733123456' },
+      idempotencyKey: 'PAYOUT-AIRTEL-1001',
+    },
+  },
+  {
+    rail: 'PesaLink',
+    summary: 'Route funds to a Kenyan bank account through the bank-switch rail where available.',
+    note: 'Use PesaLink when the destination is a bank account and near real-time bank settlement is preferred.',
+    quote: {
+      sourceRail: 'NYLEPAY_WALLET',
+      destinationRail: 'PESALINK',
+      sourceAsset: 'KSH',
+      amount: 5000,
+      destination: { bankCode: '01', accountNumber: '1234567890', accountName: 'Acme Store' },
+      idempotencyKey: 'PESALINK-SETTLE-1001',
+    },
+    execute: {
+      sourceRail: 'NYLEPAY_WALLET',
+      destinationRail: 'PESALINK',
+      sourceAsset: 'KSH',
+      amount: 5000,
+      destination: { bankCode: '01', accountNumber: '1234567890', accountName: 'Acme Store' },
+      idempotencyKey: 'PESALINK-SETTLE-1001',
+    },
+  },
+  {
+    rail: 'Bank',
+    summary: 'Settle wallet, card, mobile-money, or converted value to a Kenyan bank account.',
+    note: 'Bank payout timing depends on the bank/provider. PesaLink may be a faster bank-switch route where supported.',
+    quote: {
+      sourceRail: 'CARD',
+      destinationRail: 'BANK',
+      sourceAsset: 'KSH',
+      amount: 3500,
+      destination: { bankCode: '68', accountNumber: '9876543210', accountName: 'Acme Store', country: 'KE' },
+      idempotencyKey: 'CARD-BANK-1001',
+    },
+    execute: {
+      sourceRail: 'NYLEPAY_WALLET',
+      destinationRail: 'BANK',
+      sourceAsset: 'KSH',
+      amount: 3500,
+      destination: { bankCode: '68', accountNumber: '9876543210', accountName: 'Acme Store', country: 'KE' },
+      idempotencyKey: 'WALLET-BANK-1001',
+    },
+  },
+  {
+    rail: 'Crypto and stablecoins',
+    summary: 'Receive supported on-chain assets or exchange balances, then route value to wallet, M-Pesa, Airtel Money, PesaLink, bank, or merchant settlement after confirmation and conversion.',
+    note: 'On-chain routes return a NylePay custody deposit address. The route continues only after blockchain/provider confirmation.',
+    quote: {
+      sourceRail: 'ONCHAIN',
+      sourceAsset: 'USDT',
+      destinationRail: 'MPESA',
+      destinationAsset: 'KSH',
+      amount: 25,
+      destination: { phone: '254712345678', chain: 'POLYGON' },
+      idempotencyKey: 'USDT-MPESA-1001',
+    },
+    execute: {
+      sourceRail: 'ONCHAIN',
+      sourceAsset: 'USDT',
+      destinationRail: 'MPESA',
+      destinationAsset: 'KSH',
+      amount: 25,
+      destination: { phone: '254712345678', chain: 'POLYGON' },
+      idempotencyKey: 'USDT-MPESA-1001',
+    },
+  },
+  {
+    rail: 'Cards, Visa, and Mastercard',
+    summary: 'Collect card payments through tokenized card providers, then route settled value to the merchant wallet, bank, PesaLink, M-Pesa, or Airtel Money.',
+    note: 'NylePay should never store raw card numbers. Use provider-hosted or tokenized capture, then route after provider settlement confirmation.',
+    quote: {
+      sourceRail: 'CARD',
+      destinationRail: 'MERCHANT',
+      sourceAsset: 'KSH',
+      amount: 4200,
+      destination: { merchantReference: 'MERCH-001', cardNetwork: 'VISA_OR_MASTERCARD' },
+      idempotencyKey: 'CARD-MERCHANT-1001',
+    },
+    execute: {
+      sourceRail: 'CARD',
+      destinationRail: 'MERCHANT',
+      sourceAsset: 'KSH',
+      amount: 4200,
+      destination: { merchantReference: 'MERCH-001', cardNetwork: 'VISA_OR_MASTERCARD' },
+      idempotencyKey: 'CARD-MERCHANT-1001',
+    },
+  },
+  {
+    rail: 'PayPal',
+    summary: 'Create a PayPal checkout intake route into NylePay, then route captured value to wallet, merchant balance, M-Pesa, Airtel Money, PesaLink, or bank after confirmation.',
+    note: 'PayPal Orders API handles checkout/capture. PayPal Payouts can send to PayPal recipients where the Business account is approved for Payouts.',
+    quote: {
+      sourceRail: 'PAYPAL',
+      sourceAsset: 'USD',
+      destinationRail: 'NYLEPAY_WALLET',
+      destinationAsset: 'KSH',
+      amount: 20,
+      destination: { returnUrl: 'https://example.com/paypal/return', cancelUrl: 'https://example.com/paypal/cancel' },
+      idempotencyKey: 'PAYPAL-WALLET-1001',
+    },
+    execute: {
+      sourceRail: 'PAYPAL',
+      sourceAsset: 'USD',
+      destinationRail: 'NYLEPAY_WALLET',
+      destinationAsset: 'KSH',
+      amount: 20,
+      destination: { returnUrl: 'https://example.com/paypal/return', cancelUrl: 'https://example.com/paypal/cancel' },
+      idempotencyKey: 'PAYPAL-WALLET-1001',
+    },
+  },
+];
+
 function requestFor(endpoint) {
   return endpoint.body ? JSON.stringify(endpoint.body, null, 2) : null;
 }
@@ -168,21 +325,36 @@ ${body}
     .build();`;
 }
 
+function routeSample(body, action, language) {
+  const endpoint = {
+    method: 'POST',
+    path: action === 'quote' ? '/api/routes/quote' : '/api/routes/execute',
+    auth: 'Secret Key',
+    body,
+  };
+  return sample(endpoint, language);
+}
+
 const languages = ['cURL', 'JavaScript', 'Python', 'Java'];
 const groups = ['All', ...new Set(endpoints.map((endpoint) => endpoint.group))];
 
 export default function ApiDocs({ embedded = false }) {
-  const [tab, setTab] = useState('reference');
+  const [tab, setTab] = useState('playbooks');
   const [language, setLanguage] = useState('cURL');
   const [group, setGroup] = useState('All');
   const [activePath, setActivePath] = useState(endpoints[0].path);
+  const [activePlaybook, setActivePlaybook] = useState(routePlaybooks[0].rail);
+  const [playbookAction, setPlaybookAction] = useState('quote');
   const [copied, setCopied] = useState(false);
 
   const filtered = useMemo(() => (
     group === 'All' ? endpoints : endpoints.filter((endpoint) => endpoint.group === group)
   ), [group]);
   const active = endpoints.find((endpoint) => endpoint.path === activePath) || filtered[0] || endpoints[0];
-  const code = sample(active, language);
+  const activeRoute = routePlaybooks.find((playbook) => playbook.rail === activePlaybook) || routePlaybooks[0];
+  const code = tab === 'playbooks'
+    ? routeSample(activeRoute[playbookAction], playbookAction, language)
+    : sample(active, language);
 
   const copy = async () => {
     await navigator.clipboard.writeText(code);
@@ -204,6 +376,7 @@ export default function ApiDocs({ embedded = false }) {
 
       <div className="tab-bar">
         {[
+          ['playbooks', 'Routing playbooks'],
           ['reference', 'Endpoint reference'],
           ['webhooks', 'Webhooks'],
           ['sandbox', 'Sandbox tester'],
@@ -211,6 +384,55 @@ export default function ApiDocs({ embedded = false }) {
           <button key={id} className={`tab-item ${tab === id ? 'active' : ''}`} onClick={() => setTab(id)}>{label}</button>
         ))}
       </div>
+
+      {tab === 'playbooks' && (
+        <section className="docs-reference">
+          <aside className="docs-sidebar">
+            <div className="docs-filter">
+              {['quote', 'execute'].map((item) => (
+                <button key={item} className={playbookAction === item ? 'active' : ''} onClick={() => setPlaybookAction(item)}>{item}</button>
+              ))}
+            </div>
+            {routePlaybooks.map((playbook) => (
+              <button key={playbook.rail} className={`endpoint-row ${activeRoute.rail === playbook.rail ? 'active' : ''}`} onClick={() => setActivePlaybook(playbook.rail)}>
+                <span className="badge badge-blue">RAIL</span>
+                <span>{playbook.rail}</span>
+              </button>
+            ))}
+          </aside>
+
+          <article className="docs-detail">
+            <div className="endpoint-heading">
+              <span className="badge badge-method-post">POST</span>
+              <code>{playbookAction === 'quote' ? '/api/routes/quote' : '/api/routes/execute'}</code>
+              <span className="badge badge-gray">Secret Key</span>
+            </div>
+            <h2>{activeRoute.rail} routing</h2>
+            <p>{activeRoute.summary}</p>
+            <div className="alert alert-info" style={{ marginBottom: '1.25rem' }}>{activeRoute.note}</div>
+
+            <div className="card docs-card">
+              <h3>{playbookAction === 'quote' ? 'Quote body' : 'Execute body'}</h3>
+              <pre className="schema-preview">{JSON.stringify(activeRoute[playbookAction], null, 2)}</pre>
+            </div>
+
+            <div className="card docs-card">
+              <div className="code-header">
+                <h3>{language} example</h3>
+                <div className="language-tabs">
+                  {languages.map((item) => (
+                    <button key={item} className={language === item ? 'active' : ''} onClick={() => setLanguage(item)}>{item}</button>
+                  ))}
+                </div>
+              </div>
+              <div className="code-block">
+                <button className="copy-btn" onClick={copy}>{copied ? 'Copied' : 'Copy'}</button>
+                <pre><code>{code}</code></pre>
+              </div>
+            </div>
+          </article>
+        </section>
+      )}
 
       {tab === 'reference' && (
         <section className="docs-reference">
