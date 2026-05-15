@@ -16,4 +16,4 @@ WORKDIR /app
 COPY --from=build /app/target/nylepay-*.jar app.jar
 
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["sh", "-c", "java ${JAVA_OPTS:-} -Dserver.address=0.0.0.0 -Dserver.port=${PORT:-8080} -jar app.jar"]
